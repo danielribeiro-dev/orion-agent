@@ -1,33 +1,29 @@
-# ORION-Agent — Active Context (Memória de Sessão de Desenvolvimento)
+# O.R.I.O.N — Active Context (Memória de Sessão de Desenvolvimento)
 
 > **Data de Atualização:** 24/10/2026  
-> **Status Atual:** Fase 0 — Fundação Documental, Specs de Arquitetura e Identidade Visual  
-> **Regra Suprema:** Nenhuma linha de código em `src/` deve ser escrita até que todas as especificações e contratos estejam 100% documentados e alinhados.
+> **Status Atual:** Fase 0 Concluída e Aprovada — Especificação e Alinhamento da v0.1.0 Fechados  
+> **Regra Suprema:** Nenhuma linha de código em `src/` é escrita até o comando explícito de início da Sprint 1.
 
 ---
 
-## 🎯 Foco Imediato da Sessão Atual
-1. **Estruturação Completa da Documentação Mestra:**
-   - [x] Criação do repositório limpo `orion-agent` (git init local).
-   - [x] Configuração da memória de engenharia em `.claudex/` (`active_context.md`, `progress.md`, `system_patterns.md`, `decisions.md`).
-   - [x] Documentação de Arquitetura (`CORE_REACT_ENGINE.md`, `TRIPLE_MEMORY.md`, `TIMELINE_SYSTEM.md`, `AMBIENT_VOICE.md`, `MCP_AND_CHANNELS.md`, `GOVERNANCE_PEP.md`, `MODEL_GATEWAY_COSTS.md`).
-   - [x] Identidade Visual e Interface (`ASCII_ART_IDENTITY.md`, `TUI_DESIGN_SYSTEM.md`).
-   - [x] Catálogo de 6 Superpoderes modernizados para 2026 (`docs/specs/superpowers/`).
-   - [x] Governança de Planejamento, Roadmap e Sprints (`docs/planning/` com templates, Roadmap e sprints da v0.1.0 e v0.2.0).
-   - [x] README.md mestre aberto com a visão inspirada em J.A.R.V.I.S., arquitetura e roadmap.
+## 🎯 Foco Imediato & Estado de Alinhamento com o Usuário
+1. **Decisões Estratégicas Consolidadas da v0.1.0 (Alinhamento Concluído):**
+   - [x] **L60 — Soberania das Ferramentas Nativas:** O ORION não depende de muletas ou classes externas do Hermes. As 5 Primitivas Nativas (`run_command`, `read_file`, `write_file`, `edit_file` com correspondência exata de bloco, `search_files`) nascem puras no núcleo.
+   - [x] **L68 — Action-Observation Event Stream:** Adoção formal do padrão de Event Stream imutável tipado com Pydantic v2 e controle de turn budgeting (teto de 20 voltas).
+   - [x] **L78 — Consciência de Custos & Dynamic Auto-Routing:**
+     - Exibição de tokens e custos no CLI durante ou ao final de turnos (estilo Claude Code).
+     - Modos de operação configuráveis via `/config` ou linguagem natural por chat:
+       1. *Modo Automático:* O ORION avalia a complexidade do passo e escala autonomamente para modelos de grande raciocínio (Claude 3.7 Sonnet / Opus / Gemini Pro) em etapas pesadas de arquitetura/planejamento, retornando para modelos rápidos de execução (Gemini Flash / Qwen Coder) nas etapas operacionais.
+       2. *Modo Fixo:* O usuário fixa um modelo específico de sua preferência.
+     - Suporte nativo a OpenRouter para ampla seleção de modelos.
+   - [x] **L81 — Subsistema de Artefatos com Persistência Dual:** Armazenamento global em `~/.orion/brain/<session_id>/artifacts/` e local em `.orion/artifacts/` dentro de repositórios ativos.
+   - [x] **L86 — Fechamento Documental:** Toda a documentação e planejamento mestre foram atualizados e sincronizados. Nenhuma linha de código foi implementada antecipadamente.
+
+2. **Status de Prontidão da v0.1.0:**
+   - A especificação mestre (`docs/planning/versions/v0.1.0/VERSION.md`) e suas 4 sprints (`sprint-1.md` a `sprint-4.md`) estão 100% definidas e fechadas.
+   - O projeto está pronto para iniciar a **Sprint 1 (Tooling, Tipagem & Skeleton)** assim que o usuário solicitar.
 
 ---
 
-## 🧭 Diretrizes Estratégicas Chave (Decisões Alinhadas com o Usuário)
-- **Open-Source Core:** O `orion-agent` é um projeto de código aberto. Não há nenhuma ferramenta ou dependência acoplada rigidamente à TalkCode ou TalkAgent. Qualquer integração externa é configurada dinamicamente pelo usuário via MCP, webhooks HTTP ou arquivos de configuração locais.
-- **Superando o Hermes:** O ORION acompanha e supera o Hermes em autonomia, memória contínua, execuções headless e proatividade baseada em eventos de SO.
-- **Presença Ambiente Headless:** O ORION roda como daemon no boot do sistema operacional. Quando o modo de voz/escuta está ativo, o usuário conversa diretamente com o computador sem a necessidade de manter janelas de terminal abertas. A interface TUI é sob demanda (para desenvolvimento, diffs e tarefas de código).
-- **Zero Código Legado:** Nenhuma linha de código Python do repositório antigo foi reaproveitada cegamente. Todo o código do `orion-agent` nascerá limpo, moderno e tipado a partir de especificações formais.
-- **Memória Tríplice:** Combinação de Linha do Tempo e Eventos em SQLite FTS5, Memória Semântica com embeddings locais em ONNX/FastEmbed (privativo e offline, sem PyTorch pesado) e Memória Estruturada de Fatos e Decisões.
-- **Governança Estrita (PEP):** Modo supervisionado inicial (confirmações explícitas `[Y/n]` para comandos modificadores de sistema/arquivos), evoluindo para níveis configuráveis pelo usuário via `/config`.
-
----
-
-## 📌 Próximos Passos
-1. Sessão de alinhamento e refinamento com o usuário: debate e refinamento fino das habilidades, poderes e etapas de desenvolvimento.
-2. Aprovação final da documentação e início da Sprint 1 da v0.1.0 (Setup de Tooling e CLI Skeleton).
+## 📌 Próximo Passo
+Aguardar autorização do usuário para iniciar a execução da **Sprint 1 da v0.1.0** (configuração de `pyproject.toml`, skeleton do CLI, Rich e modelos de tipagem Pydantic v2).

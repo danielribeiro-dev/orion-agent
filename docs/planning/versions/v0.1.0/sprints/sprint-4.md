@@ -1,6 +1,6 @@
-# Sprint — [v0.1.0] Sprint 4: Testes Automatizados E2E & Release
+# Sprint — [v0.1.0] Sprint 4: Testes Automatizados E2E, Cobertura $\ge 85\%$ & Release
 
-> **Status:** 📋 Planejado  
+> **Status:** 📋 Pronto para Execução  
 > **Versão Relacionada:** v0.1.0 (Clean Foundation & Core ReAct Engine)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
 > **Data de Início:** A definir  
@@ -10,15 +10,15 @@
 
 ## 1. Identificação & Objetivo
 
-* **Objetivo Primário:** Integrar todos os módulos desenvolvidos nas Sprints 1, 2 e 3 em um fluxo ponta a ponta (**End-to-End**), construir o harness de testes automatizados, garantir cobertura superior a 85%, validar a auditoria de segurança e formalizar a release `v0.1.0`.
+* **Objetivo Primário:** Integrar todos os módulos desenvolvidos nas Sprints 1, 2 e 3 em um fluxo ponta a ponta (**End-to-End**), construir o harness de testes automatizados, garantir cobertura superior a 85%, validar a auditoria de segurança determinística, testar a geração de artefatos e formalizar a release estável `v0.1.0`.
 * **Dependências Prévias:** Sprints 1, 2 e 3 concluídas com sucesso.
-* **Entregável Verificável:** O comando `pytest --cov=src/orion` executando 100% verde com cobertura $\ge 85\%$, documentação de release congelada e repositório tagueado com `v0.1.0`.
+* **Entregável Verificável:** O comando `pytest --cov=src/orion` executando 100% verde com cobertura $\ge 85\%$, testes de segurança passando e documentação de release congelada.
 
 ---
 
 ## 2. Contexto de Engenharia
 
-* **Por que esta sprint existe:** Para garantir que a v0.1.0 seja uma base de rocha sólida, sem dívidas técnicas ocultas, pronta para que novos contribuidores possam clonar o repositório e confiar na suíte de testes antes de adicionarmos a Memória Tríplice na v0.2.0.
+* **Por que esta sprint existe:** Para garantir que a v0.1.0 seja uma base de rocha sólida, sem dívidas técnicas ocultas, pronta para que qualquer desenvolvedor ou colaborador da comunidade possa clonar o repositório e confiar na integridade do sistema antes de avançarmos para a Memória Tríplice na v0.2.0.
 
 ---
 
@@ -26,8 +26,9 @@
 
 | Aspecto | Estado Inicial | Estado Final Esperado (DoD) |
 | :--- | :--- | :--- |
-| **Integração E2E** | Módulos testados apenas em isolamento | Cenários completos do ReAct ao Runtime testados |
+| **Integração E2E** | Módulos testados apenas em isolamento | Cenários completos do ReAct ao Runtime e Artefatos testados |
 | **Cobertura de Código** | Parcial por módulo | Cobertura global verificada $\ge 85\%$ |
+| **Blindagem de Segurança** | Testes básicos de PEP | Testes de injeção de prompt, path traversal e bypass de PEP |
 | **Release** | Não versionada formalmente | Tag Git `v0.1.0` criada e spec congelada |
 
 ---
@@ -35,11 +36,16 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Implementação de testes E2E em `tests/e2e/test_react_flow.py` (simulação de prompt com leitura de arquivo e resposta final).
-- [ ] Teste de auditoria de segurança em `tests/e2e/test_security_audit.py` (tentativa de bypass do PEP e injeção de prompt).
-- [ ] Medição formal de cobertura via `pytest-cov` e validação da meta de 85%.
-- [ ] Atualização do `README.md` com instruções reais de execução e teste.
-- [ ] Congelamento da spec `docs/planning/versions/v0.1.0/VERSION.md` e criação da tag Git `v0.1.0`.
+- [ ] Implementação de testes E2E em `tests/e2e/test_react_flow.py`:
+  - Simulação de loop cognitivo completo: recebimento de meta do usuário, turn budgeting, emissão de tool calls, validação pelo PEP, execução via `LocalRuntimeProvider`, retorno de `Observation` e emissão de artefato markdown estruturado.
+- [ ] Implementação de testes de segurança em `tests/e2e/test_security_audit.py`:
+  - Tentativa de injeção de comandos maliciosos em prompts.
+  - Tentativa de leitura e edição fora do workspace autorizado (Path Traversal).
+  - Validação da integridade do arquivo `audit.log`.
+- [ ] Testes de visualização de tokens e contabilidade no CLI (garantindo que o consumo seja reportado com clareza como no Claude Code).
+- [ ] Medição formal de cobertura via `pytest-cov` e validação da meta global de $\ge 85\%$.
+- [ ] Atualização do `README.md` com instruções práticas de instalação, execução e testes.
+- [ ] Congelamento formal da spec `docs/planning/versions/v0.1.0/VERSION.md` e preparação da tag Git `v0.1.0`.
 
 ---
 
@@ -47,11 +53,11 @@
 
 ```
 tests/e2e/
-  ├── __init__.py
-  ├── test_react_flow.py
-  └── test_security_audit.py
+├── __init__.py
+├── test_react_flow.py
+└── test_security_audit.py
 docs/planning/versions/v0.1.0/
-  └── VERSION.md
+└── VERSION.md
 ```
 
 ---
@@ -59,7 +65,7 @@ docs/planning/versions/v0.1.0/
 ## 6. Definition of Done (DoD)
 
 - [ ] Suíte de testes completa executando com `pytest tests/`.
-- [ ] Cobertura de código comprovada $\ge 85\%$.
-- [ ] Nenhuma vulnerabilidade de segurança encontrada na auditoria estática.
+- [ ] Cobertura de código comprovada $\ge 85\%$ em `src/orion/`.
+- [ ] Nenhuma falha de segurança nos testes de injeção e path traversal.
 - [ ] Tag `v0.1.0` registrada no Git.
 - [ ] `.claudex/progress.md` e `.claudex/active_context.md` atualizados para o planejamento da v0.2.0.

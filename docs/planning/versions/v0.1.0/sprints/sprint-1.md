@@ -1,6 +1,6 @@
 # Sprint — [v0.1.0] Sprint 1: Tooling, Tipagem & Skeleton
 
-> **Status:** 📋 Planejado  
+> **Status:** 📋 Pronto para Execução  
 > **Versão Relacionada:** v0.1.0 (Clean Foundation & Core ReAct Engine)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
 > **Data de Início:** A definir (Início da Fase 1)  
@@ -10,16 +10,16 @@
 
 ## 1. Identificação & Objetivo
 
-* **Objetivo Primário:** Configurar a infraestrutura moderna de tooling do projeto (`pyproject.toml`, gerenciamento de dependências com Pydantic v2, Rich e pytest), o skeleton da pasta `src/orion/` e o comando de terminal base `orion --version` e `orion --help`.
-* **Dependências Prévias:** Fase 0 concluída e aprovada.
-* **Entregável Verificável:** `pip install -e .` funcional no ambiente virtual, com `orion --version` exibindo o banner ASCII e os testes de infraestrutura passando.
+* **Objetivo Primário:** Configurar a infraestrutura moderna de desenvolvimento (`pyproject.toml`, Pydantic v2, Rich, Typer/Click, pytest), o skeleton limpo da pasta `src/orion/`, o comando base `orion --version` e `orion --help` exibindo o banner ASCII *The Hunter Crest*, e os contratos tipados de configuração (`src/orion/config.py`), preparando o suporte a modos de operação (`auto` vs `fixed`) e seleção de provedores (OpenRouter, Gemini, Anthropic, OpenAI, Ollama).
+* **Dependências Prévias:** Fase 0 formalmente concluída e aprovada.
+* **Entregável Verificável:** `pip install -e .` ou `uv pip install -e .` funcional no ambiente virtual, com `orion --version` rodando em < 100ms exibindo o banner ASCII e os testes de infraestrutura e contratos passando.
 
 ---
 
 ## 2. Contexto de Engenharia
 
-* **Por que esta sprint existe:** Para garantir que a nova base de código do ORION nasça com os mais modernos padrões da comunidade Python (PEP 621, tipagem rigorosa, zero dependências circulares e ferramentas de linting/testes configuradas).
-* **Como se encaixa na visão global:** Cria a base onde o Core ReAct e o PEP serão implementados nas Sprints 2 e 3.
+* **Por que esta sprint existe:** Para garantir que a nova base de código do O.R.I.O.N nasça sob os mais rigorosos padrões da comunidade Python moderna (PEP 621, tipagem Pydantic v2 rigorosa, zero acoplamento legado e tooling de linting/testes automatizados).
+* **Como se encaixa na visão global:** Cria a casca robusta e tipada onde o motor ReAct (Sprint 2) e as 5 ferramentas primitivas com PEP (Sprint 3) serão conectados.
 
 ---
 
@@ -27,24 +27,28 @@
 
 | Aspecto | Estado Inicial | Estado Final Esperado (DoD) |
 | :--- | :--- | :--- |
-| **Módulos / Código** | Nenhuma linha de código em `src/` | `pyproject.toml`, `src/orion/__init__.py`, `src/orion/cli.py` criados |
-| **CLI** | Comando `orion` não existe no novo repo | `orion --version` e `orion --help` funcionais no terminal |
-| **Testes** | 0 testes | Testes de sanidade de CLI e imports passando (`pytest tests/unit/test_cli.py`) |
+| **Módulos / Código** | 0 arquivos em `src/` | `pyproject.toml`, `src/orion/__init__.py`, `src/orion/cli.py`, `src/orion/config.py` criados |
+| **CLI & Banner** | Comando `orion` não existe | `orion --version` e `orion --help` funcionais com banner ASCII *The Hunter Crest* |
+| **Tipagem & Modelos** | Inexistente | Modelos Pydantic v2 tipados para configuração de agentes e provedores |
+| **Testes** | 0 testes | Testes de sanidade de CLI e configuração passando (`pytest tests/unit/test_cli.py`, `test_config.py`) |
 
 ---
 
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Criação de `pyproject.toml` moderno com metadados do projeto, dependências principais e de desenvolvimento.
+- [ ] Configuração de `pyproject.toml` moderno com metadados do projeto, dependências principais (`pydantic>=2.0`, `rich`, `typer`, `httpx`) e de desenvolvimento (`pytest`, `pytest-cov`, `pytest-asyncio`, `ruff`, `mypy`).
 - [ ] Criação de `src/orion/__init__.py` com `__version__ = "0.1.0-alpha"`.
-- [ ] Criação de `src/orion/cli.py` utilizando `rich` e `click` / `typer` para o ponto de entrada da aplicação.
-- [ ] Implementação do renderizador do banner ASCII (Opção C: *The Hunter Crest*) na inicialização da CLI.
-- [ ] Configuração do `conftest.py` e testes unitários do ponto de entrada da CLI.
+- [ ] Implementação de `src/orion/cli.py` utilizando `rich` e `typer` para o ponto de entrada da aplicação, renderizando o banner ASCII oficial *The Hunter Crest*.
+- [ ] Implementação de `src/orion/config.py` com dataclasses/modelos Pydantic v2 representando:
+  - `RoutingMode`: Enum (`AUTO`, `FIXED`).
+  - `ProviderConfig`: Suporte a OpenRouter, Gemini, Anthropic, OpenAI, Ollama.
+  - `OrionConfig`: Configuração geral de paths (`~/.orion/` global e `.orion/` local), teto de orçamento e modo de autonomia.
+- [ ] Configuração do `tests/conftest.py` e testes unitários de inicialização de CLI e parsing de configurações.
 
 ### 🚫 Fora de Escopo (Out of Scope / Anti-Metas)
-- Não implementar loop de inferência de LLM (escopo da Sprint 2).
-- Não plugar o Hermes ou ferramentas de SO (escopo da Sprint 3).
+- Não implementar loop de inferência de LLM ou chamadas de API (escopo da Sprint 2).
+- Não plugar ferramentas de SO ou PEP nesta sprint (escopo da Sprint 3).
 
 ---
 
@@ -56,35 +60,22 @@ orion-agent/
 ├── src/
 │   └── orion/
 │       ├── __init__.py
-│       └── cli.py
+│       ├── cli.py
+│       └── config.py
 └── tests/
     ├── conftest.py
     └── unit/
-        └── test_cli.py
+        ├── test_cli.py
+        └── test_config.py
 ```
 
 ---
 
-## 6. Contratos de Código & Tipagem
+## 6. Definition of Done (DoD)
 
-```python
-# Assinatura formal do entrypoint
-from typing import Optional
-
-def main(args: Optional[list[str]] = None) -> int:
-    """Ponto de entrada oficial da CLI do ORION.
-    
-    Retorna 0 em caso de sucesso, ou código de erro diferente de 0.
-    """
-    ...
-```
-
----
-
-## 7. Definition of Done (DoD)
-
-- [ ] `pyproject.toml` configurado e validado.
-- [ ] `pip install -e .` instala o pacote sem warnings de configuração.
-- [ ] `orion --version` exibe a versão correta e o banner ASCII.
-- [ ] `pytest tests/unit/test_cli.py` passa com 100% de sucesso.
+- [ ] `pyproject.toml` configurado e validado via `pip install -e .`.
+- [ ] `orion --version` exibe a versão correta e o banner *The Hunter Crest* estilizado em Rich.
+- [ ] `orion --help` documenta os subcomandos e opções fundamentais.
+- [ ] Modelos de configuração em `src/orion/config.py` passam em testes de validação Pydantic.
+- [ ] `pytest tests/unit/test_cli.py tests/unit/test_config.py` passa com 100% de sucesso.
 - [ ] `.claudex/progress.md` atualizado com o encerramento da Sprint 1.

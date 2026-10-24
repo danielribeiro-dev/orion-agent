@@ -10,29 +10,31 @@
    *    *    *   [ PERSONAL OPERATING INTELLIGENCE ]
 ```
 
-**O Sistema Pessoal de Inteligência, Orquestração e Presença Contínua**
+**O.R.I.O.N — Operational Reasoning & Intelligence Orchestration Network**  
+*O Sistema Pessoal de Inteligência, Orquestração e Presença Contínua*
 
-*Inspirado no conceito de J.A.R.V.I.S. — projetado para a vida real como uma plataforma aberta, extensível e comercialmente viável.*
+*Inspirado no conceito de J.A.R.V.I.S. — projetado para a vida real como uma plataforma aberta, soberana, extensível e comercialmente viável.*
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square&logo=python)](https://python.org)
 [![Platform](https://img.shields.io/badge/Plataforma-Linux-orange?style=flat-square&logo=linux)](https://kernel.org)
-[![Status](https://img.shields.io/badge/Status-Fase_0:_Funda%C3%A7%C3%A3o-green?style=flat-square)]()
+[![Status](https://img.shields.io/badge/Status-v0.1.0_Clean_Foundation-green?style=flat-square)]()
 
 </div>
 
 ---
 
-## 🌟 O que é o ORION?
+## 🌟 O que é o O.R.I.O.N?
 
-O **ORION** é um sistema pessoal de inteligência e orquestração operacional que acompanha o usuário ao longo do tempo. Ele aprende com as informações autorizadas que recebe, coordena modelos e agentes, executa tarefas reais no computador e atua como um **piloto administrativo e técnico pessoal**.
+O **O.R.I.O.N** é um sistema pessoal de inteligência e orquestração operacional que acompanha o usuário ao longo do tempo. Ele aprende com as informações autorizadas que recebe, coordena modelos e agentes, executa tarefas reais no computador e atua como um **piloto administrativo e técnico pessoal**.
 
-Ele combina:
-- **Presença Ambiente e Voz Headless:** Inicia junto com o computador em segundo plano. Quando a voz está ativa, você conversa diretamente com o sistema sem precisar abrir janelas ou terminais.
-- **Linha do Tempo Contínua:** Não existem sessões descartáveis. O ORION mantém o contexto histórico acumulado, criando ramificações (*branches*) para projetos complexos e sintetizando os aprendizados de volta na linha do tempo principal.
-- **Memória Tríplice:** Combinação de busca temporal exata (SQLite FTS5 / BM25), recuperação conceitual (FastEmbed / ONNX local sem dependências pesadas) e fatos estruturados tipados.
-- **Roteamento Inteligente e Consciência de Custos:** Escolhe dinamicamente entre modelos econômicos, intermediários, avançados ou locais (OpenRouter, Gemini, Claude, OpenAI, Ollama), com livro-razão financeiro de tokens em tempo real.
-- **Interface TUI Sob Demanda:** Terminal dinâmico estilo Antigravity CLI e Claude Code com streaming de Markdown, comandos por barra (`/`), suporte a arquivos `@` e visualizador de diffs com syntax highlighting.
+Ele combina os melhores paradigmas do mercado em uma plataforma coesa:
+- **Action-Observation Event Stream & Event Sourcing (Inspirado no OpenHands):** Loop cognitivo assíncrono onde cada passo e retorno ambiental são imutáveis e auditáveis.
+- **5 Ferramentas Primitivas Nativas Cirúrgicas (Inspirado no Claude Code):** `run_command`, `read_file`, `write_file`, `edit_file` (substituição exata de bloco) e `search_files`, garantindo independência total de muletas externas.
+- **Subsistema de Artefatos & Subagentes Reativos (Inspirado no Antigravity CLI):** Geração de documentos estruturados (planos, relatórios, walkthroughs) fora da janela de chat e delegação sem polling.
+- **Presença Ambiente e Voz Headless:** Inicia junto com o computador em segundo plano via systemd daemon. Você conversa diretamente com o sistema sem precisar abrir janelas ou terminais.
+- **Linha do Tempo Contínua & Memória Tríplice:** Combinação de busca temporal exata (SQLite FTS5 / BM25), recuperação conceitual (FastEmbed / ONNX local offline) e fatos estruturados tipados.
+- **Roteamento Inteligente & Livro-Razão em Tempo Real:** Modos `auto` (chaveamento autônomo entre modelos de raciocínio profundo como Claude Opus/Sonnet e de execução rápida como Gemini Flash/Qwen Coder) e `fixed`, com livro-razão financeiro de tokens em USD/BRL exibido no CLI.
 - **Extensibilidade Universal (MCP & Satélites):** Cliente nativo do *Model Context Protocol* (MCP) e suporte a canais (Telegram, WhatsApp, Webhooks HTTP). Zero acoplamento com ferramentas proprietárias.
 
 ---
@@ -42,18 +44,18 @@ Ele combina:
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        TUI / CLI Layer (Interface)                     │
-│    (Rich / Prompt-Toolkit: Streaming, Diffs, Slash Commands /)         │
+│    (Rich / Prompt-Toolkit: Streaming, Diffs, Tokens/Custos, Slash /)   │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
-│                    Orchestration & State Machine                       │
-│    (ReAct Loop Assíncrono, Delimitadores Formais, Guardrails)          │
+│                  Action-Observation Event Stream                       │
+│    (ReAct Loop Assíncrono, Delimitadores Formais, Turn Budgeting)      │
 ├───────────────────────────────────┬────────────────────────────────────┤
 │         Sistema de Memória        │         Camada de Execução         │
 │  • Linha do Tempo & FTS5 (BM25)   │  • PEP (Policy Enforcement Point)  │
-│  • FastEmbed Local (ONNX Vector)  │  • RuntimeProvider (Clean Adapter) │
-│  • Fatos Estruturados & Decisões  │  • Model Context Protocol (MCP)    │
-│  • Branches & Checkpoint Synthesis│  • Ferramentas Nativas (AST Editor)│
+│  • FastEmbed Local (ONNX Vector)  │  • LocalRuntimeProvider Nativo     │
+│  • Fatos Estruturados & Decisões  │  • 5 Ferramentas Primitivas        │
+│  • Branches & Checkpoint Synthesis│  • Model Context Protocol (MCP)    │
 └───────────────────────────────────┴────────────────────────────────────┘
 ```
 
@@ -61,7 +63,7 @@ Ele combina:
 
 ## 🚀 Filosofia de Desenvolvimento
 
-1. **Open-Source por Princípio:** O `orion-agent` é aberto e universal. Nenhuma ferramenta proprietária é hardcodada no núcleo; tudo é plugável.
+1. **Open-Source & Soberano por Princípio:** O `orion-agent` é aberto e universal. Nenhuma ferramenta proprietária é hardcodada no núcleo; tudo é modular.
 2. **Deny by Default:** Nenhuma ação modificadora ou destrutiva ocorre no sistema sem validação do PEP e aprovação explícita no modo supervisionado.
 3. **Memória Não é Apenas Vetor:** A inteligência contextual exige temporalidade e fatos confirmados, e não apenas proximidade de cosseno.
 4. **Verificação de Resultados:** Tentativa $\ne$ Conclusão. Uma tarefa só é declarada pronta após evidência verificada.
@@ -70,8 +72,6 @@ Ele combina:
 ---
 
 ## 🗺️ Roadmap de Evolução & Planejamento de Versões
-
-O desenvolvimento do ORION é governado por planejamento formal, com versões divididas em sprints executáveis e critérios de aceite comprovados:
 
 - **Roadmap Executivo Geral:** [`docs/planning/ROADMAP.md`](docs/planning/ROADMAP.md)
 - **Planejamento de Versões & Sprints:** [`docs/planning/versions/`](docs/planning/versions/)

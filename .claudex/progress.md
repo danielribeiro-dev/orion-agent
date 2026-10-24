@@ -1,30 +1,27 @@
-# ORION-Agent — Progress & Backlog Tracker
+# O.R.I.O.N — Progress & Backlog Tracker
+*(Operational Reasoning & Intelligence Orchestration Network)*
 
 ## 📊 Status Global do Projeto
 - **Repositório:** `orion-agent`
-- **Fase Atual:** Fase 0 — Fundação Documental & Alinhamento Estratégico
-- **Linhas de Código em `src/`:** 0 (Aguardando conclusão e aprovação da Fase 0)
+- **Fase Atual:** Fase 0 Concluída & Validada — Especificação da v0.1.0 Fechada para Início
+- **Linhas de Código em `src/`:** 0 (Aguardando autorização para iniciar a Sprint 1)
 
 ---
 
-## 🗺️ Roadmap de Fases
+## 🗺️ Roadmap de Fases & Sprints
 
-### [EM ANDAMENTO] Fase 0: Fundação Documental, Identidade e Governança
-- [x] Inicialização do repositório Git local e configuração de usuário
+### [CONCLUÍDO] Fase 0: Fundação Documental, Pesquisa de Mercado & Specs da v0.1.0
+- [x] Inicialização do repositório Git local e configuração limpa
 - [x] Configuração da licença Apache 2.0 e .gitignore
-- [x] Estrutura da memória persistente do agente em `.claudex/`
-  - [x] `active_context.md`
-  - [x] `progress.md`
-  - [x] `system_patterns.md`
-  - [x] `decisions.md`
+- [x] Estrutura da memória de engenharia em `.claudex/` (`active_context.md`, `progress.md`, `system_patterns.md`, `decisions.md`)
 - [x] Especificações Técnicas de Arquitetura em `docs/architecture/`
-  - [x] `CORE_REACT_ENGINE.md` (Loop de raciocínio, Tool Calling, Delimitadores e State Machine)
-  - [x] `TRIPLE_MEMORY.md` (Linha do tempo FTS5, ONNX/FastEmbed e fatos estruturados)
-  - [x] `TIMELINE_SYSTEM.md` (Main Timeline, branches contextuais e retroalimentação)
+  - [x] `CORE_REACT_ENGINE.md` (Action-Observation Event Stream, Turn Budgeting, Delimitadores e Artefatos)
+  - [x] `TRIPLE_MEMORY.md` (Linha do tempo FTS5, ONNX/FastEmbed local e fatos estruturados)
+  - [x] `TIMELINE_SYSTEM.md` (Main Timeline, branches contextuais e síntese de checkpoints)
   - [x] `AMBIENT_VOICE.md` (Daemon headless, Wake Word, Faster-Whisper, Piper e Tone-Mirroring)
-  - [x] `MCP_AND_CHANNELS.md` (Cliente MCP, Telegram, WhatsApp e rotas HTTP genéricas)
-  - [x] `GOVERNANCE_PEP.md` (Policy Enforcement Point, Sandbox, Permissões e Autonomia)
-  - [x] `MODEL_GATEWAY_COSTS.md` (Multi-provedores, Ledger de Tokens e Custos USD/BRL)
+  - [x] `MCP_AND_CHANNELS.md` (Cliente MCP, Telegram, WhatsApp e webhooks HTTP)
+  - [x] `GOVERNANCE_PEP.md` (Policy Enforcement Point, Permissões LEVEL_0 a LEVEL_3, Auditoria)
+  - [x] `MODEL_GATEWAY_COSTS.md` (Multi-provedores, OpenRouter, Auto-Routing por Complexidade e Ledger no CLI)
 - [x] Especificações de Superpoderes Modernizados em `docs/specs/superpowers/`
   - [x] `01_SPATIAL_INTERACTION_AND_VISION.md` (MediaPipe ONNX, Ray Casting, AT-SPI2 e Qwen2.5-VL)
   - [x] `02_GHOST_INPUT_AND_CDP.md` (CDP background, uinput Virtual HID e Write-Where-Pointed)
@@ -32,46 +29,69 @@
   - [x] `04_SELF_HEALING_AND_SANDBOX.md` (Tree-sitter multi-linguagem, Bubblewrap Sandbox e Auto-Cura)
   - [x] `05_IMMORTAL_OFFLINE_RESILIENCE.md` (Heartbeat, fallback local, Event Sourcing e reconciliação)
   - [x] `06_WORKFLOW_PROACTIVITY.md` (DBus hooks sem CPU, Git Guard, Protocolo Babá e Morning Summary)
-- [x] Design System e Identidade Visual em `docs/design/`
-  - [x] `ASCII_ART_IDENTITY.md` (Opções de ASCII Art e tema)
-  - [x] `TUI_DESIGN_SYSTEM.md` (CLI dinâmica inspirada no Antigravity, slash commands, diffs)
-- [x] Governança de Planejamento, Roadmap e Sprints em `docs/planning/`
-  - [x] `ROADMAP.md` (Roadmap mestre com estratégia de superação do Hermes)
-  - [x] `templates/TEMPLATE_VERSION.md` e `templates/TEMPLATE_SPRINT.md`
-  - [x] `versions/v0.1.0/` (Spec da versão + Sprints 1 a 4)
-  - [x] `versions/v0.2.0/` (Spec da versão + Sprints planejadas)
-- [x] `README.md` completo e manifesto aberto do projeto
-- [x] `LICENSE` (Apache 2.0) e `.gitignore` configurados
+- [x] Design System e Identidade Visual em `docs/design/` (`ASCII_ART_IDENTITY.md`, `TUI_DESIGN_SYSTEM.md`)
+- [x] Roadmap Estratégico Master em `docs/planning/ROADMAP.md` (Benchmark Claude Code, Antigravity, OpenHands, Aider)
+- [x] Fechamento e congelamento do pacote de especificações da **v0.1.0** em `docs/planning/versions/v0.1.0/`:
+  - [x] `VERSION.md`
+  - [x] `sprints/sprint-1.md` (Tooling, Tipagem & Skeleton)
+  - [x] `sprints/sprint-2.md` (Core ReAct Engine, Action-Observation EventBus & Artefatos)
+  - [x] `sprints/sprint-3.md` (As 5 Ferramentas Primitivas Nativas & PEP Determinístico)
+  - [x] `sprints/sprint-4.md` (Testes E2E, Cobertura $\ge 85\%$ & Release)
+- [x] `README.md` master e plano mestre de engenharia aprovado
 
 ---
 
-### [PLANEJADO] Fase 1: Fundação Limpa & Core ReAct Loop
-- [ ] Setup de `pyproject.toml` (dependências: Rich, FastEmbed, Pydantic, etc.)
-- [ ] Implementação do Core ReAct Loop com streaming assíncrono
-- [ ] Implementação do PEP (Policy Enforcement Point) e Governança inicial
-- [ ] RuntimeProvider com adaptador isolado do Hermes (temporário e desacoplado)
-- [ ] Testes unitários do núcleo ReAct (cobertura >= 85%)
+### [PRONTO PARA INICIAR] Fase 1: v0.1.0 Clean Foundation & Core ReAct Engine
+- [ ] **Sprint 1: Tooling, Tipagem & Skeleton**
+  - [ ] `pyproject.toml` moderno com PEP 621 e dependências
+  - [ ] Ponto de entrada CLI `src/orion/cli.py` com o banner *The Hunter Crest*
+  - [ ] Modelos de configuração tipados em `src/orion/config.py` (modos auto/fixed, provedores)
+  - [ ] Testes unitários de infraestrutura
+- [ ] **Sprint 2: Core ReAct Engine, Action-Observation EventBus & Artefatos**
+  - [ ] Modelos de eventos tipados `Action` e `Observation` em Pydantic v2
+  - [ ] `EventBus` pub/sub assíncrono in-process com histórico
+  - [ ] `ReActEngine` assíncrono com Turn Budgeting (max 20 passos) e delimitadores de prompt
+  - [ ] Subsistema `ArtifactStore` com suporte de persistência dual
+  - [ ] Testes unitários do motor cognitivo
+- [ ] **Sprint 3: As 5 Ferramentas Primitivas Nativas & PEP Determinístico**
+  - [ ] Implementação de `permissions.py` (LEVEL_0 a LEVEL_3) e `WorkspaceScope`
+  - [ ] Implementação de `pep.py` (validação determinística e aprovação no modo supervisionado)
+  - [ ] `AuditLogger` append-only em `~/.orion/audit.log`
+  - [ ] `LocalRuntimeProvider` e as 5 ferramentas (`run_command`, `read_file`, `write_file`, `edit_file`, `search_files`)
+  - [ ] Testes unitários de ferramentas e segurança
+- [ ] **Sprint 4: Testes E2E, Cobertura $\ge 85\%$ & Release**
+  - [ ] Harness de testes de integração ponta a ponta
+  - [ ] Testes de estresse de segurança (injeção, path traversal)
+  - [ ] Aferição de cobertura $\ge 85\%$ com `pytest-cov`
+  - [ ] Congelamento da v0.1.0 e tag Git
 
-### [PLANEJADO] Fase 2: Linha do Tempo Contínua & Memória Tríplice
+---
+
+### [PLANEJADO] Fase 2: v0.2.0 Continuous Timeline & Triple Memory
 - [ ] Main Timeline persistente (SQLite WAL + FTS5 BM25)
-- [ ] Branches contextuais com síntese de checkpoints
-- [ ] Memória Semântica com ONNX/FastEmbed local
-- [ ] Memória Estruturada (Perfil e Decisões)
-- [ ] Testes de continuidade entre sessões
+- [ ] FastEmbed Local em ONNX (sem PyTorch pesado)
+- [ ] Memória Estruturada de Fatos e Decisões
+- [ ] Motor de ramificações (*branches*) contextuais e síntese de checkpoints
 
-### [PLANEJADO] Fase 3: Gateway de Provedores & Cost Ledger
-- [ ] Token & Cost Tracking em tempo real (USD/BRL)
-- [ ] Roteamento dinâmico por capacidade e orçamento (OpenRouter, Gemini, Anthropic, OpenAI, Local)
-- [ ] Testes de resiliência e circuit breaker
+---
 
-### [PLANEJADO] Fase 4: TUI Dinâmica, Slash Commands & Suporte a MCP
-- [ ] Interface de terminal com streaming, status bar, diffs syntax highlighted
-- [ ] Slash commands dinâmicos (`/plan`, `/config`, `/compact`, `/history`, etc.)
-- [ ] Cliente MCP para carregamento universal de ferramentas da comunidade
-- [ ] Editor cirúrgico de código nativo (Diff Match Patch)
+### [PLANEJADO] Fase 3: v0.3.0 Model Gateway, Real-Time Cost Ledger & Offline Resilience
+- [ ] Dynamic Auto-Routing com elevação para raciocínio pesado e retorno para execução leve
+- [ ] Integração com OpenRouter e provedores diretos (Gemini, Anthropic, OpenAI, Ollama)
+- [ ] Registro detalhado em `metrics.db` e comando `/cost`
+- [ ] ORION Imortal: Detecção de queda em < 2s e Event Sourcing local
 
-### [PLANEJADO] Fase 5: Modo Ambiente & Pipeline de Voz Headless
-- [ ] Daemon systemd de usuário em segundo plano (autostart no boot)
-- [ ] Escuta e resposta ativas sem necessidade de terminal aberto
-- [ ] Wake Word + Faster-Whisper + Piper TTS com Tone-Mirroring
-- [ ] Conectores genéricos para Telegram, WhatsApp e Webhooks HTTP
+---
+
+### [PLANEJADO] Fase 4: v0.4.0 Interactive TUI, Slash Commands (/) & Native MCP
+- [ ] Terminal interativo Rich com streaming e diffs coloridos
+- [ ] Slash commands dinâmicos (`/plan`, `/config`, `/compact`, `/cost`, `/timeline`)
+- [ ] Tree-sitter Repo Map (~1k tokens de visão periférica)
+- [ ] Cliente nativo do Model Context Protocol (MCP stdio/SSE)
+
+---
+
+### [PLANEJADO] Fase 5: v0.5.0 Ambient Voice Daemon & Boot Headless
+- [ ] Systemd user daemon rodando no boot do Linux
+- [ ] Escuta contínua de wake word leve (openWakeWord)
+- [ ] Transcrição Faster-Whisper e síntese Piper TTS com Tone-Mirroring
