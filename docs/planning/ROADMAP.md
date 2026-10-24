@@ -28,7 +28,8 @@ O O.R.I.O.N foi projetado desde o dia zero para **superar estruturalmente** os a
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Arquitetura Central** | Master Loop síncrono | Loop com Subagentes & MCP | Action-Observation Event Stream | Architect / Editor Loop | **Event Stream Assíncrono com Event Sourcing Imutável** |
 | **Manipulação de Código** | `str_replace_editor` (Exact match) | `edit_file` cirúrgico + AST | Edições completas / patch | Unified Diff / Whole File | **Exact-Match Anchored Editor + Tree-sitter AST Fallback** |
-| **Memória & Continuidade** | Auto-compaction pontual; sem histórico entre sessões | Memory MCP (Grafo de Conhecimento) | Histórico de eventos da sessão | Git commit history | **Linha do Tempo Contínua & Memória Tríplice (FTS5 + ONNX + Fatos)** |
+| **Sistema de Habilidades (Skills)** | Instruções em `CLAUDE.md` / Commands | Padrão `SKILL.md` com Progressive Disclosure | Microagents (`.agents/skills/`) | Instruções no chat | **Universal Agent Skills Standard (`SKILL.md`) com Auto-Destilação (`/learn`)** |
+| **Memória & Continuidade** | Auto-compaction pontual; sem histórico entre sessões | Memory MCP (Grafo de Conhecimento) | Histórico de eventos da sessão | Git commit history | **Linha do Tempo Contínua & Memória Tríplice (FTS5 + ONNX + Fatos) + RRF + Dynamic Compaction** |
 | **Interface com Usuário** | Terminal CLI puro | Terminal + Artifacts estruturados | Web UI / Browser | Terminal CLI | **TUI Sob Demanda (Rich/Diffs) + Artifacts + Voz Headless (Boot Daemon)** |
 | **Governança & Segurança** | Prompts de confirmação manuais | Modos supervisionado / autônomo | Sandbox de contêiner | Nenhuma (executa no host) | **Deterministic PEP (4 Níveis: 0 a 3) + Bubblewrap Sandboxing** |
 | **Consciência de Custos** | Contagem bruta de tokens | Auditoria de tokens e cache | Nenhuma integrada | Estimativa no prompt | **Real-Time Cost Ledger (USD & BRL) + Model Gateway com Auto-Routing** |
@@ -41,8 +42,8 @@ O O.R.I.O.N foi projetado desde o dia zero para **superar estruturalmente** os a
 ```text
 v0.1.0  ── Clean Foundation & Core ReAct Engine ────────────────── [FASE ATUAL]
   │        (5 Ferramentas Nativas, Action-Observation, PEP e Artefatos)
-v0.2.0  ── Continuous Timeline & Triple Memory
-  │        (SQLite WAL FTS5 BM25 + ONNX FastEmbed Local + Fatos Estruturados)
+v0.2.0  ── Cognitive Continuity: Triple Memory, Agent Skills Standard & Dynamic Compaction
+  │        (SQLite WAL FTS5 + ONNX FastEmbed Local + Fatos RRF + SKILL.md Engine + Compactor)
 v0.3.0  ── Model Gateway, Real-Time Cost Ledger & Offline Resilience
   │        (Auto-Routing por Complexidade, Token Ledger no CLI, ORION Imortal)
 v0.4.0  ── Dynamic Interactive TUI, Slash Commands (/) & Native MCP

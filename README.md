@@ -80,7 +80,7 @@ Ele combina os melhores paradigmas do mercado em uma plataforma coesa:
 
 ```text
 v0.1.0  ← ATUAL — Clean Foundation & Core ReAct Engine (Sprints 1 a 4)
-v0.2.0  — Continuous Timeline & Triple Memory (FTS5 + FastEmbed + Branches)
+v0.2.0  — Cognitive Continuity: Triple Memory, Agent Skills Standard & Dynamic Compaction (FTS5 + FastEmbed + SKILL.md + Compactor)
 v0.3.0  — Model Gateway, Real-Time Cost Ledger & Offline Heartbeat
 v0.4.0  — Interactive TUI (Rich), Dynamic Slash Commands (/) & MCP Client
 v0.5.0  — Ambient Voice Pipeline (Headless Daemon, Wake Word & Tone Mirroring)

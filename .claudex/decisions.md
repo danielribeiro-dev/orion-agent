@@ -79,3 +79,38 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   2. *Modo Fixo:* O usuário define um modelo específico e imutável para toda a sessão.
   3. Suporte aberto a OpenRouter e provedores diretos.
 * **Consequências:** Otimização agressiva de custos e máxima acurácia técnica sem intervenção manual contínua.
+
+---
+
+### ADR-010: Padrão Universal Agent Skills Standard (`SKILL.md`) com Progressive Disclosure
+* **Status:** Aprovado (24/10/2026)
+* **Contexto:** Agentes líderes (Claude Code, Antigravity, OpenHands, Microsoft) convergiram para um padrão modular aberto de habilidades para evitar injeção massiva de prompts no system prompt.
+* **Decisão:** Adotar integralmente o padrão `SKILL.md` com YAML frontmatter (`name`, `description`, `compatibility`, `allowed-tools`) e subdiretórios opcionais (`scripts/`, `references/`, `assets/`). Implementar divulgação progressiva em 3 estágios: descoberta no boot com apenas nome e descrição (< 100 tokens/skill), ativação sob demanda (`use_skill`) e execução profunda com leitura de referências e execução de scripts dedicados.
+* **Consequências:** Modularidade total, facilidade de compartilhamento com a comunidade e preservação máxima da janela de contexto.
+
+---
+
+### ADR-011: Dynamic Context Compactor & Branches Contextuais
+* **Status:** Aprovado (24/10/2026)
+* **Contexto:** Sessões longas de desenvolvimento degradam a qualidade da resposta do LLM e geram custos exorbitantes se todo o histórico de comandos for mantido continuamente no prompt.
+* **Decisão:** Implementar o motor de compactação dinâmica com dois modos:
+  1. *Auto-compaction silenciosa:* Ativada automaticamente ao atingir 80% do budget de contexto, sumarizando etapas passadas e purgando saídas intermediárias de ferramentas volumosas, enquanto preserva na íntegra os últimos 3 a 5 turnos (*vital tail*), caminhos de arquivos ativos e objetivos centrais.
+  2. *Compactação manual:* Ativada via comando `/compact` (com suporte a diretrizes de foco).
+  3. *Branches contextuais:* Tarefas de investigação operam em ramificações isoladas e, no `/merge`, geram síntese de checkpoint concisa (3 a 5 linhas) na Main Timeline.
+* **Consequências:** Sessões potencialmente infinitas sem estouro de contexto ou perda de coerência operacional.
+
+---
+
+### ADR-012: Modelo de Embedding Local `bge-small-en-v1.5` & Fusão Híbrida RRF
+* **Status:** Aprovado (24/10/2026)
+* **Contexto:** Busca semântica local exige leveza, independência de bibliotecas gigantescas (como PyTorch) e precisão em terminologia de programação e infraestrutura.
+* **Decisão:** Utilizar `fastembed` com o modelo `BAAI/bge-small-en-v1.5` (384 dimensões, ~130MB, execução local via ONNX Runtime em CPU). Aplicar limiar de deduplicação semântica de 0.92 e integrar com a busca BM25 do FTS5 através do algoritmo Reciprocal Rank Fusion (RRF, $k=60$) com teto rígido de injeção de contexto de 1.500 tokens.
+* **Consequências:** Busca ultrarrápida (sub-50ms), funcionamento 100% offline e sem ruído de contexto no modelo principal.
+
+---
+
+### ADR-013: Prevenção de Memory Poisoning via Ciclo de Vida de Fatos & Tools Cognitivas
+* **Status:** Aprovado (24/10/2026)
+* **Contexto:** Agentes autônomos tendem a corromper sua própria memória de longo prazo ao gravarem suposições e hipóteses provisórias como verdades absolutas.
+* **Decisão:** Estruturar a memória de fatos com enum de certeza `FactStatus` (`CONFIRMED`, `INFERRED`, `DEPRECATED`). Informações inferidas nunca sobrescrevem regras confirmadas pelo usuário. Expor 3 ferramentas cognitivas nativas no ReAct loop (`memorize`, `recall`, `deprecate_fact`) com registro de auditoria no PEP. Sincronizar em disco o arquivo curado `.orion/memory/MEMORY.md` com teto de 200 linhas.
+* **Consequências:** Memória de longo prazo confiável, auditável pelo desenvolvedor e resistente a alucinações.
