@@ -25,7 +25,14 @@
   - [ ] `MCP_AND_CHANNELS.md` (Cliente MCP, Telegram, WhatsApp e rotas HTTP genéricas)
   - [ ] `GOVERNANCE_PEP.md` (Policy Enforcement Point, Sandbox, Permissões e Autonomia)
   - [ ] `MODEL_GATEWAY_COSTS.md` (Multi-provedores, Ledger de Tokens e Custos USD/BRL)
-- [ ] Design System e Identidade Visual em `docs/design/`
+- [x] Especificações de Superpoderes Modernizados em `docs/specs/superpowers/`
+  - [x] `01_SPATIAL_INTERACTION_AND_VISION.md` (MediaPipe ONNX, Ray Casting, AT-SPI2 e Qwen2.5-VL)
+  - [x] `02_GHOST_INPUT_AND_CDP.md` (CDP background, uinput Virtual HID e Write-Where-Pointed)
+  - [x] `03_AUTONOMOUS_WEB_AND_VAULT.md` (Browser MCP, Zero-Knowledge Keyring e Biometria Vocal)
+  - [x] `04_SELF_HEALING_AND_SANDBOX.md` (Tree-sitter multi-linguagem, Bubblewrap Sandbox e Auto-Cura)
+  - [x] `05_IMMORTAL_OFFLINE_RESILIENCE.md` (Heartbeat, fallback local, Event Sourcing e reconciliação)
+  - [x] `06_WORKFLOW_PROACTIVITY.md` (DBus hooks sem CPU, Git Guard, Protocolo Babá e Morning Summary)
+- [x] Design System e Identidade Visual em `docs/design/`
   - [ ] `ASCII_ART_IDENTITY.md` (Opções de ASCII Art e tema)
   - [ ] `TUI_DESIGN_SYSTEM.md` (CLI dinâmica inspirada no Antigravity, slash commands, diffs)
 - [ ] Governança de Versões em `docs/versions/`
