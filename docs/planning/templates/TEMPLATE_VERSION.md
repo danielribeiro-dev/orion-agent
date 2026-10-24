@@ -34,18 +34,27 @@
 
 ---
 
-## 3. Fases de Implementação & Arquivos Afetados
+## 3. Divisão em Sprints & Entregáveis
+
+| Sprint | Nome da Sprint | Objetivo Principal | Documento | Status |
+| :--- | :--- | :--- | :--- | :--- |
+| **Sprint 1** | [Nome] | [Resumo do entregável] | [`sprints/sprint-1.md`](sprints/sprint-1.md) | ⏳ Pendente |
+| **Sprint 2** | [Nome] | [Resumo do entregável] | [`sprints/sprint-2.md`](sprints/sprint-2.md) | ⏳ Pendente |
+| **Sprint 3** | [Nome] | [Resumo do entregável] | [`sprints/sprint-3.md`](sprints/sprint-3.md) | ⏳ Pendente |
+| **Sprint 4** | [Nome] | [Resumo do entregável] | [`sprints/sprint-4.md`](sprints/sprint-4.md) | ⏳ Pendente |
+
+---
+
+## 4. Arquitetura Alvo & Componentes Afetados
 
 ```
-Fase 1: [Nome da Fase]
-  └── [arquivos a criar/modificar]
-Fase 2: [Nome da Fase]
-  └── [arquivos a criar/modificar]
+src/orion/
+  ├── [novo ou modificado] caminho/para/modulo/
 ```
 
 ---
 
-## 4. Matriz de Critérios de Aceite (DoD)
+## 5. Matriz de Critérios de Aceite da Versão (DoD Global)
 
 | ID | Cenário | Comportamento Esperado | Como Validar | Status |
 |:---|:---|:---|:---|:---|

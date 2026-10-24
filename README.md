@@ -69,18 +69,23 @@ Ele combina:
 
 ---
 
-## 🗺️ Roadmap de Evolução
+## 🗺️ Roadmap de Evolução & Planejamento de Versões
+
+O desenvolvimento do ORION é governado por planejamento formal, com versões divididas em sprints executáveis e critérios de aceite comprovados:
+
+- **Roadmap Executivo Geral:** [`docs/planning/ROADMAP.md`](docs/planning/ROADMAP.md)
+- **Planejamento de Versões & Sprints:** [`docs/planning/versions/`](docs/planning/versions/)
+- **Especificações de Arquitetura:** [`docs/architecture/`](docs/architecture/)
+- **Catálogo de Superpoderes (2026):** [`docs/specs/superpowers/`](docs/specs/superpowers/)
 
 ```text
-Fase 0  ← ATUAL — Fundação Documental, Specs, Identidade Visual e Governança
-Fase 1  — Setup do Projeto, Dependências e Core ReAct Loop
-Fase 2  — Linha do Tempo Contínua & Memória Tríplice (SQLite + FastEmbed)
-Fase 3  — Gateway de Modelos & Livro-Razão de Custos em Tempo Real
-Fase 4  — TUI Dinâmica, Slash Commands (/) e Cliente Nativo MCP
-Fase 5  — Modo Ambiente, Voz Headless e Canais Desacoplados (Telegram/WhatsApp)
+v0.1.0  ← ATUAL — Clean Foundation & Core ReAct Engine (Sprints 1 a 4)
+v0.2.0  — Continuous Timeline & Triple Memory (FTS5 + FastEmbed + Branches)
+v0.3.0  — Model Gateway, Real-Time Cost Ledger & Offline Heartbeat
+v0.4.0  — Interactive TUI (Rich), Dynamic Slash Commands (/) & MCP Client
+v0.5.0  — Ambient Voice Pipeline (Headless Daemon, Wake Word & Tone Mirroring)
+v1.0.0  — Production Release: Autonomous Personal Operating Intelligence
 ```
-
-As especificações detalhadas de cada subsistema podem ser consultadas em [`docs/architecture/`](docs/architecture/).
 
 ---
 
