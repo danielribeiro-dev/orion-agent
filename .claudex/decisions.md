@@ -178,3 +178,36 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   1. O Model Gateway da v0.3.0 adota o **OpenRouter** como provedor prioritário de primeira classe, fornecendo acesso a modelos de ponta (Claude 3.7 Sonnet, Gemini 2.5 Flash, Qwen 2.5 Coder 32B) através de uma única API key unificada, mantendo contratos abstratos (`BaseLLMProvider`) para provedores diretos futuros.
   2. O subsistema de resiliência offline **ORION Imortal** executa failover automático em menos de 2 segundos para o Ollama local utilizando a família leve **`qwen2.5-coder:1.5b`** ou **`qwen2.5-coder:3b`** (consumo estrito de 1.5GB a 2.8GB de RAM com quantização Q4_K_M).
 * **Consequências:** Compatibilidade universal com hardware acessível sem travar a máquina do usuário e tolerância contínua a quedas de conexão.
+
+---
+
+### ADR-014: A Arquitetura das 5 Esferas Cognitivas & Progressive Cognitive Unpacking (PCU)
+* **Status:** Aprovado (25/10/2026)
+* **Contexto:** Agentes convencionais sofrem de afogamento cognitivo (*Context Distraction*) ao injetar indiscriminadamente grandes blocos de texto no prompt de sistema a cada turno. Além disso, a memória do agente não separava perfil humano, regras de projeto e persona.
+* **Decisão:** Estruturar a cognição do ORION em **5 Esferas Delimitadas**:
+  1. `user_profile`: Nome, tratamento preferido (`"Senhor"`), matriz de maestria em ferramentas (`tool_mastery`) e canais remotos.
+  2. `system_identity`: Origem Imutável (concebido por Daniel / `danielribeiro-dev`) + Persona Ativa (Jarvis, tom refinado, conciso em shell e didático em conceitos).
+  3. `system_environment`: Telemetria de RAM, CPU, GPU e modo de vídeo.
+  4. `project_decisions`: Base estruturada de ADRs com ciclo anti-envenenamento (`CONFIRMED`, `INFERRED`, `DEPRECATED`).
+  5. `timeline_episodic`: Linha do tempo perpétua em SQLite WAL FTS5 BM25.
+  - No boot, injeta-se apenas o **Cognitive Manifest** ultra-compacto ($< 250$ tokens). Detalhes são desempacotados sob demanda (*Progressive Cognitive Unpacking*) via ferramentas (`recall`, `inspect_environment`).
+* **Consequências:** Zero afogamento de contexto, consumo mínimo de tokens e extrema precisão semântica.
+
+---
+
+### ADR-015: Monitoramento Passivo de Telemetria do Host & Headroom Guard
+* **Status:** Aprovado (25/10/2026)
+* **Contexto:** Nenhum agente de mercado monitora o impacto físico das suas ações no hardware do usuário. Disparar navegadores pesados ou processamentos multimídia em computadores com pouca RAM causa congelamento total do sistema operacional.
+* **Decisão:** Implementar o módulo passivo `EnvironmentMonitor` (via `psutil` com fallback para `/proc` do Linux) e a salvaguarda determinística **Headroom Guard**:
+  - Se a memória RAM livre for inferior a $1.5\text{ GB}$, o agente bloqueia deterministicamente a abertura de instâncias de browser (Puppeteer/Chromium) ou geração de mídias pesadas, notificando o desenvolvedor e sugerindo alternativas leves (curl/API/texto).
+* **Consequências:** Blindagem física contra travamentos do sistema operacional do desenvolvedor.
+
+---
+
+### ADR-016: Escalonamento Remoto Out-of-Band (HITL via Telegram Bot com Inline Approval)
+* **Status:** Aprovado (25/10/2026)
+* **Contexto:** Tarefas longas em segundo plano que necessitam de aprovação de segurança PEP (LEVEL_2 ou LEVEL_3) ficam bloqueadas indefinidamente no terminal se o desenvolvedor se afasta da mesa para tomar um café ou atender outro compromisso.
+* **Decisão:** Implementar o conector assíncrono de escalonamento remoto via **Telegram Bot**:
+  - Se uma ação exigir aprovação e houver inatividade no terminal local superior a 180 segundos (configurável), o ORION despacha um alerta no Telegram do usuário com botões inline interativos `[Aprovar]` / `[Rejeitar]`.
+  - Ao receber o callback autenticado do `telegram_chat_id` homologado, o PEP no PC libera a execução sem travar a máquina. Possui TTL de expiração de 10 minutos.
+* **Consequências:** Alta autonomia real com supervisão humana contínua em qualquer lugar, sem que o desenvolvedor precise ficar acorrentado ao terminal.

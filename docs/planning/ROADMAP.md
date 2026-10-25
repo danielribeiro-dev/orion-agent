@@ -29,7 +29,7 @@ O O.R.I.O.N foi projetado desde o dia zero para **superar estruturalmente** os a
 | **Arquitetura Central** | Master Loop síncrono | Loop com Subagentes & MCP | Action-Observation Event Stream | Architect / Editor Loop | **Event Stream Assíncrono com Event Sourcing Imutável** |
 | **Manipulação de Código** | `str_replace_editor` (Exact match) | `edit_file` cirúrgico + AST | Edições completas / patch | Unified Diff / Whole File | **Exact-Match Anchored Editor + Tree-sitter AST Fallback** |
 | **Sistema de Habilidades (Skills)** | Instruções em `CLAUDE.md` / Commands | Padrão `SKILL.md` com Progressive Disclosure | Microagents (`.agents/skills/`) | Instruções no chat | **Universal Agent Skills Standard (`SKILL.md`) com Auto-Destilação (`/learn`)** |
-| **Memória & Continuidade** | Auto-compaction pontual; sem histórico entre sessões | Memory MCP (Grafo de Conhecimento) | Histórico de eventos da sessão | Git commit history | **Linha do Tempo Contínua & Memória Tríplice (FTS5 + ONNX + Fatos) + RRF + Dynamic Compaction** |
+| **Memória & Continuidade** | Auto-compaction pontual; sem histórico entre sessões | Memory MCP (Grafo de Conhecimento) | Histórico de eventos da sessão | Git commit history | **Linha do Tempo Contínua & As 5 Esferas Cognitivas (FTS5 + ONNX + Fatos) + PCU (< 250 tok) + Telegram HITL** |
 | **Interface com Usuário** | Terminal CLI puro | Terminal + Artifacts estruturados | Web UI / Browser | Terminal CLI | **TUI Sob Demanda (Rich/Diffs) + Artifacts + Voz Headless (Boot Daemon)** |
 | **Governança & Segurança** | Prompts de confirmação manuais | Modos supervisionado / autônomo | Sandbox de contêiner | Nenhuma (executa no host) | **Deterministic PEP (4 Níveis: 0 a 3) + Bubblewrap Sandboxing** |
 | **Consciência de Custos** | Contagem bruta de tokens | Auditoria de tokens e cache | Nenhuma integrada | Estimativa no prompt | **Real-Time Cost Ledger (USD & BRL) + Model Gateway com Auto-Routing** |
@@ -40,10 +40,10 @@ O O.R.I.O.N foi projetado desde o dia zero para **superar estruturalmente** os a
 ## 🗺️ 2. Mapa Completo de Versões do O.R.I.O.N
 
 ```text
-v0.1.0  ── Clean Foundation & Core ReAct Engine ────────────────── [FASE ATUAL: Sprints 1, 2, 3 Concluídas]
+v0.1.0  ── Clean Foundation & Core ReAct Engine ────────────────── [VERSÃO CONCLUÍDA: 210 testes passando]
   │        (5 Ferramentas Nativas, Action-Observation, PEP e Artefatos)
-v0.2.0  ── Cognitive Continuity: Triple Memory, Agent Skills Standard & Dynamic Compaction [ESPECIFICAÇÃO PRONTA]
-  │        (SQLite WAL FTS5 + ONNX FastEmbed Local + Fatos RRF + SKILL.md Engine + Compactor)
+v0.2.0  ── Cognitive Continuity: The 5-Sphere Memory, Universal Skills & Compaction [ESPECIFICAÇÃO PRONTA]
+  │        (As 5 Esferas Cognitivas, PCU Manifest < 250 tok, Environment Guard, Telegram HITL, SKILL.md, Compactor)
 v0.3.0  ── Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety [ESPECIFICAÇÃO PRONTA]
   │        (Prioridade OpenRouter, Dynamic Auto-Routing, metrics.db, Failover < 2s Qwen Coder 1.5B/3B, Popup do SO)
 v0.4.0  ── High-Performance Stream CLI, Slash Commands (/) & Native MCP [ESPECIFICAÇÃO PRONTA]
@@ -63,13 +63,13 @@ v3.0.0  ── Full Ambient Symbiosis & Multi-Device Distributed Coordination
 ## 📋 3. Detalhamento das Versões Iniciais Especificadas
 
 ### 🚀 v0.1.0 — Clean Foundation & Core ReAct Engine
-* **Status:** 🔄 Sprints 1, 2 e 3 Concluídas (168 testes unitários passando) | Sprint 4 Pendente  
+* **Status:** ✅ VERSÃO ESTÁVEL — Todas as 4 Sprints Concluídas (210 testes unitários passando)  
 * **Foco:** Base de código limpa em Python 3.11+, tipagem Pydantic v2, loop assíncrono ReAct baseado em **Action-Observation Event Stream**, delimitação estrita de prompts, 5 Ferramentas Primitivas Nativas de SO (`run_command`, `read_file`, `write_file`, `edit_file`, `search_files`), governança determinística (PEP) e subsistema inicial de Artefatos.
 * **Documentação:** [`docs/planning/versions/v0.1.0/VERSION.md`](versions/v0.1.0/VERSION.md)
 
-### 🧠 v0.2.0 — Cognitive Continuity: Triple Memory, Agent Skills Standard & Dynamic Compaction
-* **Status:** 📋 Especificação Formalizada e Congelada para Execução  
-* **Foco:** Memória Tríplice (SQLite WAL FTS5 BM25 + ONNX FastEmbed local `bge-small-en-v1.5` + Fatos estruturados anti-envenenamento com ciclo tipado), Fusão Híbrida RRF (< 1.500 tokens), Padrão Universal `Agent Skills` (`SKILL.md`) com Progressive Disclosure em 3 fases e Dynamic Context Compactor (auto-compaction a 80% e comando `/compact`).
+### 🧠 v0.2.0 — Cognitive Continuity: The 5-Sphere Memory, Universal Skills Standard & Dynamic Compaction
+* **Status:** 📋 Especificação Formalizada e Pronta para Execução  
+* **Foco:** Arquitetura das 5 Esferas Cognitivas (`user_profile` com tratamento "Senhor" e matriz de maestria técnica, `system_identity` com Origem Imutável Daniel Ribeiro e Persona Modular Jarvis, `system_environment` com telemetria passiva e Headroom Guard, `project_decisions` com blindagem anti-envenenamento `CONFIRMED`/`DEPRECATED` e `timeline_episodic`), Progressive Cognitive Unpacking com Cognitive Manifest ($< 250$ tokens), conector out-of-band Telegram HITL para autorização remota de PEP, Padrão Universal `Agent Skills` (`SKILL.md`) com Progressive Disclosure em 3 fases e Dynamic Context Compactor (auto-compaction a 80% e comando `/compact`).
 * **Documentação:** [`docs/planning/versions/v0.2.0/VERSION.md`](versions/v0.2.0/VERSION.md)
 
 ### ⚡ v0.3.0 — Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety

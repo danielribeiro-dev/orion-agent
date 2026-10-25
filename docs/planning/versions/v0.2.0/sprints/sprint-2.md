@@ -1,7 +1,7 @@
 # Sprint — [v0.2.0] Sprint 2: FastEmbed Local & RRF Hybrid Fusion
 
 > **Status:** 📋 Planejado  
-> **Versão Relacionada:** v0.2.0 (Cognitive Continuity: Triple Memory, Agent Skills Standard & Dynamic Compaction)  
+> **Versão Relacionada:** v0.2.0 (Cognitive Continuity: The 5-Sphere Memory, Universal Skills Standard & Dynamic Compaction)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
 > **Data de Início:** A definir (Fase 2)  
 > **Data de Conclusão:** —  

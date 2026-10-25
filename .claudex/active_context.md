@@ -14,11 +14,13 @@
    - [x] **L81 — Subsistema de Artefatos com Persistência Dual:** Armazenamento global em `~/.orion/brain/<session_id>/artifacts/` e local em `.orion/artifacts/`.
    - [x] **L86 — Fechamento Documental:** Especificações da v0.1.0 congeladas.
 
-2. **Planejamento Estratégico & Especificação Fechada da v0.2.0 (Superioridade Cognitiva):**
-   - [x] **Memória Tríplice Híbrida RRF:** SQLite WAL FTS5 BM25 + ONNX FastEmbed Local (`bge-small-en-v1.5`) + Fatos estruturados anti-envenenamento (< 1.500 tokens).
+2. **Planejamento Estratégico & Especificação Fechada da v0.2.0 (Superioridade Cognitiva & As 5 Esferas):**
+   - [x] **A Arquitetura das 5 Esferas Cognitivas:** `user_profile` (nome, "Senhor", matriz de maestria em ferramentas, canais remotos), `system_identity` (Origem Imutável Daniel Ribeiro + Persona Modular Jarvis), `system_environment` (telemetria de RAM/CPU/GPU e Headroom Guard), `project_decisions` (ADRs com ciclo anti-envenenamento `CONFIRMED`/`DEPRECATED`), `timeline_episodic` (SQLite WAL FTS5 BM25 + ONNX FastEmbed local).
+   - [x] **Progressive Cognitive Unpacking (PCU):** Cognitive Manifest com injeção estrita de $< 250$ tokens no boot; desempacotamento cirúrgico sob demanda via `recall` e `inspect_environment`.
+   - [x] **Escalonamento Remoto Out-of-Band (HITL Telegram):** Aprovação remota de ações PEP Level 2/3 por botões inline quando terminal estiver inativo ($> 180$s).
    - [x] **Universal Agent Skills Standard (`SKILL.md`):** Divulgação Progressiva em 3 estágios e ferramenta `use_skill`.
    - [x] **Dynamic Context Compactor & Branches:** Auto-compaction a 80%, comando `/compact` e branches com síntese de checkpoints.
-   - [x] **Sprints da v0.2.0:** Todas as 4 sprints formalizadas em `docs/planning/versions/v0.2.0/sprints/`.
+   - [x] **Sprints da v0.2.0:** Todas as 4 sprints formalizadas e atualizadas em `docs/planning/versions/v0.2.0/sprints/`.
 
 3. **Planejamento Estratégico & Especificação Fechada da v0.3.0 (Model Gateway, Custos, Resiliência e Blindagem Nuclear):**
    - [x] **OpenRouter como Provedor Prioritário:** Hub unificado para Claude 3.7 Sonnet, Gemini 2.5 Flash, Qwen Coder sob uma única chave (ADR-019).

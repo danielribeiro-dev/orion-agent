@@ -76,17 +76,17 @@
 
 ---
 
-### [ESPECIFICAÇÃO CONCLUÍDA] Fase 2: v0.2.0 Cognitive Continuity: Triple Memory, Agent Skills Standard & Dynamic Compaction
-- [x] Especificação formal da versão em `docs/planning/versions/v0.2.0/VERSION.md`
+### [ESPECIFICAÇÃO CONCLUÍDA & ATUALIZADA] Fase 2: v0.2.0 Cognitive Continuity: The 5-Sphere Memory, Universal Skills Standard & Dynamic Compaction
+- [x] Especificação formal da versão em `docs/planning/versions/v0.2.0/VERSION.md` (As 5 Esferas Cognitivas, PCU, Headroom Guard e Telegram HITL)
 - [x] Especificação técnica de habilidades em `docs/architecture/AGENT_SKILLS_STANDARD.md`
-- [x] Especificação técnica da Memória Tríplice em `docs/architecture/TRIPLE_MEMORY.md`
+- [x] Especificação técnica da Memória Tríplice & 5 Esferas em `docs/architecture/TRIPLE_MEMORY.md`
 - [x] Especificação técnica de Timeline & Compactor em `docs/architecture/TIMELINE_SYSTEM.md`
-- [x] As 4 Sprints detalhadas e congeladas:
+- [x] As 4 Sprints detalhadas e congeladas com as 5 Esferas e PCU:
   - [x] `sprints/sprint-1.md` (Main Timeline & SQLite FTS5 BM25)
   - [x] `sprints/sprint-2.md` (FastEmbed Local ONNX Vector & RRF Hybrid Fusion)
-  - [x] `sprints/sprint-3.md` (Structured Knowledge, User Profile & Cognitive Memory Tools)
+  - [x] `sprints/sprint-3.md` (The 5-Sphere Memory, Cognitive Tools & Remote HITL Connector)
   - [x] `sprints/sprint-4.md` (Universal Skills Standard & Dynamic Compactor / Branches)
-- [ ] Implementação de código e testes (aguardando execução após a v0.1.0)
+- [ ] Implementação de código e testes (aguardando autorização para iniciar a Sprint 1)
 
 ---
 
