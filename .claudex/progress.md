@@ -3,8 +3,9 @@
 
 ## 📊 Status Global do Projeto
 - **Repositório:** `orion-agent`
-- **Fase Atual:** Fase 0 Concluída & Validada — Especificação da v0.1.0 Fechada para Início
-- **Linhas de Código em `src/`:** 0 (Aguardando autorização para iniciar a Sprint 1)
+- **Fase Atual:** Fase 1 (v0.1.0) Em Andamento — Sprints 1 e 2 Concluídas, Sprint 3 Pronta para Início
+- **Linhas de Código em `src/`:** ~480 linhas de produção testadas
+- **Testes:** 100/100 passando (100% sucesso) · Cobertura: **96.24%** (meta: $\ge 85\%$)
 
 ---
 
@@ -41,18 +42,24 @@
 
 ---
 
-### [PRONTO PARA INICIAR] Fase 1: v0.1.0 Clean Foundation & Core ReAct Engine
-- [ ] **Sprint 1: Tooling, Tipagem & Skeleton**
-  - [ ] `pyproject.toml` moderno com PEP 621 e dependências
-  - [ ] Ponto de entrada CLI `src/orion/cli.py` com o banner *The Hunter Crest*
-  - [ ] Modelos de configuração tipados em `src/orion/config.py` (modos auto/fixed, provedores)
-  - [ ] Testes unitários de infraestrutura
-- [ ] **Sprint 2: Core ReAct Engine, Action-Observation EventBus & Artefatos**
-  - [ ] Modelos de eventos tipados `Action` e `Observation` em Pydantic v2
-  - [ ] `EventBus` pub/sub assíncrono in-process com histórico
-  - [ ] `ReActEngine` assíncrono com Turn Budgeting (max 20 passos) e delimitadores de prompt
-  - [ ] Subsistema `ArtifactStore` com suporte de persistência dual
-  - [ ] Testes unitários do motor cognitivo
+### [EM PROGRESSO] Fase 1: v0.1.0 Clean Foundation & Core ReAct Engine
+- [x] **Sprint 1: Tooling, Tipagem & Skeleton** ✅ CONCLUÍDA (2026-10-24) — Cobertura: 97.48%
+  - [x] `pyproject.toml` moderno com PEP 621, hatchling, deps e dev-deps
+  - [x] `src/orion/__init__.py` com `__version__ = "0.1.0-alpha"`
+  - [x] Ponto de entrada CLI `src/orion/cli.py` com o banner *The Hunter Crest* (Rich + Typer)
+  - [x] Modelos de configuração tipados em `src/orion/config.py` (RoutingMode, AutonomyLevel, ProviderConfig, PathsConfig, OrionConfig — Pydantic v2 frozen)
+  - [x] `tests/conftest.py`, `tests/unit/test_cli.py`, `tests/unit/test_config.py` — 41 testes, 100% passando
+  - [x] Venv `.venv/` criado e `pip install -e ".[dev]"` funcional
+  - [x] `orion --version` e `orion info` operacionais
+- [x] **Sprint 2: Core ReAct Engine, Action-Observation EventBus & Artefatos** ✅ CONCLUÍDA (2026-10-24) — Cobertura: 96.24%
+  - [x] `src/orion/core/errors.py` — Hierarquia tipada de exceções (OrionError, TurnBudgetExceeded, EngineStateError, PromptInjectionSuspected, ArtifactError, PEPDeniedError)
+  - [x] `src/orion/core/events.py` — Modelos imutáveis Pydantic v2: Action, Observation, TurnStarted, Thinking, ActionEmitted, ObservationReceived, FinalAnswer, TurnCompleted
+  - [x] `src/orion/core/event_bus.py` — Pub/Sub assíncrono in-process com buffer circular e isolamento de erros por handler
+  - [x] `src/orion/core/state.py` — StateMachine com 9 estados e grafo de transições validado
+  - [x] `src/orion/core/engine.py` — ReActEngine assíncrono com Turn Budgeting, delimitadores formais de prompt e proteção contra injeção
+  - [x] `src/orion/artifacts/models.py` — ArtifactMetadata, Artifact, StorageScope (GLOBAL/LOCAL/BOTH)
+  - [x] `src/orion/artifacts/store.py` — ArtifactStore com persistência dual e registro em memória
+  - [x] `tests/unit/test_event_bus.py`, `test_engine.py`, `test_artifacts.py` — 59 novos testes, 100 total passando
 - [ ] **Sprint 3: As 5 Ferramentas Primitivas Nativas & PEP Determinístico**
   - [ ] Implementação de `permissions.py` (LEVEL_0 a LEVEL_3) e `WorkspaceScope`
   - [ ] Implementação de `pep.py` (validação determinística e aprovação no modo supervisionado)

@@ -1,10 +1,10 @@
 # Sprint — [v0.1.0] Sprint 1: Tooling, Tipagem & Skeleton
 
-> **Status:** 📋 Pronto para Execução  
+> **Status:** ✅ Concluída  
 > **Versão Relacionada:** v0.1.0 (Clean Foundation & Core ReAct Engine)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
-> **Data de Início:** A definir (Início da Fase 1)  
-> **Data de Conclusão:** —  
+> **Data de Início:** 2026-10-24  
+> **Data de Conclusão:** 2026-10-24  
 
 ---
 
@@ -37,14 +37,14 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Configuração de `pyproject.toml` moderno com metadados do projeto, dependências principais (`pydantic>=2.0`, `rich`, `typer`, `httpx`) e de desenvolvimento (`pytest`, `pytest-cov`, `pytest-asyncio`, `ruff`, `mypy`).
-- [ ] Criação de `src/orion/__init__.py` com `__version__ = "0.1.0-alpha"`.
-- [ ] Implementação de `src/orion/cli.py` utilizando `rich` e `typer` para o ponto de entrada da aplicação, renderizando o banner ASCII oficial *The Hunter Crest*.
-- [ ] Implementação de `src/orion/config.py` com dataclasses/modelos Pydantic v2 representando:
+- [x] Configuração de `pyproject.toml` moderno com metadados do projeto, dependências principais (`pydantic>=2.0`, `rich`, `typer`, `httpx`) e de desenvolvimento (`pytest`, `pytest-cov`, `pytest-asyncio`, `ruff`, `mypy`).
+- [x] Criação de `src/orion/__init__.py` com `__version__ = "0.1.0-alpha"`.
+- [x] Implementação de `src/orion/cli.py` utilizando `rich` e `typer` para o ponto de entrada da aplicação, renderizando o banner ASCII oficial *The Hunter Crest*.
+- [x] Implementação de `src/orion/config.py` com dataclasses/modelos Pydantic v2 representando:
   - `RoutingMode`: Enum (`AUTO`, `FIXED`).
   - `ProviderConfig`: Suporte a OpenRouter, Gemini, Anthropic, OpenAI, Ollama.
   - `OrionConfig`: Configuração geral de paths (`~/.orion/` global e `.orion/` local), teto de orçamento e modo de autonomia.
-- [ ] Configuração do `tests/conftest.py` e testes unitários de inicialização de CLI e parsing de configurações.
+- [x] Configuração do `tests/conftest.py` e testes unitários de inicialização de CLI e parsing de configurações.
 
 ### 🚫 Fora de Escopo (Out of Scope / Anti-Metas)
 - Não implementar loop de inferência de LLM ou chamadas de API (escopo da Sprint 2).
@@ -73,9 +73,10 @@ orion-agent/
 
 ## 6. Definition of Done (DoD)
 
-- [ ] `pyproject.toml` configurado e validado via `pip install -e .`.
-- [ ] `orion --version` exibe a versão correta e o banner *The Hunter Crest* estilizado em Rich.
-- [ ] `orion --help` documenta os subcomandos e opções fundamentais.
-- [ ] Modelos de configuração em `src/orion/config.py` passam em testes de validação Pydantic.
-- [ ] `pytest tests/unit/test_cli.py tests/unit/test_config.py` passa com 100% de sucesso.
-- [ ] `.claudex/progress.md` atualizado com o encerramento da Sprint 1.
+- [x] `pyproject.toml` configurado e validado via `pip install -e .` no ambiente virtual `.venv`.
+- [x] `orion --version` exibe a versão correta e o banner *The Hunter Crest* estilizado em Rich.
+- [x] `orion --help` documenta os subcomandos e opções fundamentais.
+- [x] Modelos de configuração em `src/orion/config.py` passam em testes de validação Pydantic.
+- [x] `pytest tests/unit/test_cli.py tests/unit/test_config.py` passa com 100% de sucesso (41 testes).
+- [x] Cobertura de testes atingida: **97.48%** (meta: $\ge 85\%$).
+- [x] `.claudex/progress.md` atualizado com o encerramento da Sprint 1.

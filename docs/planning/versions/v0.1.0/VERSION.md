@@ -46,8 +46,8 @@ Para fazer jus ao nome O.R.I.O.N desde a primeira linha de código, o sistema pr
 
 | Sprint | Nome da Sprint | Objetivo Principal | Documento | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Sprint 1** | Tooling, Tipagem & Skeleton | `pyproject.toml`, Pydantic v2, CLI Skeleton, Banner Hunter Crest e Esquemas de Configuração | [`sprints/sprint-1.md`](sprints/sprint-1.md) | 📋 Planejado |
-| **Sprint 2** | Core ReAct Engine & Action-Observation EventBus | Loop assíncrono, State Machine, Delimitadores Formais e Subsistema de Artefatos | [`sprints/sprint-2.md`](sprints/sprint-2.md) | 📋 Planejado |
+| **Sprint 1** | Tooling, Tipagem & Skeleton | `pyproject.toml`, Pydantic v2, CLI Skeleton, Banner Hunter Crest e Esquemas de Configuração | [`sprints/sprint-1.md`](sprints/sprint-1.md) | ✅ Concluída |
+| **Sprint 2** | Core ReAct Engine & Action-Observation EventBus | Loop assíncrono, State Machine, Delimitadores Formais e Subsistema de Artefatos | [`sprints/sprint-2.md`](sprints/sprint-2.md) | ✅ Concluída |
 | **Sprint 3** | As 5 Primitivas Nativas & PEP Determinístico | `run_command`, `read_file`, `write_file`, `edit_file`, `search_files`, LocalRuntimeProvider e PEP (Níveis 0 a 3) | [`sprints/sprint-3.md`](sprints/sprint-3.md) | 📋 Planejado |
 | **Sprint 4** | Testes Automatizados E2E, Cobertura $\ge 85\%$ & Release | Integração E2E ponta a ponta, auditoria de segurança estática/dinâmica e congelamento da v0.1.0 | [`sprints/sprint-4.md`](sprints/sprint-4.md) | 📋 Planejado |
 
