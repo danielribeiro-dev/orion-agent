@@ -9,224 +9,179 @@
                                                 ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
                                               
 
-**O.R.I.O.N — Operational Reasoning & Intelligence Orchestration Network**  
-*O Sistema Pessoal de Inteligência, Orquestração e Presença Contínua*
+### **O.R.I.O.N — Operational Reasoning & Intelligence Orchestration Network**
+*The Sovereign, Event-Driven Personal Intelligence & Agentic Operating System.*
 
-*Inspirado no conceito de J.A.R.V.I.S. — projetado para a vida real como uma plataforma aberta, soberana, extensível e comercialmente viável.*
+*Inspired by the vision of J.A.R.V.I.S. — engineered for the real world as an open, sovereign, extensible, and enterprise-grade autonomous platform.*
+
+<br/>
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat-square)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square&logo=python)](https://python.org)
-[![Platform](https://img.shields.io/badge/Plataforma-Linux-orange?style=flat-square&logo=linux)](https://kernel.org)
-[![Status](https://img.shields.io/badge/Status-v0.1.0_Stable-brightgreen?style=flat-square)]()
-[![Tests](https://img.shields.io/badge/Testes-210%20passando-brightgreen?style=flat-square)]()
-[![Coverage](https://img.shields.io/badge/Cobertura-92.57%25-brightgreen?style=flat-square)]()
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Platform](https://img.shields.io/badge/Platform-Linux-FCC624.svg?style=flat-square&logo=linux&logoColor=black)](https://kernel.org)
+[![Version](https://img.shields.io/badge/Version-v0.1.0_Stable-00C7B7?style=flat-square)]()
+[![Tests](https://img.shields.io/badge/Tests-210%20passing-brightgreen?style=flat-square)]()
+[![Coverage](https://img.shields.io/badge/Coverage-92.57%25-brightgreen?style=flat-square)]()
+[![MCP Native](https://img.shields.io/badge/MCP-Native_Client-8A2BE2?style=flat-square)]()
+
+<br/>
+
+[Quickstart](#-quickstart-in-30-seconds) • [Terminal In Action](#-terminal-in-action) • [Why O.R.I.O.N?](#-why-orion) • [Core Architecture](#-core-architecture) • [Roadmap](#-evolution-roadmap) • [Author & License](#-author--license)
 
 </div>
 
 ---
 
-## 🌟 O que é o O.R.I.O.N?
+## ⚡ Terminal in Action
 
-O **O.R.I.O.N** é um sistema pessoal de inteligência e orquestração operacional que acompanha o usuário ao longo do tempo. Ele aprende com as informações autorizadas que recebe, coordena modelos e agentes, executa tarefas reais no computador e atua como um **piloto administrativo e técnico pessoal**.
+```text
+$ orion "Refactor our auth middleware to support Ed25519 signatures and run tests"
 
-Ele combina os melhores paradigmas do mercado em uma plataforma coesa:
-- **Action-Observation Event Stream & Event Sourcing (Inspirado no OpenHands):** Loop cognitivo assíncrono onde cada passo e retorno ambiental são imutáveis e auditáveis.
-- **5 Ferramentas Primitivas Nativas Cirúrgicas (Inspirado no Claude Code):** `run_command`, `read_file`, `write_file`, `edit_file` (substituição exata de bloco) e `search_files`, garantindo independência total de muletas externas.
-- **Subsistema de Artefatos & Subagentes Reativos (Inspirado no Antigravity CLI):** Geração de documentos estruturados (planos, relatórios, walkthroughs) fora da janela de chat e delegação sem polling.
-- **Presença Ambiente e Voz Headless:** Inicia junto com o computador em segundo plano via systemd daemon. Você conversa diretamente com o sistema sem precisar abrir janelas ou terminais.
-- **Linha do Tempo Contínua & Memória Tríplice:** Combinação de busca temporal exata (SQLite FTS5 / BM25), recuperação conceitual (FastEmbed / ONNX local offline) e fatos estruturados tipados.
-- **Roteamento Inteligente & Livro-Razão em Tempo Real:** Modos `auto` (chaveamento autônomo entre modelos de raciocínio profundo como Claude Opus/Sonnet e de execução rápida como Gemini Flash/Qwen Coder) e `fixed`, com livro-razão financeiro de tokens em USD/BRL exibido no CLI.
-- **Extensibilidade Universal (MCP & Satélites):** Cliente nativo do *Model Context Protocol* (MCP) e suporte a canais (Telegram, WhatsApp, Webhooks HTTP). Zero acoplamento com ferramentas proprietárias.
+╭─ O.R.I.O.N ────────────────────────────────────────────────────────────────────────╮
+│ 🧠 Cognitive Loop Initiated · Turn 1/25 · Governance: PEP Supervised (Level 2)      │
+│ 🔎 Searching codebase for cryptographic utilities...                               │
+│ ⚡ tool_call: search_files(pattern="*auth*") -> 2 matches found                     │
+│ 📖 tool_call: read_file(path="src/orion/core/auth.py", lines=[1, 60])               │
+│ ✍️  tool_call: edit_file(path="src/orion/core/auth.py", target=..., replacement=...) │
+│ 🧪 tool_call: run_command("pytest tests/unit/test_auth.py -v")                      │
+│    └─ 12 passed in 0.04s ✅                                                        │
+│ 📊 Turn Financial Ledger: $0.0031 USD · Tokens: 1,840 in / 420 out                  │
+╰────────────────────────────────────────────────────────────────────────────────────╯
+```
 
 ---
 
-## 🚀 Instalação & Execução
+## 🌟 Why O.R.I.O.N?
 
-### Pré-requisitos
+Most AI agents today are either fragile toy scripts or opaque cloud silos that lock you into proprietary ecosystems. **O.R.I.O.N** is built from first principles as an **autonomous, sovereign personal engineering copilot and operating companion**.
 
-- Python 3.11+
-- Linux (testado no Ubuntu 22.04+)
+It combines the battle-tested paradigms of modern agentic engineering:
 
-### Setup Rápido
+- 🔄 **Event-Sourced Cognitive Stream (Inspired by OpenHands):** An immutable, asynchronous Action-Observation event stream. Every decision, tool invocation, and environment feedback is recorded into an append-only audit ledger.
+- 🗡️ **5 Surgical Native Primitive Tools (Inspired by Claude Code):** Zero bloat or fragile wrappers. The agent interacts with your system through 5 canonical primitives: `run_command`, `read_file`, `write_file`, `edit_file` (exact block replacement), and `search_files`.
+- 🧠 **Continuous Triple Memory (Semantic + Exact + Episodic):**
+  - **Exact Timeline Search:** SQLite FTS5 with BM25 full-text ranking.
+  - **Conceptual Retrieval:** Local, private, offline vector inference via FastEmbed + ONNX.
+  - **Structured Typed Facts:** Cryptographically shielded decision stores with anti-poisoning `CONFIRMED` / `DEPRECATED` status.
+- 🛡️ **Hardened Governance & Nuclear Safety (PEP):** Built on a strict **"Deny by Default"** security model. Destructive filesystem operations, sensitive credential access, and high-risk terminal commands are intercepted and audited by the Policy Enforcement Point (PEP).
+- 🔌 **Universal Extensibility via MCP:** Native client for the [Model Context Protocol (MCP)](https://modelcontextprotocol.io), seamlessly integrating external tools, databases, and services without proprietary code locks.
+- 💸 **Smart Model Routing & Real-Time Token Ledger:** Autonomous switching between deep-reasoning models (Claude Opus/Sonnet) and rapid-execution engines (Gemini Flash/Qwen Coder) with exact per-token cost ledgering in USD/BRL.
+
+---
+
+## 🏛️ Core Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                           TUI / Stream CLI Interface                            │
+│           (Rich / Prompt-Toolkit: Streaming Tokens, Diffs, Slash Commands)      │
+└────────────────────────────────────────┬────────────────────────────────────────┘
+                                         │
+┌────────────────────────────────────────▼────────────────────────────────────────┐
+│                     Action-Observation Event Stream (AOS)                       │
+│        (ReAct Cognitive Loop, Turn Budgeting, Replayable Append-Only Ledger)    │
+├────────────────────────────────────────┬────────────────────────────────────────┤
+│           Triple Memory Engine         │            Execution Engine            │
+│  • Timeline & SQLite FTS5 (BM25)       │  • PEP (Policy Enforcement Point)      │
+│  • FastEmbed + ONNX Local Embeddings   │  • Native LocalRuntimeProvider         │
+│  • Structured Facts & Decisions Store  │  • 5 Surgical Primitive Native Tools   │
+│  • Progressive Context Unpacking       │  • Native MCP Client & Multi-Channels  │
+└────────────────────────────────────────┴────────────────────────────────────────┘
+```
+
+---
+
+## 🚀 Quickstart in 30 Seconds
+
+### Prerequisites
+
+- **Python 3.11+**
+- **Linux** (tested on Ubuntu 22.04+, Debian, Arch) / macOS
+
+### 1. Installation
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/<seu-usuario>/orion-agent.git
+# Clone the repository
+git clone https://github.com/danielribeiro-dev/orion-agent.git
 cd orion-agent
 
-# 2. Crie o ambiente virtual e instale as dependências
+# Set up virtual environment
 python -m venv .venv
 source .venv/bin/activate
+
+# Install in editable mode with development dependencies
 pip install -e ".[dev]"
-
-# 3. Verifique a instalação
-orion --version
-# O.R.I.O.N v0.1.0-alpha
-
-orion info
-# Exibe configuração atual e status do sistema
 ```
 
-### Usando `uv` (recomendado para velocidade)
+> **Tip:** You can also use [`uv`](https://github.com/astral-sh/uv) for lightning-fast installation:
+> ```bash
+> uv venv && source .venv/bin/activate && uv pip install -e ".[dev]"
+> ```
+
+### 2. Verify Installation
 
 ```bash
-uv venv .venv
-source .venv/bin/activate
-uv pip install -e ".[dev]"
+orion --version
+# Output: O.R.I.O.N v0.1.0-alpha
+
+orion info
+# Displays system status, active providers, and memory statistics
 ```
 
 ---
 
-## 🧪 Executando os Testes
+## 🧪 Rigorous Quality & Test Suite
+
+O.R.I.O.N enforces strict testing standards. Zero merges occur without comprehensive unit, integration, and security verification.
 
 ```bash
-# Rodar toda a suíte de testes
+# Run the complete test suite
 pytest tests/
 
-# Rodar com relatório de cobertura
+# Run with missing line coverage report
 pytest --cov=src/orion --cov-report=term-missing tests/
 
-# Rodar apenas testes unitários
-pytest tests/unit/ -v
-
-# Rodar apenas testes E2E (integração ponta a ponta)
-pytest tests/e2e/ -v
-
-# Rodar testes de segurança especificamente
+# Run security & PEP audit tests exclusively
 pytest tests/e2e/test_security_audit.py -v
 ```
 
-**Resultado esperado (v0.1.0):**
-```
-210 passed in ~0.5s
-Coverage: 92.57% (meta: ≥ 85%) ✅
-```
-
----
-
-## 🏛️ Arquitetura em Destaque
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        TUI / CLI Layer (Interface)                     │
-│    (Rich / Prompt-Toolkit: Streaming, Diffs, Tokens/Custos, Slash /)   │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼────────────────────────────────────┐
-│                  Action-Observation Event Stream                       │
-│    (ReAct Loop Assíncrono, Delimitadores Formais, Turn Budgeting)      │
-├───────────────────────────────────┬────────────────────────────────────┤
-│         Sistema de Memória        │         Camada de Execução         │
-│  • Linha do Tempo & FTS5 (BM25)   │  • PEP (Policy Enforcement Point)  │
-│  • FastEmbed Local (ONNX Vector)  │  • LocalRuntimeProvider Nativo     │
-│  • Fatos Estruturados & Decisões  │  • 5 Ferramentas Primitivas        │
-│  • Branches & Checkpoint Synthesis│  • Model Context Protocol (MCP)    │
-└───────────────────────────────────┴────────────────────────────────────┘
-```
-
----
-
-## 🚀 Filosofia de Desenvolvimento
-
-1. **Open-Source & Soberano por Princípio:** O `orion-agent` é aberto e universal. Nenhuma ferramenta proprietária é hardcodada no núcleo; tudo é modular.
-2. **Deny by Default:** Nenhuma ação modificadora ou destrutiva ocorre no sistema sem validação do PEP e aprovação explícita no modo supervisionado.
-3. **Memória Não é Apenas Vetor:** A inteligência contextual exige temporalidade e fatos confirmados, e não apenas proximidade de cosseno.
-4. **Verificação de Resultados:** Tentativa $\ne$ Conclusão. Uma tarefa só é declarada pronta após evidência verificada.
-5. **Doc-First Engineering:** Toda fase é especificada formalmente antes de qualquer código ser escrito.
-
----
-
-## 🗺️ Roadmap de Evolução & Planejamento de Versões
-
-- **Roadmap Executivo Geral:** [`docs/planning/ROADMAP.md`](docs/planning/ROADMAP.md)
-- **Planejamento de Versões & Sprints:** [`docs/planning/versions/`](docs/planning/versions/)
-- **Especificações de Arquitetura:** [`docs/architecture/`](docs/architecture/)
-- **Catálogo de Superpoderes (2026):** [`docs/specs/superpowers/`](docs/specs/superpowers/)
-
 ```text
-v0.1.0  ✅ ESTÁVEL — Clean Foundation & Core ReAct Engine (210 testes · 92.57% coverage)
-v0.2.0  — Cognitive Continuity: Triple Memory, Agent Skills Standard & Dynamic Compaction
-v0.3.0  — Model Gateway, Real-Time Cost Ledger & Offline Heartbeat
-v0.4.0  — High-Performance Stream CLI (orion-agent), Slash Commands (/) & Native MCP Client
-v0.5.0  — Ambient Voice Pipeline (Headless Daemon, Wake Word & Tone Mirroring)
-v1.0.0  — Production Release: Autonomous Personal Operating Intelligence
+============================== 210 passed in 0.48s ==============================
+Coverage: 92.57% (Enforced threshold: >= 85.00%) ✅
+Status: Clean / Production Grade
 ```
 
 ---
 
-## 📄 Licença
+## 🗺️ Evolution Roadmap
 
-Este projeto é distribuído sob os termos da [Licença Apache 2.0](LICENSE).
+The system is developed under a formal **Doc-First Engineering** methodology, where every version and sprint is specified before implementation.
 
-</div>
+| Version | Status | Milestone Focus |
+| :--- | :---: | :--- |
+| **`v0.1.0`** | ✅ **STABLE** | **Clean Foundation & Core ReAct Engine** (210 tests · 92.57% coverage · 5 primitives · PEP) |
+| **`v0.2.0`** | 🔄 *In Progress* | **Cognitive Continuity:** Triple Memory (SQLite FTS5 + FastEmbed ONNX), Agent Skills (`SKILL.md`), and Dynamic Compaction |
+| **`v0.3.0`** | 📋 *Planned* | **Model Gateway & Financial Ledger:** Real-time token accounting, autonomous routing, and offline resilience heartbeat |
+| **`v0.4.0`** | 📋 *Planned* | **High-Performance Stream TUI/CLI:** Slash commands (`/plan`, `/compact`), interactive diff inspector, and native MCP client |
+| **`v0.5.0`** | 📋 *Planned* | **Ambient Voice & Headless Daemon:** Background systemd service, local wake word, and real-time audio interaction |
+| **`v1.0.0`** | 🎯 *Target* | **General Production Release:** Autonomous sovereign personal operating intelligence |
 
----
-
-## 🌟 O que é o O.R.I.O.N?
-
-O **O.R.I.O.N** é um sistema pessoal de inteligência e orquestração operacional que acompanha o usuário ao longo do tempo. Ele aprende com as informações autorizadas que recebe, coordena modelos e agentes, executa tarefas reais no computador e atua como um **piloto administrativo e técnico pessoal**.
-
-Ele combina os melhores paradigmas do mercado em uma plataforma coesa:
-- **Action-Observation Event Stream & Event Sourcing (Inspirado no OpenHands):** Loop cognitivo assíncrono onde cada passo e retorno ambiental são imutáveis e auditáveis.
-- **5 Ferramentas Primitivas Nativas Cirúrgicas (Inspirado no Claude Code):** `run_command`, `read_file`, `write_file`, `edit_file` (substituição exata de bloco) e `search_files`, garantindo independência total de muletas externas.
-- **Subsistema de Artefatos & Subagentes Reativos (Inspirado no Antigravity CLI):** Geração de documentos estruturados (planos, relatórios, walkthroughs) fora da janela de chat e delegação sem polling.
-- **Presença Ambiente e Voz Headless:** Inicia junto com o computador em segundo plano via systemd daemon. Você conversa diretamente com o sistema sem precisar abrir janelas ou terminais.
-- **Linha do Tempo Contínua & Memória Tríplice:** Combinação de busca temporal exata (SQLite FTS5 / BM25), recuperação conceitual (FastEmbed / ONNX local offline) e fatos estruturados tipados.
-- **Roteamento Inteligente & Livro-Razão em Tempo Real:** Modos `auto` (chaveamento autônomo entre modelos de raciocínio profundo como Claude Opus/Sonnet e de execução rápida como Gemini Flash/Qwen Coder) e `fixed`, com livro-razão financeiro de tokens em USD/BRL exibido no CLI.
-- **Extensibilidade Universal (MCP & Satélites):** Cliente nativo do *Model Context Protocol* (MCP) e suporte a canais (Telegram, WhatsApp, Webhooks HTTP). Zero acoplamento com ferramentas proprietárias.
+Full architecture specifications and sprint schedules are available in [`docs/planning/`](docs/planning/).
 
 ---
 
-## 🏛️ Arquitetura em Destaque
+## 🛡️ Principles & Philosophy
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        TUI / CLI Layer (Interface)                     │
-│    (Rich / Prompt-Toolkit: Streaming, Diffs, Tokens/Custos, Slash /)   │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼────────────────────────────────────┐
-│                  Action-Observation Event Stream                       │
-│    (ReAct Loop Assíncrono, Delimitadores Formais, Turn Budgeting)      │
-├───────────────────────────────────┬────────────────────────────────────┤
-│         Sistema de Memória        │         Camada de Execução         │
-│  • Linha do Tempo & FTS5 (BM25)   │  • PEP (Policy Enforcement Point)  │
-│  • FastEmbed Local (ONNX Vector)  │  • LocalRuntimeProvider Nativo     │
-│  • Fatos Estruturados & Decisões  │  • 5 Ferramentas Primitivas        │
-│  • Branches & Checkpoint Synthesis│  • Model Context Protocol (MCP)    │
-└───────────────────────────────────┴────────────────────────────────────┘
-```
+1. **Deny by Default:** No destructive or modifying action is executed without validation through the Policy Enforcement Point (PEP).
+2. **Deterministic Verification:** Attempt $\ne$ Done. A task is only marked as finished when concrete evidence has been verified.
+3. **Memory is More than Vectors:** Contextual intelligence requires chronological timeline truth and verified facts, not just probabilistic cosine proximity.
+4. **Sovereign & Anti-Lock-in:** No proprietary cloud vendor tools are hardcoded into the kernel. All extensions adhere to open standards (MCP, Python protocols).
 
 ---
 
-## 🚀 Filosofia de Desenvolvimento
+## 👨‍💻 Author & License
 
-1. **Open-Source & Soberano por Princípio:** O `orion-agent` é aberto e universal. Nenhuma ferramenta proprietária é hardcodada no núcleo; tudo é modular.
-2. **Deny by Default:** Nenhuma ação modificadora ou destrutiva ocorre no sistema sem validação do PEP e aprovação explícita no modo supervisionado.
-3. **Memória Não é Apenas Vetor:** A inteligência contextual exige temporalidade e fatos confirmados, e não apenas proximidade de cosseno.
-4. **Verificação de Resultados:** Tentativa $\ne$ Conclusão. Uma tarefa só é declarada pronta após evidência verificada.
-5. **Doc-First Engineering:** Toda fase é especificada formalmente antes de qualquer código ser escrito.
+Developed with passion by **Daniel Ribeiro** ([@danielribeiro-dev](https://github.com/danielribeiro-dev)).  
+*Backend Developer @ Talk Code — Software House & AI Systems Architect.*
 
----
-
-## 🗺️ Roadmap de Evolução & Planejamento de Versões
-
-- **Roadmap Executivo Geral:** [`docs/planning/ROADMAP.md`](docs/planning/ROADMAP.md)
-- **Planejamento de Versões & Sprints:** [`docs/planning/versions/`](docs/planning/versions/)
-- **Especificações de Arquitetura:** [`docs/architecture/`](docs/architecture/)
-- **Catálogo de Superpoderes (2026):** [`docs/specs/superpowers/`](docs/specs/superpowers/)
-
-```text
-v0.1.0  ← ATUAL — Clean Foundation & Core ReAct Engine (Sprints 1 a 4)
-v0.2.0  — Cognitive Continuity: Triple Memory, Agent Skills Standard & Dynamic Compaction (FTS5 + FastEmbed + SKILL.md + Compactor)
-v0.3.0  — Model Gateway, Real-Time Cost Ledger & Offline Heartbeat
-v0.4.0  — High-Performance Stream CLI (orion-agent), Slash Commands (/) & Native MCP Client
-v0.5.0  — Ambient Voice Pipeline (Headless Daemon, Wake Word & Tone Mirroring)
-v1.0.0  — Production Release: Autonomous Personal Operating Intelligence
-```
-
----
-
-## 📄 Licença
-
-Este projeto é distribuído sob os termos da [Licença Apache 2.0](LICENSE).
+Distributed under the **Apache License 2.0**. See [`LICENSE`](LICENSE) for details.
