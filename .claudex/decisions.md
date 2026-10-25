@@ -114,3 +114,34 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 * **Contexto:** Agentes autônomos tendem a corromper sua própria memória de longo prazo ao gravarem suposições e hipóteses provisórias como verdades absolutas.
 * **Decisão:** Estruturar a memória de fatos com enum de certeza `FactStatus` (`CONFIRMED`, `INFERRED`, `DEPRECATED`). Informações inferidas nunca sobrescrevem regras confirmadas pelo usuário. Expor 3 ferramentas cognitivas nativas no ReAct loop (`memorize`, `recall`, `deprecate_fact`) com registro de auditoria no PEP. Sincronizar em disco o arquivo curado `.orion/memory/MEMORY.md` com teto de 200 linhas.
 * **Consequências:** Memória de longo prazo confiável, auditável pelo desenvolvedor e resistente a alucinações.
+
+---
+
+### ADR-014: Comando Oficial `orion-agent` e Reserva de `orion` para eDEX/Desktop
+* **Status:** Aprovado (24/10/2026)
+* **Contexto:** Distinção clara entre o binário CLI de alta velocidade para o dia a dia e futuras interfaces visuais cinematográficas.
+* **Decisão:** O comando oficial para inicializar o CLI do agente no terminal é exclusivamente `orion-agent` (`[project.scripts] orion-agent = "orion.cli:main"`). O identificador `orion` fica formalmente reservado para a interface eDEX futurista / aplicativo desktop dedicado posterior.
+* **Consequências:** Nomenclatura limpa, clareza operacional para o usuário e proteção de marca para futuros aplicativos gráficos da plataforma.
+
+---
+
+### ADR-015: Stack Tecnológica do Stream CLI (`prompt_toolkit` + `Rich`)
+* **Status:** Aprovado (24/10/2026)
+* **Contexto:** Garantir máxima produtividade de digitação, rolagem nativa de terminal e realce de código sem o peso de TUIs fixas.
+* **Decisão:** O Stream CLI do ORION utiliza exclusivamente:
+  1. `prompt_toolkit` para o buffer de entrada na base, histórico persistente (`~/.orion/history`), autocomplete flutuante ao digitar `/`, expansão de caminhos de arquivo ao digitar `@` e atalhos readline/vi.
+  2. `Rich` para o renderizador de streaming em Markdown (`Rich.Live`), banner adaptativo da Mão Cósmica com Buraco Negro, caixas de diálogo PEP e painéis de diff cirúrgico com sintaxe colorida (verde/vermelho).
+  3. Fica expressamente descartada qualquer interface full-screen travada no CLI diário (como o eDEX original), preservando 100% da fluidez do trackpad/mouse do desenvolvedor.
+* **Consequências:** Ergonomia impecável de desenvolvimento idêntica ao Claude Code e Antigravity, com tempo de inicialização sub-100ms e consumo mínimo de memória (< 30MB).
+
+---
+
+### ADR-016: Catálogo Oficial de 20 Slash Commands (`/`) do O.R.I.O.N
+* **Status:** Aprovado (24/10/2026)
+* **Contexto:** Padronização dos comandos rápidos do terminal, combinando o melhor do mercado (Claude Code, Antigravity, Aider) e as inovações nativas do ORION.
+* **Decisão:** Estabelecer o catálogo fechado de 20 comandos:
+  - *Cognitivos:* `/plan`, `/goal`, `/grill-me`, `/review`
+  - *Memória & Skills:* `/learn`, `/memory`, `/timeline`, `/recall`
+  - *Contexto & Branches:* `/compact`, `/context`, `/branch`, `/merge`
+  - *Operação & Governança:* `/diff`, `/undo`, `/run`, `/doctor`, `/cost`, `/config`, `/mcp`, `/voice`, `/clear`, `/help`
+* **Consequências:** Zero comandos redundantes, máxima interoperabilidade mental para o desenvolvedor e recursos avançados de memória acessíveis com uma barra.

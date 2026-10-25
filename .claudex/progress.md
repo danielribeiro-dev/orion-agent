@@ -89,11 +89,15 @@
 
 ---
 
-### [PLANEJADO] Fase 4: v0.4.0 Interactive TUI, Slash Commands (/) & Native MCP
-- [ ] Terminal interativo Rich com streaming e diffs coloridos
-- [ ] Slash commands dinâmicos (`/plan`, `/config`, `/compact`, `/cost`, `/timeline`)
-- [ ] Tree-sitter Repo Map (~1k tokens de visão periférica)
-- [ ] Cliente nativo do Model Context Protocol (MCP stdio/SSE)
+### [ESPECIFICAÇÃO CONCLUÍDA] Fase 4: v0.4.0 High-Performance Stream CLI, Slash Commands & Native MCP
+- [x] Especificação formal da versão em `docs/planning/versions/v0.4.0/VERSION.md`
+- [x] Especificação de UX/UI em `docs/design/TUI_DESIGN_SYSTEM.md` e arte ASCII em `docs/design/ascii-art.txt`
+- [x] As 4 Sprints detalhadas e congeladas:
+  - [x] `sprints/sprint-1.md` (Stream CLI `orion-agent`, Banner da Mão Cósmica & Status Line)
+  - [x] `sprints/sprint-2.md` (Prompt Interativo com `prompt_toolkit`, Autocomplete `/` e `@`)
+  - [x] `sprints/sprint-3.md` (Streaming Vivo com `Rich.Live`, Diffs Cirúrgicos e 20 Slash Commands)
+  - [x] `sprints/sprint-4.md` (Native MCP Client stdio/SSE & Integração com PEP)
+- [ ] Implementação de código e testes (aguardando execução após a v0.3.0)
 
 ---
 

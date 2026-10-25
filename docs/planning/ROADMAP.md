@@ -46,8 +46,8 @@ v0.2.0  ── Cognitive Continuity: Triple Memory, Agent Skills Standard & Dyna
   │        (SQLite WAL FTS5 + ONNX FastEmbed Local + Fatos RRF + SKILL.md Engine + Compactor)
 v0.3.0  ── Model Gateway, Real-Time Cost Ledger & Offline Resilience
   │        (Auto-Routing por Complexidade, Token Ledger no CLI, ORION Imortal)
-v0.4.0  ── Dynamic Interactive TUI, Slash Commands (/) & Native MCP
-  │        (Rich Markdown Streaming, Tree-sitter Repo Map, MCP Client stdio/SSE)
+v0.4.0  ── High-Performance Stream CLI, Slash Commands (/) & Native MCP
+  │        (orion-agent CLI, prompt_toolkit + Rich, Banner Mão Cósmica, 20 Slash Commands, MCP)
 v0.5.0  ── Ambient Mode & Headless Voice Pipeline
   │        (Systemd Boot Daemon, openWakeWord, Faster-Whisper, Piper TTS)
 v1.0.0  ── Production Release: Autonomous Personal Operating Intelligence

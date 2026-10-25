@@ -15,18 +15,23 @@
    - [x] **L86 — Fechamento Documental:** Especificações da v0.1.0 congeladas.
 
 2. **Planejamento Estratégico & Especificação Fechada da v0.2.0 (Superioridade Competitiva):**
-   - [x] **Pesquisa de Mercado:** Benchmark aprofundado com Claude Code, Google Antigravity, OpenHands e Letta/MemGPT.
-   - [x] **Pacto do Acrônimo O.R.I.O.N:** Cada letra do nome respaldada por arquitetura real.
-   - [x] **Memória Tríplice Híbrida RRF:** SQLite WAL FTS5 BM25 + ONNX FastEmbed Local (`bge-small-en-v1.5`, < 130MB, sem PyTorch) + Fatos estruturados com ciclo anti-envenenamento (`CONFIRMED`, `INFERRED`, `DEPRECATED`) com injeção RRF limitada a 1.500 tokens.
-   - [x] **Universal Agent Skills Standard (`SKILL.md`):** Padrão aberto da indústria com Divulgação Progressiva em 3 estágios e ferramenta `use_skill`.
-   - [x] **Dynamic Context Compactor & Branches:** Auto-compaction automática silenciosa a 80% do budget de contexto (preservando *vital tail* e arquivos ativos), comando `/compact` e branches contextuais com síntese de checkpoints imutáveis.
-   - [x] **Sprints da v0.2.0:** Todas as 4 sprints formalizadas em `docs/planning/versions/v0.2.0/sprints/` (`sprint-1.md` a `sprint-4.md`).
+   - [x] **Memória Tríplice Híbrida RRF:** SQLite WAL FTS5 BM25 + ONNX FastEmbed Local (`bge-small-en-v1.5`) + Fatos estruturados anti-envenenamento (< 1.500 tokens).
+   - [x] **Universal Agent Skills Standard (`SKILL.md`):** Divulgação Progressiva em 3 estágios e ferramenta `use_skill`.
+   - [x] **Dynamic Context Compactor & Branches:** Auto-compaction a 80%, comando `/compact` e branches com síntese de checkpoints.
+   - [x] **Sprints da v0.2.0:** Todas as 4 sprints formalizadas em `docs/planning/versions/v0.2.0/sprints/`.
 
-3. **Status do Projeto:**
-   - Estamos na etapa rigorosa de planejamento e documentação prévia das versões. Nenhuma linha de código é escrita sem alinhamento.
-   - v0.1.0 e v0.2.0 possuem especificações arquiteturais completas, templates de sprint e critérios de aceite detalhados.
+3. **Planejamento Estratégico & Especificação Fechada da v0.4.0 (Padrão Claude Code & Antigravity):**
+   - [x] **Comando Oficial `orion-agent`:** O Stream CLI diário é invocado por `orion-agent`; o comando `orion` fica reservado para a interface eDEX/Desktop pós-v1.0.0.
+   - [x] **Stack Stream CLI:** `prompt_toolkit` (Buffer, histórico, autocomplete `/` e `@`) + `Rich` (Streaming `Live`, diffs cirúrgicos e banner adaptativo da Mão Cósmica com Buraco Negro).
+   - [x] **Catálogo Oficial dos 20 Slash Commands:** Comandos cognitivos, de memória, branches, operação e custos.
+   - [x] **Cliente Nativo MCP:** Suporte a stdio e SSE com interceptação determinística pelo PEP.
+   - [x] **Sprints da v0.4.0:** Todas as 4 sprints formalizadas em `docs/planning/versions/v0.4.0/sprints/`.
+
+4. **Status do Projeto:**
+   - Estamos na etapa rigorosa de planejamento e documentação prévia das versões. Nenhuma linha de código em `src/` é escrita sem alinhamento.
+   - v0.1.0, v0.2.0 e v0.4.0 possuem especificações completas, templates de sprint e critérios de aceite detalhados.
 
 ---
 
 ## 📌 Próximo Passo
-Apresentar a formalização documental da v0.2.0 concluída ao usuário e alinhar os próximos passos (ex: planejar a v0.3.0 Model Gateway & Offline Resilience ou avançar nas demais versões).
+Apresentar a formalização documental da v0.4.0 concluída ao usuário e alinhar os próximos passos (ex: planejar a v0.3.0 Model Gateway, Real-Time Cost Ledger & Offline Resilience).
