@@ -1,13 +1,13 @@
 <div align="center">
 
-                                              ```text
+                                              
                                                 ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗
                                                ██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║
                                                ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║
                                                ██║   ██║██╔══██╗██║██║   ██║██║╚██╗██║
                                                ╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║
                                                 ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
-                                              ```
+                                              
 
 **O.R.I.O.N — Operational Reasoning & Intelligence Orchestration Network**  
 *O Sistema Pessoal de Inteligência, Orquestração e Presença Contínua*
