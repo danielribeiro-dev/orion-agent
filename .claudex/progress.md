@@ -3,9 +3,9 @@
 
 ## 📊 Status Global do Projeto
 - **Repositório:** `orion-agent`
-- **Fase Atual:** Fase 1 (v0.1.0) Em Andamento — Sprints 1 e 2 Concluídas, Sprint 3 Pronta para Início
-- **Linhas de Código em `src/`:** ~480 linhas de produção testadas
-- **Testes:** 100/100 passando (100% sucesso) · Cobertura: **96.24%** (meta: $\ge 85\%$)
+- **Fase Atual:** Fase 1 (v0.1.0) Em Andamento — Sprints 1, 2 e 3 Concluídas | Especificações das Fases 1, 2, 3 e 4 Formalizadas
+- **Linhas de Código em `src/`:** ~950 linhas de produção testadas
+- **Testes:** 168/168 passando (100% sucesso) · Cobertura: **> 95%** (meta: $\ge 85\%$)
 
 ---
 
@@ -60,12 +60,12 @@
   - [x] `src/orion/artifacts/models.py` — ArtifactMetadata, Artifact, StorageScope (GLOBAL/LOCAL/BOTH)
   - [x] `src/orion/artifacts/store.py` — ArtifactStore com persistência dual e registro em memória
   - [x] `tests/unit/test_event_bus.py`, `test_engine.py`, `test_artifacts.py` — 59 novos testes, 100 total passando
-- [ ] **Sprint 3: As 5 Ferramentas Primitivas Nativas & PEP Determinístico**
-  - [ ] Implementação de `permissions.py` (LEVEL_0 a LEVEL_3) e `WorkspaceScope`
-  - [ ] Implementação de `pep.py` (validação determinística e aprovação no modo supervisionado)
-  - [ ] `AuditLogger` append-only em `~/.orion/audit.log`
-  - [ ] `LocalRuntimeProvider` e as 5 ferramentas (`run_command`, `read_file`, `write_file`, `edit_file`, `search_files`)
-  - [ ] Testes unitários de ferramentas e segurança
+- [x] **Sprint 3: As 5 Ferramentas Primitivas Nativas & PEP Determinístico** ✅ CONCLUÍDA (2026-10-24)
+  - [x] Implementação de `permissions.py` (LEVEL_0 a LEVEL_3) e `WorkspaceScope`
+  - [x] Implementação de `pep.py` (validação determinística e aprovação no modo supervisionado)
+  - [x] `AuditLogger` append-only em `~/.orion/audit.log`
+  - [x] `LocalRuntimeProvider` e as 5 ferramentas (`run_command`, `read_file`, `write_file`, `edit_file`, `search_files`)
+  - [x] Testes unitários de ferramentas e segurança (168 testes totais passando)
 - [ ] **Sprint 4: Testes E2E, Cobertura $\ge 85\%$ & Release**
   - [ ] Harness de testes de integração ponta a ponta
   - [ ] Testes de estresse de segurança (injeção, path traversal)
@@ -88,11 +88,14 @@
 
 ---
 
-### [PLANEJADO] Fase 3: v0.3.0 Model Gateway, Real-Time Cost Ledger & Offline Resilience
-- [ ] Dynamic Auto-Routing com elevação para raciocínio pesado e retorno para execução leve
-- [ ] Integração com OpenRouter e provedores diretos (Gemini, Anthropic, OpenAI, Ollama)
-- [ ] Registro detalhado em `metrics.db` e comando `/cost`
-- [ ] ORION Imortal: Detecção de queda em < 2s e Event Sourcing local
+### [ESPECIFICAÇÃO CONCLUÍDA] Fase 3: v0.3.0 Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety
+- [x] Especificação formal da versão em `docs/planning/versions/v0.3.0/VERSION.md`
+- [x] As 4 Sprints detalhadas e congeladas:
+  - [x] `sprints/sprint-1.md` (Model Registry & OpenRouter Provider Abstraction)
+  - [x] `sprints/sprint-2.md` (Dynamic Auto-Routing & Complexity Engine)
+  - [x] `sprints/sprint-3.md` (Real-Time Multi-Currency Cost Ledger & Budgeting)
+  - [x] `sprints/sprint-4.md` (ORION Imortal Failover Local Leve Qwen Coder 1.5B/3B & Nuclear Step-Up Auth Gateway)
+- [ ] Implementação de código e testes (aguardando execução após a v0.2.0)
 
 ---
 

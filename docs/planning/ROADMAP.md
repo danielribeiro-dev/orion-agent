@@ -40,16 +40,16 @@ O O.R.I.O.N foi projetado desde o dia zero para **superar estruturalmente** os a
 ## 🗺️ 2. Mapa Completo de Versões do O.R.I.O.N
 
 ```text
-v0.1.0  ── Clean Foundation & Core ReAct Engine ────────────────── [FASE ATUAL]
+v0.1.0  ── Clean Foundation & Core ReAct Engine ────────────────── [FASE ATUAL: Sprints 1, 2, 3 Concluídas]
   │        (5 Ferramentas Nativas, Action-Observation, PEP e Artefatos)
-v0.2.0  ── Cognitive Continuity: Triple Memory, Agent Skills Standard & Dynamic Compaction
+v0.2.0  ── Cognitive Continuity: Triple Memory, Agent Skills Standard & Dynamic Compaction [ESPECIFICAÇÃO PRONTA]
   │        (SQLite WAL FTS5 + ONNX FastEmbed Local + Fatos RRF + SKILL.md Engine + Compactor)
-v0.3.0  ── Model Gateway, Real-Time Cost Ledger & Offline Resilience
-  │        (Auto-Routing por Complexidade, Token Ledger no CLI, ORION Imortal)
-v0.4.0  ── High-Performance Stream CLI, Slash Commands (/) & Native MCP
+v0.3.0  ── Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety [ESPECIFICAÇÃO PRONTA]
+  │        (Prioridade OpenRouter, Dynamic Auto-Routing, metrics.db, Failover < 2s Qwen Coder 1.5B/3B, Popup do SO)
+v0.4.0  ── High-Performance Stream CLI, Slash Commands (/) & Native MCP [ESPECIFICAÇÃO PRONTA]
   │        (orion-agent CLI, prompt_toolkit + Rich, Banner Mão Cósmica, 20 Slash Commands, MCP)
 v0.5.0  ── Ambient Mode & Headless Voice Pipeline
-  │        (Systemd Boot Daemon, openWakeWord, Faster-Whisper, Piper TTS)
+  │        (Systemd Boot Daemon, openWakeWord, Faster-Whisper, Piper TTS, "Senhor, posso executar...")
 v1.0.0  ── Production Release: Autonomous Personal Operating Intelligence
   │        (Blindagem de Segurança Militar, Pacotes Binários e Multiplataforma)
 v1.5.0  ── Self-Healing Engine, Bubblewrap Sandboxing & Dynamic Subagents
@@ -60,17 +60,27 @@ v3.0.0  ── Full Ambient Symbiosis & Multi-Device Distributed Coordination
 
 ---
 
-## 📋 3. Detalhamento da Versão Ativa (v0.1.0)
+## 📋 3. Detalhamento das Versões Iniciais Especificadas
 
 ### 🚀 v0.1.0 — Clean Foundation & Core ReAct Engine
-* **Status:** 🔄 Pronto para Iniciar Implementação  
-* **Foco:** Base de código limpa em Python 3.11+, tipagem Pydantic v2, loop assíncrono ReAct baseado em **Action-Observation Event Stream**, delimitação estrita de prompts, 5 Ferramentas Primitivas Nativas de SO (sem dependência de muletas externas), governança determinística (PEP) e subsistema inicial de Artefatos.
+* **Status:** 🔄 Sprints 1, 2 e 3 Concluídas (168 testes unitários passando) | Sprint 4 Pendente  
+* **Foco:** Base de código limpa em Python 3.11+, tipagem Pydantic v2, loop assíncrono ReAct baseado em **Action-Observation Event Stream**, delimitação estrita de prompts, 5 Ferramentas Primitivas Nativas de SO (`run_command`, `read_file`, `write_file`, `edit_file`, `search_files`), governança determinística (PEP) e subsistema inicial de Artefatos.
 * **Documentação:** [`docs/planning/versions/v0.1.0/VERSION.md`](versions/v0.1.0/VERSION.md)
-* **Sprints:**
-  - `sprint-1`: Setup do ambiente, `pyproject.toml`, CLI Skeleton (Rich/Typer), ASCII Banner e Tipagem Estrita
-  - `sprint-2`: Core ReAct Engine, Action-Observation EventBus Assíncrono, Turn Budgeting e Subsistema de Artefatos
-  - `sprint-3`: As 5 Ferramentas Primitivas Nativas (`run_command`, `read_file`, `write_file`, `edit_file`, `search_files`), LocalRuntimeProvider e PEP Governance (Níveis 0 a 3)
-  - `sprint-4`: Bateria de Testes Automatizados E2E, Cobertura $\ge 85\%$, Auditoria de Segurança e Congelamento da v0.1.0
+
+### 🧠 v0.2.0 — Cognitive Continuity: Triple Memory, Agent Skills Standard & Dynamic Compaction
+* **Status:** 📋 Especificação Formalizada e Congelada para Execução  
+* **Foco:** Memória Tríplice (SQLite WAL FTS5 BM25 + ONNX FastEmbed local `bge-small-en-v1.5` + Fatos estruturados anti-envenenamento com ciclo tipado), Fusão Híbrida RRF (< 1.500 tokens), Padrão Universal `Agent Skills` (`SKILL.md`) com Progressive Disclosure em 3 fases e Dynamic Context Compactor (auto-compaction a 80% e comando `/compact`).
+* **Documentação:** [`docs/planning/versions/v0.2.0/VERSION.md`](versions/v0.2.0/VERSION.md)
+
+### ⚡ v0.3.0 — Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety
+* **Status:** 📋 Especificação Formalizada e Congelada para Execução  
+* **Foco:** Abstração agnóstica de modelos com provedor prioritário OpenRouter, Dynamic Auto-Routing por complexidade de turno (Fast/Lite, Balanced, Heavy Frontier), Livro-Razão de Custos em tempo real em SQLite WAL (`~/.orion/metrics.db`) com cálculo USD/BRL e teto orçamentário diário, **ORION Imortal** (failover offline $< 2$s para `qwen2.5-coder:1.5b/3b` local no Ollama), e **Autonomia Adaptativa com Nuclear Step-Up Auth** (cache de comandos conhecidos no PEP + popup obrigatório de senha do SO para ações destrutivas).
+* **Documentação:** [`docs/planning/versions/v0.3.0/VERSION.md`](versions/v0.3.0/VERSION.md)
+
+### 🖥️ v0.4.0 — High-Performance Stream CLI, Slash Commands & Native MCP
+* **Status:** 📋 Especificação Formalizada e Congelada para Execução  
+* **Foco:** Ponto de entrada oficial `orion-agent`, Stream CLI ergonômico com `prompt_toolkit` (autocomplete flutuante de `/` e expansão de arquivos com `@`) e `Rich.Live` (streaming token a token, diffs coloridos e banner adaptativo da Mão Cósmica com Buraco Negro), Catálogo Oficial dos 20 Slash Commands e Cliente nativo MCP (stdio e SSE).
+* **Documentação:** [`docs/planning/versions/v0.4.0/VERSION.md`](versions/v0.4.0/VERSION.md)
 
 ---
 

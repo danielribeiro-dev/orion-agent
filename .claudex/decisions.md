@@ -145,3 +145,36 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   - *Contexto & Branches:* `/compact`, `/context`, `/branch`, `/merge`
   - *Operação & Governança:* `/diff`, `/undo`, `/run`, `/doctor`, `/cost`, `/config`, `/mcp`, `/voice`, `/clear`, `/help`
 * **Consequências:** Zero comandos redundantes, máxima interoperabilidade mental para o desenvolvedor e recursos avançados de memória acessíveis com uma barra.
+
+---
+
+### ADR-017: Command Trust Ledger & Autonomia Adaptativa (Capability Caching)
+* **Status:** Aprovado (25/10/2026)
+* **Contexto:** Desenvolvedores sofrem de fadiga de confirmação ao responderem `[Y/n]` dezenas de vezes para comandos inofensivos de rotina (como `npm test`, `pytest`, `cargo check` ou `sudo apt update`), o que no mercado leva à ativação perigosa de bypass total de segurança (o "YOLO Mode" do Claude Code).
+* **Decisão:** Implementar o `CommandTrustLedger` no Policy Enforcement Point (PEP):
+  1. Em modos `SUPERVISED` / `MANUAL`: O sistema continua exibindo confirmação `[Y/n]` interativa para ações modificadoras.
+  2. Em modos `WORKSPACE_AUTO` / `ACCEPT_EDITS`: Mutações confinadas ao workspace autorizado não solicitam confirmação. Comandos de terminal consultam o cache seguro de assinaturas (`command_trust`). Se o comando já foi executado e aprovado anteriormente com sucesso (inclusive comandos com `sudo` benignos como `sudo apt install`), ele roda silenciosamente.
+  3. Se for a primeira vez que um comando é executado pelo usuário, o sistema solicita a confirmação formal no primeiro uso e o grava no cache confiável.
+* **Consequências:** Eliminação da fadiga de confirmação sem comprometer a segurança, tornando a experiência fluida e inteligente.
+
+---
+
+### ADR-018: Nuclear Threshold & Popup Obrigatório de Senha do SO (Step-Up Authentication)
+* **Status:** Aprovado (25/10/2026)
+* **Contexto:** Comandos com raio de destruição catastrófico (exclusão em massa, formatação, `rm -rf`, modificações na raiz do SO `/` ou `~/.ssh`) não podem sob hipótese alguma ser executados de forma autônoma ou via simples confirmação de texto facilmente burlável. Além disso, no modo de presença ambiente por voz (v0.5.0), falas descuidadas ou conversas de fundo no quarto enquanto o usuário está deitado (*"apaga tudo e recomeça"*) poderiam disparar desastres.
+* **Decisão:** Estabelecer a trava inviolável do **Nuclear Threshold**:
+  1. Aplica-se incondicionalmente a **todos os modos de autonomia** (inclusive auto e accept-edits).
+  2. Comandos que atingem o raio de destruição nuclear disparam obrigatoriamente um **popup nativo de autenticação do sistema operacional** (Polkit / `pkexec`, `zenity --password` ou `kdialog`), exigindo a senha ou biometria física do dispositivo.
+  3. A regra é "popup em qualquer ambiente" (mesmo rodando em terminal gráfico X11/Wayland). Apenas na ausência estrita de servidor gráfico (sessão pura headless SSH sem display), faz fallback seguro solicitando senha mascarada no chat via `/dev/tty` (`getpass`).
+  4. No modo de voz (v0.5.0), o ORION anuncia formalmente: *"Senhor, posso executar o comando destrutivo [detalhes]? Ele vai fazer X e Y. Por favor, autorize no dispositivo."* e aciona o popup na tela.
+* **Consequências:** Blindagem física absoluta contra alucinações destrutivas, injeções de prompt e acidentes por áudio ambiente.
+
+---
+
+### ADR-019: Gateway de Modelos com Foco em OpenRouter & Failover Local Leve (Qwen Coder 1.5B/3B)
+* **Status:** Aprovado (25/10/2026)
+* **Contexto:** Independência de provedores proprietários, otimização orçamentária e garantia de sobrevivência operacional mesmo em máquinas modestas sem placa de vídeo dedicada.
+* **Decisão:**
+  1. O Model Gateway da v0.3.0 adota o **OpenRouter** como provedor prioritário de primeira classe, fornecendo acesso a modelos de ponta (Claude 3.7 Sonnet, Gemini 2.5 Flash, Qwen 2.5 Coder 32B) através de uma única API key unificada, mantendo contratos abstratos (`BaseLLMProvider`) para provedores diretos futuros.
+  2. O subsistema de resiliência offline **ORION Imortal** executa failover automático em menos de 2 segundos para o Ollama local utilizando a família leve **`qwen2.5-coder:1.5b`** ou **`qwen2.5-coder:3b`** (consumo estrito de 1.5GB a 2.8GB de RAM com quantização Q4_K_M).
+* **Consequências:** Compatibilidade universal com hardware acessível sem travar a máquina do usuário e tolerância contínua a quedas de conexão.
