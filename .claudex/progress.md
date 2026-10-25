@@ -3,9 +3,9 @@
 
 ## 📊 Status Global do Projeto
 - **Repositório:** `orion-agent`
-- **Fase Atual:** Fase 1 (v0.1.0) Em Andamento — Sprints 1, 2 e 3 Concluídas | Especificações das Fases 1, 2, 3 e 4 Formalizadas
-- **Linhas de Código em `src/`:** ~950 linhas de produção testadas
-- **Testes:** 168/168 passando (100% sucesso) · Cobertura: **> 95%** (meta: $\ge 85\%$)
+- **Fase Atual:** Fase 1 (v0.1.0) **CONCLUÍDA** ✅ — Todas as 4 Sprints Finalizadas | Specs das Fases 2, 3 e 4 Formalizadas
+- **Linhas de Código em `src/`:** ~980 linhas de produção testadas
+- **Testes:** 210/210 passando (100% sucesso) · Cobertura: **92.57%** (meta: $\ge 85\%$) ✅
 
 ---
 
@@ -66,11 +66,13 @@
   - [x] `AuditLogger` append-only em `~/.orion/audit.log`
   - [x] `LocalRuntimeProvider` e as 5 ferramentas (`run_command`, `read_file`, `write_file`, `edit_file`, `search_files`)
   - [x] Testes unitários de ferramentas e segurança (168 testes totais passando)
-- [ ] **Sprint 4: Testes E2E, Cobertura $\ge 85\%$ & Release**
-  - [ ] Harness de testes de integração ponta a ponta
-  - [ ] Testes de estresse de segurança (injeção, path traversal)
-  - [ ] Aferição de cobertura $\ge 85\%$ com `pytest-cov`
-  - [ ] Congelamento da v0.1.0 e tag Git
+- [x] **Sprint 4: Testes E2E, Cobertura $\ge 85\%$ & Release** ✅ CONCLUÍDA (2026-10-25) — 210 testes · Cobertura: 92.57%
+  - [x] 10 testes E2E de fluxo ReAct em `tests/e2e/test_react_flow.py`
+  - [x] 32 testes de segurança/auditoria em `tests/e2e/test_security_audit.py`
+  - [x] Cobertura global ≥ 85% confirmada (92.57%)
+  - [x] README.md atualizado com instruções de instalação e testes
+  - [x] VERSION.md congelada · sprint-4.md marcada como concluída
+  - [x] Tag Git `v0.1.0` preparada
 
 ---
 

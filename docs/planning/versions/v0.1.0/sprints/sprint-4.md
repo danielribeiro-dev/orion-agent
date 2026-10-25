@@ -1,10 +1,10 @@
 # Sprint — [v0.1.0] Sprint 4: Testes Automatizados E2E, Cobertura $\ge 85\%$ & Release
 
-> **Status:** 📋 Pronto para Execução  
+> **Status:** ✅ CONCLUÍDA (2026-10-25)  
 > **Versão Relacionada:** v0.1.0 (Clean Foundation & Core ReAct Engine)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
-> **Data de Início:** A definir  
-> **Data de Conclusão:** —  
+> **Data de Início:** 2026-10-25  
+> **Data de Conclusão:** 2026-10-25  
 
 ---
 
@@ -36,16 +36,16 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Implementação de testes E2E em `tests/e2e/test_react_flow.py`:
+- [x] Implementação de testes E2E em `tests/e2e/test_react_flow.py`:
   - Simulação de loop cognitivo completo: recebimento de meta do usuário, turn budgeting, emissão de tool calls, validação pelo PEP, execução via `LocalRuntimeProvider`, retorno de `Observation` e emissão de artefato markdown estruturado.
-- [ ] Implementação de testes de segurança em `tests/e2e/test_security_audit.py`:
+- [x] Implementação de testes de segurança em `tests/e2e/test_security_audit.py`:
   - Tentativa de injeção de comandos maliciosos em prompts.
   - Tentativa de leitura e edição fora do workspace autorizado (Path Traversal).
   - Validação da integridade do arquivo `audit.log`.
-- [ ] Testes de visualização de tokens e contabilidade no CLI (garantindo que o consumo seja reportado com clareza como no Claude Code).
-- [ ] Medição formal de cobertura via `pytest-cov` e validação da meta global de $\ge 85\%$.
-- [ ] Atualização do `README.md` com instruções práticas de instalação, execução e testes.
-- [ ] Congelamento formal da spec `docs/planning/versions/v0.1.0/VERSION.md` e preparação da tag Git `v0.1.0`.
+- [x] Testes de visualização de tokens e contabilidade no CLI (garantindo que o consumo seja reportado com clareza como no Claude Code).
+- [x] Medição formal de cobertura via `pytest-cov` e validação da meta global de $\ge 85\%$ (atingida: **92.57%** · **210 testes**).
+- [x] Atualização do `README.md` com instruções práticas de instalação, execução e testes.
+- [x] Congelamento formal da spec `docs/planning/versions/v0.1.0/VERSION.md` e preparação da tag Git `v0.1.0`.
 
 ---
 
@@ -64,8 +64,8 @@ docs/planning/versions/v0.1.0/
 
 ## 6. Definition of Done (DoD)
 
-- [ ] Suíte de testes completa executando com `pytest tests/`.
-- [ ] Cobertura de código comprovada $\ge 85\%$ em `src/orion/`.
-- [ ] Nenhuma falha de segurança nos testes de injeção e path traversal.
-- [ ] Tag `v0.1.0` registrada no Git.
-- [ ] `.claudex/progress.md` e `.claudex/active_context.md` atualizados para o planejamento da v0.2.0.
+- [x] Suíte de testes completa executando com `pytest tests/`.
+- [x] Cobertura de código comprovada $\ge 85\%$ em `src/orion/` — **atingida: 92.57%**.
+- [x] Nenhuma falha de segurança nos testes de injeção e path traversal.
+- [x] Tag `v0.1.0` registrada no Git.
+- [x] `.claudex/progress.md` e `.claudex/active_context.md` atualizados para o planejamento da v0.2.0.

@@ -1,8 +1,8 @@
 # Spec — [v0.1.0] Clean Foundation & Core ReAct Engine
 
-> **Status:** 🔄 Especificação Finalizada e Fechada para Início da Sprint 1  
+> **Status:** ✅ VERSÃO ESTÁVEL — Todas as 4 Sprints Concluídas & Congeladas  
 > **Criada em:** 2026-10-24  
-> **Concluída em:** —  
+> **Concluída em:** 2026-10-25  
 > **Autor(es):** Daniel Dev & Antigravity (Pair Programming)  
 > **Branch:** `main`  
 
@@ -48,8 +48,8 @@ Para fazer jus ao nome O.R.I.O.N desde a primeira linha de código, o sistema pr
 | :--- | :--- | :--- | :--- | :--- |
 | **Sprint 1** | Tooling, Tipagem & Skeleton | `pyproject.toml`, Pydantic v2, CLI Skeleton, Banner Hunter Crest e Esquemas de Configuração | [`sprints/sprint-1.md`](sprints/sprint-1.md) | ✅ Concluída |
 | **Sprint 2** | Core ReAct Engine & Action-Observation EventBus | Loop assíncrono, State Machine, Delimitadores Formais e Subsistema de Artefatos | [`sprints/sprint-2.md`](sprints/sprint-2.md) | ✅ Concluída |
-| **Sprint 3** | As 5 Primitivas Nativas & PEP Determinístico | `run_command`, `read_file`, `write_file`, `edit_file`, `search_files`, LocalRuntimeProvider e PEP (Níveis 0 a 3) | [`sprints/sprint-3.md`](sprints/sprint-3.md) | 📋 Planejado |
-| **Sprint 4** | Testes Automatizados E2E, Cobertura $\ge 85\%$ & Release | Integração E2E ponta a ponta, auditoria de segurança estática/dinâmica e congelamento da v0.1.0 | [`sprints/sprint-4.md`](sprints/sprint-4.md) | 📋 Planejado |
+| **Sprint 3** | As 5 Primitivas Nativas & PEP Determinístico | `run_command`, `read_file`, `write_file`, `edit_file`, `search_files`, LocalRuntimeProvider e PEP (Níveis 0 a 3) | [`sprints/sprint-3.md`](sprints/sprint-3.md) | ✅ Concluída |
+| **Sprint 4** | Testes Automatizados E2E, Cobertura $\ge 85\%$ & Release | Integração E2E ponta a ponta, auditoria de segurança estática/dinâmica e congelamento da v0.1.0 | [`sprints/sprint-4.md`](sprints/sprint-4.md) | ✅ Concluída |
 
 ---
 
@@ -109,19 +109,20 @@ tests/
 
 | ID | Cenário | Comportamento Esperado | Como Validar | Status |
 |:---|:---|:---|:---|:---|
-| CA-01 | Instalação & Setup | Instalação limpa via `pip install -e .` ou `uv pip install -e .` sem erros | `orion --version` | ⏳ Pendente |
-| CA-02 | Core ReAct Loop | Recebe intenção, orquestra ciclo Action-Observation e encerra com `max_turns` | `pytest tests/unit/test_engine.py` | ⏳ Pendente |
-| CA-03 | Blindagem de Governança | Toda ferramenta mutante é barrada pelo PEP no modo supervisionado até autorização | `pytest tests/unit/test_pep.py` | ⏳ Pendente |
-| CA-04 | Ferramentas Nativas Puras | Leitura, edição cirúrgica por exatidão de bloco e execução de shell rodam sem Hermes | `pytest tests/unit/test_tools.py` | ⏳ Pendente |
-| CA-05 | Subsistema de Artefatos | Planos e relatórios estruturados são salvos no local correto com metadados | `pytest tests/unit/test_artifacts.py` | ⏳ Pendente |
-| CA-06 | Qualidade & Cobertura | 100% dos testes passando com cobertura superior a 85% | `pytest --cov=src/orion` | ⏳ Pendente |
+| CA-01 | Instalação & Setup | Instalação limpa via `pip install -e .` ou `uv pip install -e .` sem erros | `orion --version` | ✅ Validado |
+| CA-02 | Core ReAct Loop | Recebe intenção, orquestra ciclo Action-Observation e encerra com `max_turns` | `pytest tests/unit/test_engine.py` | ✅ Validado |
+| CA-03 | Blindagem de Governança | Toda ferramenta mutante é barrada pelo PEP no modo supervisionado até autorização | `pytest tests/unit/test_pep.py` | ✅ Validado |
+| CA-04 | Ferramentas Nativas Puras | Leitura, edição cirúrgica por exatidão de bloco e execução de shell rodam sem Hermes | `pytest tests/unit/test_tools.py` | ✅ Validado |
+| CA-05 | Subsistema de Artefatos | Planos e relatórios estruturados são salvos no local correto com metadados | `pytest tests/unit/test_artifacts.py` | ✅ Validado |
+| CA-06 | Qualidade & Cobertura | 100% dos testes passando com cobertura superior a 85% | `pytest --cov=src/orion` | ✅ Validado (92.57%) |
 
 ---
 
 ## 6. Checklist de Conclusão da Spec (Congelamento)
 
 - [x] Especificação técnica da v0.1.0 validada e alinhada com o usuário.
-- [ ] Todas as 4 sprints da v0.1.0 concluídas e aprovadas.
-- [ ] Bateria de testes automatizados com cobertura $\ge 85\%$.
-- [ ] Atualização de `.claudex/progress.md` e `.claudex/active_context.md`.
-- [ ] Tag Git `v0.1.0` criada.
+- [x] Todas as 4 sprints da v0.1.0 concluídas e aprovadas.
+- [x] Bateria de testes automatizados com cobertura $\ge 85\%$ (atingida: 92.57% · 210 testes).
+- [x] README.md atualizado com instruções práticas de instalação, execução e testes.
+- [x] `.claudex/progress.md` e `.claudex/active_context.md` atualizados para o planejamento da v0.2.0.
+- [x] Tag Git `v0.1.0` criada.
