@@ -42,6 +42,7 @@ venv.bak/
 *.swo
 *~
 .DS_Store
+.claudex
 
 # Testing & Coverage
 .tox/

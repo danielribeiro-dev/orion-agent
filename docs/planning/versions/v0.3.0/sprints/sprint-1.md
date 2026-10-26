@@ -1,10 +1,10 @@
 # Sprint — [v0.3.0] Sprint 1: Model Registry & OpenRouter Provider
 
-> **Status:** 📋 Planejado  
+> **Status:** ✅ Concluída  
 > **Versão Relacionada:** v0.3.0 (Model Gateway, Real-Time Cost Ledger & Offline Resilience)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
-> **Data de Início:** A definir (Fase 3)  
-> **Data de Conclusão:** —  
+> **Data de Início:** 2026-10-26  
+> **Data de Conclusão:** 2026-10-26  
 
 ---
 
@@ -38,20 +38,20 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Modelos Pydantic v2 em `src/orion/gateway/models.py`:
+- [x] Modelos Pydantic v2 em `src/orion/gateway/models.py`:
   - `LLMMessage` (`role`, `content`, `reasoning_content`)
   - `LLMRequest` (`model`, `messages`, `temperature`, `max_tokens`, `stream`)
   - `LLMResponseChunk` (`delta`, `is_final`, `usage`)
   - `LLMResponse` (`content`, `model`, `usage`, `latency_ms`)
   - `ModelSpec` (`id`, `name`, `provider`, `context_window`, `cost_input_m`, `cost_output_m`, `supports_thinking`)
-- [ ] Classe abstrata `BaseLLMProvider` em `src/orion/gateway/providers/base.py`:
+- [x] Classe abstrata `BaseLLMProvider` em `src/orion/gateway/providers/base.py`:
   - `async def complete(request: LLMRequest) -> LLMResponse`
   - `async def stream(request: LLMRequest) -> AsyncIterator[LLMResponseChunk]`
-- [ ] Implementação de `OpenRouterProvider` em `src/orion/gateway/providers/openrouter.py`:
+- [x] Implementação de `OpenRouterProvider` em `src/orion/gateway/providers/openrouter.py`:
   - Conexão HTTP/2 assíncrona (`httpx`) com backoff exponencial.
   - Streaming SSE nativo.
   - Extração de cabeçalhos de custos e payload de usage (`prompt_tokens`, `completion_tokens`).
-- [ ] Suíte de testes com mocks assíncronos em `tests/unit/test_openrouter.py`.
+- [x] Suíte de testes com mocks assíncronos em `tests/unit/test_openrouter.py`.
 
 ### 🚫 Fora de Escopo (Out of Scope / Anti-Metas)
 - Não implementar lógica de classificação de complexidade de prompts (escopo da Sprint 2).
@@ -112,6 +112,6 @@ class BaseLLMProvider(ABC):
 
 ## 7. Critérios de Aceite (DoD)
 
-- [ ] Todas as chamadas para `OpenRouterProvider` retornam streams e contagens válidas de tokens.
-- [ ] Erros de autenticação, rate-limit (429) e timeout tratam exceções tipadas de domínio (`ProviderAPIError`, `RateLimitError`).
-- [ ] Testes unitários com cobertura $\ge 85\%$ sem chamadas de rede externas em testes automatizados.
+- [x] Todas as chamadas para `OpenRouterProvider` retornam streams e contagens válidas de tokens.
+- [x] Erros de autenticação, rate-limit (429) e timeout tratam exceções tipadas de domínio (`ProviderAPIError`, `RateLimitError`).
+- [x] Testes unitários com cobertura $\ge 85\%$ sem chamadas de rede externas em testes automatizados.

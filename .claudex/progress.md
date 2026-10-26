@@ -3,9 +3,9 @@
 
 ## 📊 Status Global do Projeto
 - **Repositório:** `orion-agent`
-- **Fase Atual:** Fase 2 (v0.2.0) **EM ANDAMENTO** 🟡 (Sprint 1 Concluída, Sprint 2 Em Andamento)
-- **Linhas de Código em `src/`:** ~1.400 linhas de produção testadas
-- **Testes:** 232/232 passando (100% sucesso) ✅ (210 da v0.1.0 + 22 da Sprint 1 v0.2.0)
+- **Fase Atual:** Fase 3 (v0.3.0) **EM ANDAMENTO** 🟡 (Sprint 1 Concluída)
+- **Linhas de Código em `src/`:** ~1.800 linhas de produção testadas
+- **Testes:** 487/487 passando (100% sucesso) ✅ (412 da v0.2.0 + 75 da Sprint 1 v0.3.0)
 
 ---
 
@@ -119,14 +119,20 @@
 
 ---
 
-### [ESPECIFICAÇÃO CONCLUÍDA] Fase 3: v0.3.0 Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety
+### [EM ANDAMENTO] Fase 3: v0.3.0 Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety
 - [x] Especificação formal da versão em `docs/planning/versions/v0.3.0/VERSION.md`
 - [x] As 4 Sprints detalhadas e congeladas:
   - [x] `sprints/sprint-1.md` (Model Registry & OpenRouter Provider Abstraction)
   - [x] `sprints/sprint-2.md` (Dynamic Auto-Routing & Complexity Engine)
   - [x] `sprints/sprint-3.md` (Real-Time Multi-Currency Cost Ledger & Budgeting)
   - [x] `sprints/sprint-4.md` (ORION Imortal Failover Local Leve Qwen Coder 1.5B/3B & Nuclear Step-Up Auth Gateway)
-- [ ] Implementação de código e testes (aguardando execução após a v0.2.0)
+- [x] **Sprint 1: Model Registry & OpenRouter Provider** ✅ CONCLUÍDA (2026-10-26) — Cobertura: 96.52%
+  - [x] `src/orion/gateway/models.py` (LLMMessage, LLMRequest, LLMResponseChunk, LLMResponse, ModelSpec, TokenUsage — Pydantic v2 frozen)
+  - [x] `src/orion/gateway/registry.py` (ModelRegistry com catálogo de 13 modelos: Heavy/Balanced/Fast/Local)
+  - [x] `src/orion/gateway/providers/base.py` (BaseLLMProvider — interface abstrata com complete() e stream())
+  - [x] `src/orion/gateway/providers/openrouter.py` (OpenRouterProvider com streaming SSE, backoff exponencial e exceções tipadas)
+  - [x] `tests/unit/test_openrouter.py` (75 testes passando, 0 chamadas de rede externas)
+- [ ] **Sprint 2: Dynamic Auto-Routing & Complexity Engine** 🔜 Pendente
 
 ---
 
