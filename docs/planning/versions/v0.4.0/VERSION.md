@@ -23,7 +23,7 @@ Construir a camada de interface e experiência de desenvolvimento do **O.R.I.O.N
 Após as fundações do ReAct Loop (v0.1.0), da Memória Tríplice Contínua (v0.2.0) e do Gateway de Modelos e Custos (v0.3.0), o ORION atinge a maturidade para oferecer a melhor experiência de terminal do mercado, unindo fluidez e velocidade à autoridade estética.
 
 ### 1.3 O que NÃO é escopo (anti-metas)
-- Não construir uma interface TUI travada em tela cheia no terminal estilo eDEX (ideia descartada do CLI para preservar rolagem nativa e velocidade).
+- Não construir uma interface gráfica fullscreen eDEX nesta versão (desacoplada formalmente para o aplicativo dedicado de desktop na v0.7.0).
 - Não plugar hardware ou pipelines de áudio/voz nativo no CLI (escopo da v0.5.0; o CLI apenas oferece o comando `/voice` para controlar o daemon).
 - Não implementar sandbox Bubblewrap nesta versão (escopo da v1.5.0).
 
@@ -33,8 +33,10 @@ Após as fundações do ReAct Loop (v0.1.0), da Memória Tríplice Contínua (v0
 
 - **ADR-003:** Presença Ambiente Headless com Interface Sob Demanda.
 - **ADR-014:** Comando Oficial `orion-agent` para o Stream CLI e Reserva de `orion` para Interface Gráfica eDEX/Desktop posterior.
-- **ADR-015:** Stack Tecnológica do Stream CLI: `prompt_toolkit` (Buffer, histórico, autocomplete `/` e `@`) + `Rich` (Streaming `Live`, diffs cirúrgicos e banners adaptativos).
-- **ADR-016:** Catálogo Oficial de Slash Commands (`/`) focado em produtividade e interoperabilidade de mercado.
+- **ADR-015:** Stack Tecnológica do Stream CLI: `prompt_toolkit` (Buffer, histórico, autocomplete `/` e `@`) + `Rich` (Streaming `Live`, diffs cirúrgicos e banners adaptativos com zero flicker e rolagem nativa).
+- **ADR-016:** Catálogo Oficial dos 20 Slash Commands (`/`) focado em produtividade e interoperabilidade de mercado.
+- **ADR-017:** Desacoplamento do Cockpit Imersivo eDEX para a v0.7.0 (Standalone Desktop App com Figma Tokens) para foco 100% em ergonomia cirúrgica de CLI de terminal na v0.4.0.
+- **ADR-018:** Paleta Oficial "Deep Cosmos & Glacial Platinum" (Contraste WCAG AAA > 13:1 para conforto em 12h+ diárias).
 
 ---
 
@@ -42,9 +44,9 @@ Após as fundações do ReAct Loop (v0.1.0), da Memória Tríplice Contínua (v0
 
 | Sprint | Nome da Sprint | Objetivo Principal | Documento | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Sprint 1** | Stream CLI, Banner & Status Line | Ponto de entrada `orion-agent`, arte ASCII da Mão Cósmica com Buraco Negro adaptativa e barra de status dinâmica | [`sprints/sprint-1.md`](sprints/sprint-1.md) | 📋 Planejado |
-| **Sprint 2** | Prompt Interativo & Autocomplete | `prompt_toolkit` com histórico persistente, autocomplete flutuante para `/` e anexo de arquivos com `@` | [`sprints/sprint-2.md`](sprints/sprint-2.md) | 📋 Planejado |
-| **Sprint 3** | Streaming Vivo, Diffs & Comandos | Streaming contínuo via `Rich.Live`, painéis de diff cirúrgico e o catálogo oficial dos 20 Slash Commands | [`sprints/sprint-3.md`](sprints/sprint-3.md) | 📋 Planejado |
+| **Sprint 1** | Stream CLI Foundation, Design System & Status Line | Ponto de entrada `orion-agent`, tema Deep Cosmos, arte ASCII da Mão Cósmica com Buraco Negro adaptativa e barra de status dinâmica | [`sprints/sprint-1.md`](sprints/sprint-1.md) | 📋 Pronto para Execução |
+| **Sprint 2** | Terminal Engine, Prompt Interativo & Autocomplete | `prompt_toolkit` com histórico persistente, autocomplete flutuante para `/` e anexo de arquivos com `@` respeitando `.gitignore` | [`sprints/sprint-2.md`](sprints/sprint-2.md) | 📋 Planejado |
+| **Sprint 3** | Streaming Vivo, Diffs Cirúrgicos & 20 Slash Commands | Streaming contínuo via `Rich.Live`, painéis de diff cirúrgico e o catálogo oficial dos 20 Slash Commands | [`sprints/sprint-3.md`](sprints/sprint-3.md) | 📋 Planejado |
 | **Sprint 4** | Native MCP Client & Integração PEP | Cliente nativo do Model Context Protocol (stdio & SSE) com auditoria de segurança PEP | [`sprints/sprint-4.md`](sprints/sprint-4.md) | 📋 Planejado |
 
 ---
@@ -56,13 +58,14 @@ src/orion/
 ├── cli.py                             # Entrypoint do binário `orion-agent`
 ├── tui/
 │   ├── __init__.py
+│   ├── theme.py                       # Paleta oficial Deep Cosmos & Glacial Platinum (Rich Theme)
+│   ├── console.py                     # Instância compartilhada do Rich Console com tema configurado
 │   ├── banner.py                      # Renderizador dinâmico da Mão Cósmica (80/120/200 cols)
-│   ├── console.py                     # Instância compartilhada do Rich Console com tema Cyan/Blue
+│   ├── status_bar.py                  # Badges dinâmicos: Modelo, Thinking, Custos, Status Online/Local
 │   ├── prompt.py                      # Buffer de input do prompt_toolkit com bottom status bar
 │   ├── completer.py                   # Autocomplete flutuante: / para comandos e @ para arquivos
 │   ├── stream_renderer.py             # Streaming em tempo real de Markdown via Rich.Live
 │   ├── diff_viewer.py                 # Painel visual de diffs cirúrgicos syntax-highlighted
-│   ├── status_bar.py                  # Badges dinâmicos: Modelo, Thinking, Custos, Status Online/Local
 │   └── commands/                      # Catálogo modular de Slash Commands (/)
 │       ├── __init__.py
 │       ├── base.py                    # Classe abstrata BaseSlashCommand

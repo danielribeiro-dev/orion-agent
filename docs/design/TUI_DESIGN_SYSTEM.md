@@ -123,22 +123,34 @@ sequenceDiagram
 ## 5. Princípios de Experiência do CLI (`orion-agent`)
 
 1. **Fluidez e Não Bloqueio (Rolagem Nativa do Terminal):**
-   - O terminal rola solto. O desenvolvedor utiliza o trackpad ou a rodinha do mouse naturalmente, sem janelas ou buffers virtuais travados.
+   - O terminal rola solto no Linux (`stdout` contínuo). O desenvolvedor utiliza o trackpad ou a rodinha do mouse naturalmente, sem janelas ou buffers virtuais travados.
    - Streaming de respostas com renderização de Markdown em tempo real via `Rich.Live`.
    - Indicadores visuais assíncronos não bloqueantes (*spinners*) enquanto ferramentas ou chamadas de modelo estão processando.
+   - Zero-flickering garantido via updates parciais de buffer ANSI, eliminando comandos brutos de `clear`.
 
-2. **Alta Densidade de Informação com Diffs Cirúrgicos:**
+2. **Paleta Oficial "Deep Cosmos & Glacial Platinum" (Conforto 12h+):**
+   - **Background Canvas:** `#0B0E14` (Preto Cosmos Profundo — elimina efeito flashbang).
+   - **Superfície / Caixas:** `#151B23` (Grafite Estelar para cards, caixas de input e diffs).
+   - **Bordas / Separadores:** `#262F3D` (Contornos arredondados discretos `╭─╮`).
+   - **Texto Primário (Agente):** `#E6EDF3` (Branco Glacial Suave — 13.5:1 WCAG AAA).
+   - **Texto Secundário / Dim:** `#8B949E` (Cinza Titânio Fosco para metadados e logs).
+   - **Input do Usuário:** `#F0F6FC` (Branco Iluminado).
+   - **Aura Cósmica (Alma):** `#00D2FF` (Cyan Cósmico) e `#3A7BD5` (Azul Órion).
+   - **Acentos Funcionais:** `#3FB950` (Diff +), `#F85149` (Diff -), `#D29922` (PEP Warn).
+
+3. **Alta Densidade de Informação com Diffs Cirúrgicos:**
    - Modificações de código são apresentadas em painéis de diff cirúrgicos formatados em Rich (verde suave para adições, vermelho suave para remoções), nunca através de dumps brutos de arquivos inteiros.
    - Colapso automático de logs longos (ex: saída de 100 linhas de compilação ou testes é resumida com opção de expandir).
 
-3. **Barra de Entrada Inteligente (Smart Bottom Input):**
+4. **Barra de Entrada Inteligente (Smart Bottom Input):**
    - Cursor responsivo na base do terminal gerenciado por `prompt_toolkit`.
    - Menu flutuante de autocompletar ao digitar `/`, com busca fuzzy e descrições dos comandos.
-   - Suporte a `@` para anexar ou citar arquivos locais com expansão automática de caminho.
-   - Status bar inferior persistente exibindo modo, modelo, tokens e custos.
+   - Suporte a `@` para anexar ou citar arquivos locais com expansão automática de caminho respeitando `.gitignore`.
+   - Status bar inferior persistente exibindo modo, modelo, tokens e custos em USD/BRL.
 
-4. **Controle Total de Autonomia e Segurança (PEP):**
+5. **Controle Total de Autonomia e Segurança (PEP):**
    - Diálogos claros de permissão com contexto explícito da ação antes de executar qualquer mutação fora do workspace.
+   - Cancelamento gracioso via `Ctrl+C` que interrompe a inferência atual sem fechar o processo.
 
 ---
 
@@ -191,9 +203,11 @@ O cabeçalho renderiza a arte ASCII da **Mão com o Buraco Negro** ([`docs/desig
 
 ---
 
-## 8. A Interface eDEX Sci-Fi (`orion`): O Cockpit de IA
+## 8. O Futuro Desktop App Dedicado Sci-Fi (eDEX-UI Standalone — v0.7.0)
 
-Quando o usuário invoca o comando `orion`, entra em ação o centro de comando imersivo sci-fi.
+> **Nota Arquitetural (ADR-017):** Para manter o CLI (`orion-agent`) 100% veloz e cirúrgico na v0.4.0, a interface imersiva eDEX é desacoplada para um aplicativo de desktop dedicado e independente (previsto para a **v0.7.0** via Tauri v2 / WebGL), consumindo tokens e protótipos de motion desenhados no Figma.
+
+Quando o usuário invocar o aplicativo dedicado `orion`, entrará em ação o centro de comando imersivo sci-fi.
 
 ### 8.1 A Sequência Cinematográfica de Boot (*The Cosmic Boot Sequence*)
 

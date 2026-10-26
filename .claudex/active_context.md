@@ -1,25 +1,24 @@
 # O.R.I.O.N — Active Context (Memória de Sessão de Desenvolvimento)
 
-> **Data de Atualização:** 25/10/2026  
-> **Status Atual:** v0.2.0 CONCLUÍDA (389 testes passando, 93.39% de cobertura, Sprints 1, 2, 3 e 4 finalizadas)  
-> **Branch Ativo:** `version/v0.2.0`  
+> **Data de Atualização:** 26/10/2026  
+> **Status Atual:** v0.3.0 CONCLUÍDA (838 testes passando, 100% sucesso, Sprints 1 a 4 finalizadas).  
+> **Fase Ativa:** v0.4.0 (High-Performance Stream CLI, Slash Commands & Native MCP).  
+> **Branch Ativo:** `version/v0.4.0`  
 > **Regra Suprema:** Nenhuma linha de código em `src/` é escrita sem o comando explícito de início da Sprint correspondente (Doc-First).
 
 ---
 
-## 🎯 Foco Imediato & Estado da v0.2.0 (Cognitive Continuity)
-1. **Branch de Trabalho:** `version/v0.2.0`
-2. **Sprint 1 (Concluída ✅):** Main Timeline SQLite WAL, FTS5 BM25 e DayMarkers.
-3. **Sprint 2 (Concluída ✅):** VectorStore local com FastEmbed ONNX e HybridRetriever RRF ($k=60$).
-4. **Sprint 3 (Concluída ✅):** 5 Esferas Cognitivas, EnvironmentMonitor, IdentityManager, FactsStore, Manifest < 250 tokens, Telegram HITL e Ferramentas Cognitivas.
-5. **Sprint 4 (Concluída ✅):** Universal Agent Skills Standard (`SKILL.md`), Dynamic Context Compactor, Branches Contextuais, Checkpoints e Skill `system-doctor`.
-6. **Métricas de Qualidade:**
-   - Total de Testes: 389 passando (0 falhas).
-   - Cobertura Global: 93.39% (meta: >= 85%).
-   - Todos os Critérios de Aceite (CA-01 a CA-12) satisfeitos.
+## 🎯 Foco Imediato & Estado da v0.4.0 (Stream CLI & Native MCP)
+1. **Branch de Trabalho:** `version/v0.4.0`
+2. **Decisão Arquitetural Recente:**
+   - A interface eDEX foi formalmente desacoplada para um aplicativo de desktop dedicado e independente (previsto para a **v0.7.0** via Tauri v2 / WebGL), alimentado por tokens do Figma.
+   - O foco da **v0.4.0** é **100% no CLI de terminal (`orion-agent`)**, com o padrão de excelência de mercado do **Claude Code** e **Google Antigravity CLI**: zero-flickering, rolagem nativa de terminal no Linux, diffs cirúrgicos e catálogo dos 20 Slash Commands.
+3. **Design System Oficial:** "Deep Cosmos & Glacial Platinum" (Canvas `#0B0E14`, Superfícies `#151B23`, Bordas `#262F3D`, Texto `#E6EDF3`, Input `#F0F6FC`, Acento Cósmico `#00D2FF` e `#3A7BD5`).
+4. **Métricas de Qualidade Base:**
+   - Total de Testes: 838 passando (0 falhas).
+   - Cobertura Global: >= 90%.
 
 ---
 
 ## 📌 Próximo Passo
-1. Fazer o commit final da Sprint 4 e tag `v0.2.0`.
-2. Preparar o avanço para a **Fase 3: v0.3.0** (Model Gateway, Real-Time Financial Ledger & Nuclear Safety).
+Iniciar a programação da **Sprint 1 (Stream CLI Foundation, Design System & Banner Adaptativo)** na próxima sessão com o Gemini 3.8 Flash (High).

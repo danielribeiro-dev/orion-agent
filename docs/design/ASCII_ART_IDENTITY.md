@@ -12,17 +12,23 @@ A identidade do ORION é inspirada na constelação de Orion — a figura do "Ca
 
 ---
 
-## 2. Paleta de Cores do Terminal (Rich / ANSI Palette)
+## 2. Paleta Oficial do Terminal ("Deep Cosmos & Glacial Platinum")
 
-| Papel | Nome | Hex / ANSI | Exemplo de Uso |
-| :--- | :--- | :--- | :--- |
-| **Primária (Aura)** | Cyan Cósmico | `#00d2ff` / `bold cyan` | Logo principal, destaques de status, bordas ativas |
-| **Secundária (Estelar)** | Azul Órion Profundo | `#3a7bd5` / `blue` | Indicadores de modo, links, tags de categoria |
-| **Acentos (Alerta/Ação)** | Âmbar de Ignição | `#f39c12` / `yellow` | Pedidos de confirmação `[Y/n]`, avisos de cota |
-| **Acentos (Sucesso)** | Verde Aurora | `#2ecc71` / `green` | Ações verificadas com sucesso, testes passando |
-| **Neutro Primário** | Branco Gelo | `#ecf0f1` / `bright_white` | Texto principal de respostas e comandos |
-| **Neutro Suave** | Cinza Titânio | `#7f8c8d` / `dim white` | Metadados, timestamps, caminhos de arquivo |
-| **Fundo / Painéis** | Grafite Espacial | `#1e272e` | Painéis flutuantes, caixas de diff e tabelas |
+> Calibrada para conforto ergonômico em sessões prolongadas de trabalho (12h+ sem fadiga visual), com contraste WCAG AAA superior a 13:1 e fidelidade harmônica com a temática cósmica do O.R.I.O.N.
+
+| Papel | Nome | Hexadecimal | ANSI / Rich Style | Exemplo de Uso |
+| :--- | :--- | :--- | :--- | :--- |
+| **Fundo do Terminal** | Preto Cosmos Profundo | `#0B0E14` | `on #0B0E14` | Base suave que absorve luz sem cansar a vista |
+| **Superfície / Caixas** | Grafite Estelar | `#151B23` | `on #151B23` | Cards, caixas de input, painéis de diff |
+| **Bordas / Separadores** | Contorno Discreto | `#262F3D` | `#262F3D` | Bordas arredondadas e divisores sutis |
+| **Texto Primário (Agente)**| Branco Glacial Suave | `#E6EDF3` | `#E6EDF3` | Texto principal das respostas e leituras |
+| **Texto Secundário / Dim**| Cinza Titânio Fosco | `#8B949E` | `dim #8B949E` | Metadados, timestamps, caminhos de arquivo |
+| **Input do Usuário** | Branco Puro Iluminado | `#F0F6FC` | `bold #F0F6FC` | Comandos digitados pelo desenvolvedor |
+| **Aura Cósmica (Alma)** | Cyan Cósmico | `#00D2FF` | `bold #00D2FF` | Buraco Negro, logo, badges de destaque |
+| **Órbita Secundária** | Azul Órion Profundo | `#3A7BD5` | `#3A7BD5` | Links, categorias e status de modo |
+| **Diff Adição (+)** | Verde Aurora Suave | `#3FB950` | `bold #3FB950` | Linhas de código adicionadas em diffs |
+| **Diff Remoção (-)** | Vermelho Alerta Suave | `#F85149` | `bold #F85149` | Linhas de código removidas em diffs |
+| **Alerta / Governança** | Âmbar de Ignição | `#D29922` | `bold #D29922` | Confirmações PEP, avisos e limites de custo |
 
 ---
 
@@ -30,7 +36,7 @@ A identidade do ORION é inspirada na constelação de Orion — a figura do "Ca
 
 Abaixo estão três propostas de design para a abertura do terminal interativo:
 
-### Opção A: *Stellar Cyber Block* (Imponente, Moderna, Fonte Sólida)
+### Opção A (a melhor e atualmente a usada): *Stellar Cyber Block* (Imponente, Moderna, Fonte Sólida)
 
 ```text
   ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗

@@ -119,32 +119,27 @@
 
 ---
 
-### [EM ANDAMENTO] Fase 3: v0.3.0 Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety
+### [CONCLUÍDO] Fase 3: v0.3.0 Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety
 - [x] Especificação formal da versão em `docs/planning/versions/v0.3.0/VERSION.md`
-- [x] As 4 Sprints detalhadas e congeladas:
-  - [x] `sprints/sprint-1.md` (Model Registry & OpenRouter Provider Abstraction)
-  - [x] `sprints/sprint-2.md` (Dynamic Auto-Routing & Complexity Engine)
-  - [x] `sprints/sprint-3.md` (Real-Time Multi-Currency Cost Ledger & Budgeting)
-  - [x] `sprints/sprint-4.md` (ORION Imortal Failover Local Leve Qwen Coder 1.5B/3B & Nuclear Step-Up Auth Gateway)
-- [x] **Sprint 1: Model Registry & OpenRouter Provider** ✅ CONCLUÍDA (2026-10-26) — Cobertura: 96.52%
-  - [x] `src/orion/gateway/models.py` (LLMMessage, LLMRequest, LLMResponseChunk, LLMResponse, ModelSpec, TokenUsage — Pydantic v2 frozen)
-  - [x] `src/orion/gateway/registry.py` (ModelRegistry com catálogo de 13 modelos: Heavy/Balanced/Fast/Local)
-  - [x] `src/orion/gateway/providers/base.py` (BaseLLMProvider — interface abstrata com complete() e stream())
-  - [x] `src/orion/gateway/providers/openrouter.py` (OpenRouterProvider com streaming SSE, backoff exponencial e exceções tipadas)
-  - [x] `tests/unit/test_openrouter.py` (75 testes passando, 0 chamadas de rede externas)
-- [ ] **Sprint 2: Dynamic Auto-Routing & Complexity Engine** 🔜 Pendente
+- [x] As 4 Sprints concluídas e verificadas (838 testes unitários passando):
+  - [x] **Sprint 1: Model Registry & OpenRouter Provider** ✅ CONCLUÍDA
+  - [x] **Sprint 2: Dynamic Auto-Routing & Complexity Engine** ✅ CONCLUÍDA
+  - [x] **Sprint 3: Real-Time Multi-Currency Cost Ledger & Budget Guard** ✅ CONCLUÍDA
+  - [x] **Sprint 4: Resiliência Universal, Salvaguarda Cognitiva & Nuclear Step-Up Auth** ✅ CONCLUÍDA
+- [x] Tag Git e commits finalizados no ramo `version/v0.3.0`.
 
 ---
 
-### [ESPECIFICAÇÃO CONCLUÍDA] Fase 4: v0.4.0 High-Performance Stream CLI, Slash Commands & Native MCP
+### [EM EXECUÇÃO] Fase 4: v0.4.0 High-Performance Stream CLI, Slash Commands & Native MCP
 - [x] Especificação formal da versão em `docs/planning/versions/v0.4.0/VERSION.md`
-- [x] Especificação de UX/UI em `docs/design/TUI_DESIGN_SYSTEM.md` e arte ASCII em `docs/design/ascii-art.txt`
-- [x] As 4 Sprints detalhadas e congeladas:
-  - [x] `sprints/sprint-1.md` (Stream CLI `orion-agent`, Banner da Mão Cósmica & Status Line)
+- [x] Design System de Cores oficial "Deep Cosmos & Glacial Platinum" em `docs/design/ASCII_ART_IDENTITY.md` e `TUI_DESIGN_SYSTEM.md`
+- [x] Decisão arquitetural: Cockpit imersivo eDEX desacoplado para a v0.7.0 (Desktop App dedicado via Tauri v2 / WebGL com tokens do Figma)
+- [x] As 4 Sprints detalhadas e congeladas com contratos tipados e wireframes em ASCII:
+  - [x] `sprints/sprint-1.md` (Stream CLI Foundation, Design System Cósmico & Banner Adaptativo) — **Pronto para Execução**
   - [x] `sprints/sprint-2.md` (Prompt Interativo com `prompt_toolkit`, Autocomplete `/` e `@`)
   - [x] `sprints/sprint-3.md` (Streaming Vivo com `Rich.Live`, Diffs Cirúrgicos e 20 Slash Commands)
   - [x] `sprints/sprint-4.md` (Native MCP Client stdio/SSE & Integração com PEP)
-- [ ] Implementação de código e testes (aguardando execução após a v0.3.0)
+- [ ] Implementação de código da Sprint 1 (agendada para a próxima sessão com Gemini 3.8 Flash High)
 
 ---
 

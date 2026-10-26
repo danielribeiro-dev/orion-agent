@@ -42,14 +42,16 @@ O O.R.I.O.N foi projetado desde o dia zero para **superar estruturalmente** os a
 ```text
 v0.1.0  ── Clean Foundation & Core ReAct Engine ────────────────── [VERSÃO CONCLUÍDA: 210 testes passando]
   │        (5 Ferramentas Nativas, Action-Observation, PEP e Artefatos)
-v0.2.0  ── Cognitive Continuity: The 5-Sphere Memory, Universal Skills & Compaction [ESPECIFICAÇÃO PRONTA]
+v0.2.0  ── Cognitive Continuity: The 5-Sphere Memory, Universal Skills & Compaction [VERSÃO CONCLUÍDA: 412 testes passando]
   │        (As 5 Esferas Cognitivas, PCU Manifest < 250 tok, Environment Guard, Telegram HITL, SKILL.md, Compactor)
-v0.3.0  ── Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety [ESPECIFICAÇÃO PRONTA]
+v0.3.0  ── Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety [VERSÃO CONCLUÍDA: 838 testes passando]
   │        (Prioridade OpenRouter, Dynamic Auto-Routing, metrics.db, Failover < 2s Qwen Coder 1.5B/3B, Popup do SO)
-v0.4.0  ── High-Performance Stream CLI, Slash Commands (/) & Native MCP [ESPECIFICAÇÃO PRONTA]
-  │        (orion-agent CLI, prompt_toolkit + Rich, Banner Mão Cósmica, 20 Slash Commands, MCP)
+v0.4.0  ── High-Performance Stream CLI, Slash Commands (/) & Native MCP [EM EXECUÇÃO]
+  │        (orion-agent CLI puro, prompt_toolkit + Rich, Banner Mão Cósmica, 20 Slash Commands, MCP)
 v0.5.0  ── Ambient Mode & Headless Voice Pipeline
   │        (Systemd Boot Daemon, openWakeWord, Faster-Whisper, Piper TTS, "Senhor, posso executar...")
+v0.7.0  ── Dedicated Desktop App & Sci-Fi Cockpit (eDEX-UI Standalone)
+  │        (Figma Design Tokens, Tauri v2 / WebGL, 4 Quadrantes, Árvore Tátil e Mission Control)
 v1.0.0  ── Production Release: Autonomous Personal Operating Intelligence
   │        (Blindagem de Segurança Militar, Pacotes Binários e Multiplataforma)
 v1.5.0  ── Self-Healing Engine, Bubblewrap Sandboxing & Dynamic Subagents
@@ -68,19 +70,24 @@ v3.0.0  ── Full Ambient Symbiosis & Multi-Device Distributed Coordination
 * **Documentação:** [`docs/planning/versions/v0.1.0/VERSION.md`](versions/v0.1.0/VERSION.md)
 
 ### 🧠 v0.2.0 — Cognitive Continuity: The 5-Sphere Memory, Universal Skills Standard & Dynamic Compaction
-* **Status:** 📋 Especificação Formalizada e Pronta para Execução  
+* **Status:** ✅ VERSÃO ESTÁVEL — Todas as 4 Sprints Concluídas (412 testes unitários passando)  
 * **Foco:** Arquitetura das 5 Esferas Cognitivas (`user_profile` com tratamento "Senhor" e matriz de maestria técnica, `system_identity` com Origem Imutável Daniel Ribeiro e Persona Modular Jarvis, `system_environment` com telemetria passiva e Headroom Guard, `project_decisions` com blindagem anti-envenenamento `CONFIRMED`/`DEPRECATED` e `timeline_episodic`), Progressive Cognitive Unpacking com Cognitive Manifest ($< 250$ tokens), conector out-of-band Telegram HITL para autorização remota de PEP, Padrão Universal `Agent Skills` (`SKILL.md`) com Progressive Disclosure em 3 fases e Dynamic Context Compactor (auto-compaction a 80% e comando `/compact`).
 * **Documentação:** [`docs/planning/versions/v0.2.0/VERSION.md`](versions/v0.2.0/VERSION.md)
 
 ### ⚡ v0.3.0 — Model Gateway, Real-Time Cost Ledger, Offline Resilience & Nuclear Safety
-* **Status:** 📋 Especificação Formalizada e Congelada para Execução  
+* **Status:** ✅ VERSÃO ESTÁVEL — Todas as 4 Sprints Concluídas (838 testes unitários passando)  
 * **Foco:** Abstração agnóstica de modelos com provedor prioritário OpenRouter, Dynamic Auto-Routing por complexidade de turno (Fast/Lite, Balanced, Heavy Frontier), Livro-Razão de Custos em tempo real em SQLite WAL (`~/.orion/metrics.db`) com cálculo USD/BRL e teto orçamentário diário, **ORION Imortal** (failover offline $< 2$s para `qwen2.5-coder:1.5b/3b` local no Ollama), e **Autonomia Adaptativa com Nuclear Step-Up Auth** (cache de comandos conhecidos no PEP + popup obrigatório de senha do SO para ações destrutivas).
 * **Documentação:** [`docs/planning/versions/v0.3.0/VERSION.md`](versions/v0.3.0/VERSION.md)
 
 ### 🖥️ v0.4.0 — High-Performance Stream CLI, Slash Commands & Native MCP
-* **Status:** 📋 Especificação Formalizada e Congelada para Execução  
-* **Foco:** Ponto de entrada oficial `orion-agent`, Stream CLI ergonômico com `prompt_toolkit` (autocomplete flutuante de `/` e expansão de arquivos com `@`) e `Rich.Live` (streaming token a token, diffs coloridos e banner adaptativo da Mão Cósmica com Buraco Negro), Catálogo Oficial dos 20 Slash Commands e Cliente nativo MCP (stdio e SSE).
+* **Status:** 🚀 EM EXECUÇÃO — Planejamento Congelado & 4 Sprints Prontas  
+* **Foco:** Ponto de entrada oficial `orion-agent` (CLI de terminal de altíssima performance, com rolagem nativa e sem flickering), Design System Cósmico Glacial, `prompt_toolkit` (autocomplete flutuante `/` com busca difusa e expansão `@` com `.gitignore`), `Rich.Live` (streaming token a token, diffs cirúrgicos syntax-highlighted e banner adaptativo da Mão Cósmica com Buraco Negro), Catálogo Oficial dos 20 Slash Commands e Cliente nativo MCP (stdio e SSE).
 * **Documentação:** [`docs/planning/versions/v0.4.0/VERSION.md`](versions/v0.4.0/VERSION.md)
+
+### 🌌 v0.7.0 — Dedicated Desktop App & Sci-Fi Cockpit (eDEX-UI Standalone)
+* **Status:** 📋 Planejado (Versão Gráfica Dedicada)  
+* **Foco:** Centro de comando sci-fi imersivo executado como app de desktop independente (Tauri v2 + WebGL/Canvas), alimentado por Design Tokens do Figma, sequência cinematográfica de boot, cockpit de 4 quadrantes, tacômetros de hardware e telemetria gráfica em tempo real.
+* **Documentação:** [`docs/design/TUI_DESIGN_SYSTEM.md`](../design/TUI_DESIGN_SYSTEM.md)
 
 ---
 

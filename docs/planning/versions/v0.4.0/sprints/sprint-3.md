@@ -69,20 +69,26 @@ src/orion/tui/
     ├── __init__.py
     ├── base.py                        # BaseSlashCommand
     ├── registry.py                    # CommandRegistry central
-    ├── plan.py
-    ├── goal.py
-    ├── grill_me.py
-    ├── review.py
-    ├── learn.py
-    ├── memory.py
-    ├── timeline.py
-    ├── compact.py
-    ├── context.py
-    ├── branch.py
-    ├── diff.py
-    ├── cost.py
-    ├── doctor.py
-    └── help.py
+    ├── plan.py                        # /plan
+    ├── goal.py                        # /goal
+    ├── grill_me.py                    # /grill-me
+    ├── review.py                      # /review
+    ├── learn.py                       # /learn
+    ├── memory.py                      # /memory
+    ├── timeline.py                    # /timeline
+    ├── recall.py                      # /recall
+    ├── compact.py                     # /compact
+    ├── context.py                     # /context
+    ├── branch.py                      # /branch
+    ├── merge.py                       # /merge
+    ├── diff.py                        # /diff
+    ├── undo.py                        # /undo
+    ├── run.py                         # /run
+    ├── cost.py                        # /cost
+    ├── doctor.py                      # /doctor
+    ├── config.py                      # /config
+    ├── clear.py                       # /clear
+    └── help.py                        # /help
 tests/
 └── unit/
     ├── test_stream_renderer.py
