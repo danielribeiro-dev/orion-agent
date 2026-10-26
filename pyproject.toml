@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "orion-agent"
-version = "0.1.0-alpha"
+version = "0.2.0-alpha"
 description = "O.R.I.O.N — Operational Reasoning & Intelligence Orchestration Network"
 readme = "README.md"
 license = { file = "LICENSE" }

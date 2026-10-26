@@ -19,9 +19,9 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![Platform](https://img.shields.io/badge/Platform-Linux-FCC624.svg?style=flat-square&logo=linux&logoColor=black)](https://kernel.org)
-[![Version](https://img.shields.io/badge/Version-v0.1.0_Stable-00C7B7?style=flat-square)]()
-[![Tests](https://img.shields.io/badge/Tests-210%20passing-brightgreen?style=flat-square)]()
-[![Coverage](https://img.shields.io/badge/Coverage-92.57%25-brightgreen?style=flat-square)]()
+[![Version](https://img.shields.io/badge/Version-v0.2.0_Stable-00C7B7?style=flat-square)]()
+[![Tests](https://img.shields.io/badge/Tests-409%20passing-brightgreen?style=flat-square)]()
+[![Coverage](https://img.shields.io/badge/Coverage-93.39%25-brightgreen?style=flat-square)]()
 [![MCP Native](https://img.shields.io/badge/MCP-Native_Client-8A2BE2?style=flat-square)]()
 
 <br/>
@@ -146,8 +146,8 @@ pytest tests/e2e/test_security_audit.py -v
 ```
 
 ```text
-============================== 210 passed in 0.48s ==============================
-Coverage: 92.57% (Enforced threshold: >= 85.00%) ✅
+============================== 409 passed in 0.65s ==============================
+Coverage: 93.39% (Enforced threshold: >= 85.00%) ✅
 Status: Clean / Production Grade
 ```
 
@@ -160,7 +160,7 @@ The system is developed under a formal **Doc-First Engineering** methodology, wh
 | Version | Status | Milestone Focus |
 | :--- | :---: | :--- |
 | **`v0.1.0`** | ✅ **STABLE** | **Clean Foundation & Core ReAct Engine** (210 tests · 92.57% coverage · 5 primitives · PEP) |
-| **`v0.2.0`** | 🔄 *In Progress* | **Cognitive Continuity:** Triple Memory (SQLite FTS5 + FastEmbed ONNX), Agent Skills (`SKILL.md`), and Dynamic Compaction |
+| **`v0.2.0`** | ✅ **STABLE** | **Cognitive Continuity:** Triple Memory, 5-Sphere Architecture, Universal Skills Standard (`SKILL.md`), and Dynamic Compaction (409 tests · 93.39% coverage) |
 | **`v0.3.0`** | 📋 *Planned* | **Model Gateway & Financial Ledger:** Real-time token accounting, autonomous routing, and offline resilience heartbeat |
 | **`v0.4.0`** | 📋 *Planned* | **High-Performance Stream TUI/CLI:** Slash commands (`/plan`, `/compact`), interactive diff inspector, and native MCP client |
 | **`v0.5.0`** | 📋 *Planned* | **Ambient Voice & Headless Daemon:** Background systemd service, local wake word, and real-time audio interaction |
