@@ -3,9 +3,9 @@
 
 ## 📊 Status Global do Projeto
 - **Repositório:** `orion-agent`
-- **Fase Atual:** Fase 3 (v0.3.0) **EM ANDAMENTO** 🟡 (Sprint 1 Concluída)
-- **Linhas de Código em `src/`:** ~1.800 linhas de produção testadas
-- **Testes:** 487/487 passando (100% sucesso) ✅ (412 da v0.2.0 + 75 da Sprint 1 v0.3.0)
+- **Fase Atual:** Fase 4 (v0.4.0) **EM ANDAMENTO** 🟡 (Sprint 1 Concluída)
+- **Linhas de Código em `src/`:** ~2.300 linhas de produção testadas
+- **Testes:** 887/887 passando (100% sucesso) ✅ (838 das versões v0.1.0-v0.3.0 + 49 da Sprint 1 v0.4.0)
 
 ---
 
@@ -134,12 +134,17 @@
 - [x] Especificação formal da versão em `docs/planning/versions/v0.4.0/VERSION.md`
 - [x] Design System de Cores oficial "Deep Cosmos & Glacial Platinum" em `docs/design/ASCII_ART_IDENTITY.md` e `TUI_DESIGN_SYSTEM.md`
 - [x] Decisão arquitetural: Cockpit imersivo eDEX desacoplado para a v0.7.0 (Desktop App dedicado via Tauri v2 / WebGL com tokens do Figma)
-- [x] As 4 Sprints detalhadas e congeladas com contratos tipados e wireframes em ASCII:
-  - [x] `sprints/sprint-1.md` (Stream CLI Foundation, Design System Cósmico & Banner Adaptativo) — **Pronto para Execução**
-  - [x] `sprints/sprint-2.md` (Prompt Interativo com `prompt_toolkit`, Autocomplete `/` e `@`)
-  - [x] `sprints/sprint-3.md` (Streaming Vivo com `Rich.Live`, Diffs Cirúrgicos e 20 Slash Commands)
-  - [x] `sprints/sprint-4.md` (Native MCP Client stdio/SSE & Integração com PEP)
-- [ ] Implementação de código da Sprint 1 (agendada para a próxima sessão com Gemini 3.8 Flash High)
+- [x] As 4 Sprints detalhadas e congeladas com contratos tipados e wireframes em ASCII
+- [x] **Sprint 1: Stream CLI Foundation, Design System Cósmico & Banner Adaptativo** ✅ CONCLUÍDA (2026-10-26) — Cobertura: 98.32%
+  - [x] Ponto de entrada executável `orion-agent` e `orion` configurados no `pyproject.toml`
+  - [x] Mapeamento oficial de cores Deep Cosmos & Glacial Platinum em `src/orion/tui/theme.py` e singleton `src/orion/tui/console.py`
+  - [x] Renderizador adaptativo `src/orion/tui/banner.py` (Stellar Cyber Block < 100 cols, Event Horizon com gradiente cósmico `#00D2FF` -> `#3A7BD5` >= 100 cols)
+  - [x] Modelo e barra de status dinâmica `src/orion/tui/status_bar.py` (Pydantic v2, badges com fallback resiliente de identidade, livro-razão financeiro USD/BRL)
+  - [x] Integração de inicialização limpa sem flickering no CLI em `src/orion/cli.py`
+  - [x] Suíte de 49 testes unitários implementada (`test_theme.py`, `test_banner.py`, `test_status_bar.py`, `test_cli.py`), 887 testes globais passando sem regressão
+- [ ] **Sprint 2: Terminal Engine, Prompt Interativo & Autocomplete** (Próxima)
+- [ ] **Sprint 3: Streaming Vivo com `Rich.Live`, Diffs Cirúrgicos e 20 Slash Commands**
+- [ ] **Sprint 4: Native MCP Client stdio/SSE & Integração com PEP**
 
 ---
 

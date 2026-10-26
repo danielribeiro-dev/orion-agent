@@ -73,6 +73,23 @@ class TestDefaultInvocation:
         # Should show some kind of usage hint
         assert result.output.strip() != ""
 
+    def test_no_args_renders_banner_and_status(self, invoke) -> None:
+        result = invoke()
+        assert "ORION" in result.output
+        assert "GATEWAY" in result.output or "STATUS" in result.output
+
+    def test_main_entrypoint_calls_app(self, monkeypatch) -> None:
+        from orion.cli import main
+        called = False
+
+        def _mock_app() -> None:
+            nonlocal called
+            called = True
+
+        monkeypatch.setattr("orion.cli.app", _mock_app)
+        main()
+        assert called is True
+
 
 # ---------------------------------------------------------------------------
 # `info` subcommand

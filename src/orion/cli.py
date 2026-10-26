@@ -7,11 +7,12 @@ from __future__ import annotations
 
 import typer
 from rich.console import Console
-from rich.text import Text
-from rich.rule import Rule
 
 from orion import __version__
 from orion.config import OrionConfig
+from orion.tui.banner import BannerRenderer
+from orion.tui.console import get_console
+from orion.tui.status_bar import SessionStatusBar
 
 # ---------------------------------------------------------------------------
 # App & Console
@@ -26,50 +27,19 @@ app = typer.Typer(
     invoke_without_command=True,
 )
 
-console = Console()
+console = get_console()
 err_console = Console(stderr=True)
 
 # ---------------------------------------------------------------------------
 # Banner
 # ---------------------------------------------------------------------------
 
-# The Hunter Crest — Opção C (Recomendada), conforme ASCII_ART_IDENTITY.md
-_HUNTER_CREST = """\
-
-             ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗
-            ██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║
-            ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║
-            ██║   ██║██╔══██╗██║██║   ██║██║╚██╗██║
-            ╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║
-            ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
-
-            [ PERSONAL OPERATING INTELLIGENCE ]\
-"""
-
-_STATUS_LINE = (
-    f"[dim]v{__version__}[/dim]  ·  "
-    "[dim]Modo:[/dim] [yellow]Supervisionado[/yellow]  ·  "
-    "[dim]Autonomia:[/dim] [cyan]AUTO[/cyan]  ·  "
-    "[dim]PEP:[/dim] [green]Ativo[/green]"
-)
-
-_HINT = "[dim]Dica: Digite [bold white]/help[/bold white] para ver os comandos disponíveis. Use [bold white]Ctrl+C[/bold white] para sair.[/dim]"
-
 
 def print_banner() -> None:
     """Render the full ORION boot banner to the terminal."""
+    renderer = BannerRenderer()
     console.print()
-
-    # ASCII art — cyan cósmico
-    art = Text(_HUNTER_CREST, style="bold cyan")
-    console.print(art)
-
-    console.print()
-    console.print(Rule(style="dim blue"))
-    console.print(_STATUS_LINE, justify="center")
-    console.print(Rule(style="dim blue"))
-    console.print(_HINT, justify="center")
-    console.print()
+    console.print(renderer.render(terminal_width=console.width))
 
 
 # ---------------------------------------------------------------------------
@@ -78,7 +48,7 @@ def print_banner() -> None:
 
 
 @app.callback(invoke_without_command=True)
-def main(
+def cli_root(
     ctx: typer.Context,
     version: bool = typer.Option(
         False,
@@ -94,16 +64,14 @@ def main(
     5 Native Primitive Tools, deterministic PEP governance and structured Artifacts.
     """
     if version:
-        console.print(
-            f"[bold cyan]ORION[/bold cyan] [dim]v{__version__}[/dim]"
-        )
+        console.print(f"[bold cyan]ORION[/bold cyan] [dim]v{__version__}[/dim]")
         raise typer.Exit()
 
     if ctx.invoked_subcommand is None:
         print_banner()
-        console.print(
-            "[dim]Nenhum subcomando fornecido. Use [bold white]orion --help[/bold white] para ver as opções.[/dim]\n"
-        )
+        status_bar = SessionStatusBar.from_environment()
+        console.print(status_bar.render_bottom_bar(width=console.width))
+        console.print()
 
 
 @app.command(name="info")
@@ -138,8 +106,14 @@ def cmd_info() -> None:
 
         monitor = EnvironmentMonitor()
         telemetry = monitor.snapshot()
-        headroom_icon = "[green]✓ Seguro (>= 1.5GB)[/green]" if telemetry.headroom_safe else "[red]⚠ Bloqueado (< 1.5GB)[/red]"
-        table.add_row("RAM Livre / Total", f"{telemetry.ram_free_gb:.2f} GB / {telemetry.ram_total_gb:.2f} GB")
+        headroom_icon = (
+            "[green]✓ Seguro (>= 1.5GB)[/green]"
+            if telemetry.headroom_safe
+            else "[red]⚠ Bloqueado (< 1.5GB)[/red]"
+        )
+        table.add_row(
+            "RAM Livre / Total", f"{telemetry.ram_free_gb:.2f} GB / {telemetry.ram_total_gb:.2f} GB"
+        )
         table.add_row("Carga de CPU (1m)", f"{telemetry.cpu_load_percent:.1f}%")
         table.add_row("Servidor de Display", telemetry.display_mode)
         table.add_row("Headroom Guard", headroom_icon)
@@ -161,7 +135,10 @@ def cmd_info() -> None:
         from orion.skills.loader import SkillsLoader
 
         skills = SkillsLoader().discover()
-        table.add_row("Agent Skills Disponíveis", f"{len(skills)} descobertas ({', '.join(sorted(skills.keys()))})")
+        table.add_row(
+            "Agent Skills Disponíveis",
+            f"{len(skills)} descobertas ({', '.join(sorted(skills.keys()))})",
+        )
     except Exception:
         pass
 
@@ -174,10 +151,15 @@ def cmd_info() -> None:
 # ---------------------------------------------------------------------------
 
 
+def main() -> None:
+    """CLI entrypoint for orion-agent executable."""
+    app()
+
+
 def run() -> None:
     """Programmatic entrypoint (used by tests and direct invocation)."""
     app()
 
 
 if __name__ == "__main__":
-    run()
+    main()

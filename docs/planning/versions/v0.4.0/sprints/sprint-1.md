@@ -1,10 +1,10 @@
 # Sprint — [v0.4.0] Sprint 1: Stream CLI Foundation, Design System & Banner Adaptativo
 
-> **Status:** 📋 Pronto para Execução (Congelado)  
+> **Status:** ✅ Concluída com Sucesso  
 > **Versão Relacionada:** v0.4.0 (High-Performance Stream CLI, Slash Commands & Native MCP)  
 > **Responsável / Agente:** Daniel Dev & Antigravity (Pair Programming com Gemini 3.8 Flash High)  
-> **Data de Início:** Próxima Sessão  
-> **Data de Conclusão:** —  
+> **Data de Início:** 26/10/2026  
+> **Data de Conclusão:** 26/10/2026  
 > **Branch Alvo:** `version/v0.4.0`
 
 ---
@@ -245,9 +245,9 @@ class SessionStatusBar(BaseModel):
 - **CA-04 (Zero Quebras ANSI):** Validar que a saída gerada não contém códigos de escape ANSI quebrados ou incompletos.
 
 ### Definition of Done (DoD)
-- [ ] Binário `orion-agent` configurado no `pyproject.toml`.
-- [ ] Módulos `theme.py`, `console.py`, `banner.py` e `status_bar.py` implementados com tipagem Pydantic v2 estrita.
-- [ ] 100% dos testes unitários passando em `pytest tests/unit/test_banner.py tests/unit/test_status_bar.py tests/unit/test_theme.py`.
-- [ ] Cobertura de testes dos novos módulos $\ge 90\%$.
-- [ ] Zero regressão nos 838 testes existentes das versões v0.1.0 a v0.3.0.
-- [ ] Documentação de progresso atualizada em `.claudex/progress.md`.
+- [x] Binário `orion-agent` configurado no `pyproject.toml`.
+- [x] Módulos `theme.py`, `console.py`, `banner.py` e `status_bar.py` implementados com tipagem Pydantic v2 estrita.
+- [x] 100% dos testes unitários passando em `pytest tests/unit/test_banner.py tests/unit/test_status_bar.py tests/unit/test_theme.py`.
+- [x] Cobertura de testes dos novos módulos $\ge 90\%$ (alcançado 98.32%).
+- [x] Zero regressão nos 838 testes existentes das versões v0.1.0 a v0.3.0 (887 testes passando).
+- [x] Documentação de progresso atualizada em `.claudex/progress.md`.

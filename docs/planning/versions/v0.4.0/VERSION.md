@@ -44,7 +44,7 @@ Após as fundações do ReAct Loop (v0.1.0), da Memória Tríplice Contínua (v0
 
 | Sprint | Nome da Sprint | Objetivo Principal | Documento | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Sprint 1** | Stream CLI Foundation, Design System & Status Line | Ponto de entrada `orion-agent`, tema Deep Cosmos, arte ASCII da Mão Cósmica com Buraco Negro adaptativa e barra de status dinâmica | [`sprints/sprint-1.md`](sprints/sprint-1.md) | 📋 Pronto para Execução |
+| **Sprint 1** | Stream CLI Foundation, Design System & Status Line | Ponto de entrada `orion-agent`, tema Deep Cosmos, arte ASCII da Mão Cósmica com Buraco Negro adaptativa e barra de status dinâmica | [`sprints/sprint-1.md`](sprints/sprint-1.md) | ✅ Concluída |
 | **Sprint 2** | Terminal Engine, Prompt Interativo & Autocomplete | `prompt_toolkit` com histórico persistente, autocomplete flutuante para `/` e anexo de arquivos com `@` respeitando `.gitignore` | [`sprints/sprint-2.md`](sprints/sprint-2.md) | 📋 Planejado |
 | **Sprint 3** | Streaming Vivo, Diffs Cirúrgicos & 20 Slash Commands | Streaming contínuo via `Rich.Live`, painéis de diff cirúrgico e o catálogo oficial dos 20 Slash Commands | [`sprints/sprint-3.md`](sprints/sprint-3.md) | 📋 Planejado |
 | **Sprint 4** | Native MCP Client & Integração PEP | Cliente nativo do Model Context Protocol (stdio & SSE) com auditoria de segurança PEP | [`sprints/sprint-4.md`](sprints/sprint-4.md) | 📋 Planejado |
