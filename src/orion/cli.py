@@ -132,6 +132,39 @@ def cmd_info() -> None:
     table.add_row("Local Home", str(config.paths.local_home))
     table.add_row("Provedores Configurados", str(len(config.providers)))
 
+    # Telemetria de Hardware & Ambiente (v0.2.0)
+    try:
+        from orion.runtime.environment import EnvironmentMonitor
+
+        monitor = EnvironmentMonitor()
+        telemetry = monitor.snapshot()
+        headroom_icon = "[green]✓ Seguro (>= 1.5GB)[/green]" if telemetry.headroom_safe else "[red]⚠ Bloqueado (< 1.5GB)[/red]"
+        table.add_row("RAM Livre / Total", f"{telemetry.ram_free_gb:.2f} GB / {telemetry.ram_total_gb:.2f} GB")
+        table.add_row("Carga de CPU (1m)", f"{telemetry.cpu_load_percent:.1f}%")
+        table.add_row("Servidor de Display", telemetry.display_mode)
+        table.add_row("Headroom Guard", headroom_icon)
+    except Exception:
+        pass
+
+    # Identidade & Persona (v0.2.0)
+    try:
+        from orion.core.identity import IdentityManager
+
+        identity = IdentityManager().get_identity()
+        table.add_row("Origem Imutável", identity.immutable_origin)
+        table.add_row("Persona Ativa", f"[bold cyan]{identity.persona_name}[/bold cyan]")
+    except Exception:
+        pass
+
+    # Habilidades Descobertas (v0.2.0)
+    try:
+        from orion.skills.loader import SkillsLoader
+
+        skills = SkillsLoader().discover()
+        table.add_row("Agent Skills Disponíveis", f"{len(skills)} descobertas ({', '.join(sorted(skills.keys()))})")
+    except Exception:
+        pass
+
     console.print(table)
     console.print()
 

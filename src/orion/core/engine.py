@@ -25,7 +25,13 @@ import logging
 import re
 import uuid
 from collections.abc import AsyncIterator, Callable, Coroutine
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from orion.core.identity import IdentityManager
+    from orion.memory.manifest import CognitiveManifestGenerator
+    from orion.skills.engine import SkillsEngine
+    from orion.timeline.compactor import ContextCompactor
 
 from orion.core.errors import PromptInjectionSuspected, TurnBudgetExceeded
 from orion.core.event_bus import EventBus
@@ -108,6 +114,10 @@ class ReActEngine:
         max_turns: int = 20,
         session_id: str | None = None,
         runtime: BaseRuntimeProvider | None = None,
+        identity_manager: IdentityManager | None = None,
+        manifest_generator: CognitiveManifestGenerator | None = None,
+        skills_engine: SkillsEngine | None = None,
+        compactor: ContextCompactor | None = None,
     ) -> None:
         self._bus = event_bus
         self._llm = llm
@@ -115,6 +125,10 @@ class ReActEngine:
         self._session_id = session_id or str(uuid.uuid4())
         self._fsm = StateMachine()
         self._runtime = runtime
+        self._identity_manager = identity_manager
+        self._manifest_generator = manifest_generator
+        self._skills_engine = skills_engine
+        self._compactor = compactor
 
         # Accumulated observations to append to context in subsequent turns
         self._observations: list[Observation] = []
@@ -290,21 +304,34 @@ class ReActEngine:
         """Build the delimited prompt string for the LLM.
 
         Sections:
-            SYSTEM   — static agent identity and rules.
+            SYSTEM   — identity, cognitive manifest, available skills and rules.
             CONTEXT  — prior observation history (tool outputs).
             USER     — sanitized user request.
         """
-        system_block = (
-            f"{DELIM_SYSTEM_START}\n"
-            "You are O.R.I.O.N, a Personal Operating Intelligence assistant.\n"
-            "Rules:\n"
-            "  1. Think step-by-step before acting.\n"
-            "  2. Prefer targeted tool calls over broad ones.\n"
-            "  3. Never produce harmful, deceptive or policy-violating outputs.\n"
-            "  4. Always verify tool results before declaring completion.\n"
-            f"  5. You have {self._max_turns - turn_index} turns remaining.\n"
-            f"{DELIM_SYSTEM_END}"
-        )
+        system_lines = [f"{DELIM_SYSTEM_START}"]
+
+        if self._identity_manager is not None:
+            system_lines.append(self._identity_manager.render_system_preamble())
+        else:
+            system_lines.append("You are O.R.I.O.N, a Personal Operating Intelligence assistant.")
+
+        if self._manifest_generator is not None:
+            manifest = self._manifest_generator.generate(enforce_budget=False)
+            system_lines.append(manifest.to_xml_block())
+
+        if self._skills_engine is not None:
+            system_lines.append(self._skills_engine.get_manifest_block())
+
+        system_lines.extend([
+            "Rules:",
+            "  1. Think step-by-step before acting.",
+            "  2. Prefer targeted tool calls over broad ones.",
+            "  3. Never produce harmful, deceptive or policy-violating outputs.",
+            "  4. Always verify tool results before declaring completion.",
+            f"  5. You have {self._max_turns - turn_index} turns remaining.",
+            f"{DELIM_SYSTEM_END}",
+        ])
+        system_block = "\n".join(system_lines)
 
         context_parts: list[str] = []
         for obs in self._observations:

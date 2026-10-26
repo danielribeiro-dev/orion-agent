@@ -21,13 +21,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from orion.memory.facts_store import FactPoisoningAttempt, FactsStore
 from orion.memory.hybrid_retriever import HybridRetriever
 from orion.memory.models import FactCategory, FactEntry, FactStatus
-from orion.runtime.environment import EnvironmentMonitor
 from orion.runtime.provider import RuntimeResult
+
+if TYPE_CHECKING:
+    from orion.runtime.environment import EnvironmentMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -262,8 +264,13 @@ class InspectEnvironmentTool:
 
     TOOL_NAME = "inspect_environment"
 
-    def __init__(self, monitor: Optional[EnvironmentMonitor] = None) -> None:
-        self._monitor = monitor or EnvironmentMonitor()
+    def __init__(self, monitor: Optional[Any] = None) -> None:
+        if monitor is None:
+            from orion.runtime.environment import EnvironmentMonitor
+
+            self._monitor = EnvironmentMonitor()
+        else:
+            self._monitor = monitor
 
     def supports(self, name: str) -> bool:
         return name == self.TOOL_NAME
