@@ -142,8 +142,14 @@
   - [x] Modelo e barra de status dinâmica `src/orion/tui/status_bar.py` (Pydantic v2, badges com fallback resiliente de identidade, livro-razão financeiro USD/BRL)
   - [x] Integração de inicialização limpa sem flickering no CLI em `src/orion/cli.py`
   - [x] Suíte de 49 testes unitários implementada (`test_theme.py`, `test_banner.py`, `test_status_bar.py`, `test_cli.py`), 887 testes globais passando sem regressão
-- [ ] **Sprint 2: Terminal Engine, Prompt Interativo & Autocomplete** (Próxima)
-- [ ] **Sprint 3: Streaming Vivo com `Rich.Live`, Diffs Cirúrgicos e 20 Slash Commands**
+- [x] **Sprint 2: Terminal Engine, Prompt Interativo & Autocomplete** ✅ CONCLUÍDA (2026-10-26) — Cobertura TUI: 95.69%
+  - [x] Dependência `prompt-toolkit>=3.0.40` adicionada no `pyproject.toml`
+  - [x] Módulo `src/orion/tui/completer.py` com `OrionCompleter`, `SlashCommandCompleter` (/), `PathMentionCompleter` (@), `GitIgnoreMatcher`, e parser/resolver seguro de menções
+  - [x] Módulo `src/orion/tui/keybindings.py` com atalhos `Ctrl+C` (interrupção graciosa sem matar processo), `Alt+Enter` (multilinha) e `Ctrl+L` (limpar tela)
+  - [x] Módulo `src/orion/tui/prompt.py` com `InteractivePrompt`, histórico persistente em `~/.orion/history`, layout Rich integrado no bottom toolbar e execução resiliente com `TurnCancelledEvent`
+  - [x] Evento `TurnCancelledEvent` adicionado em `src/orion/core/events.py`
+  - [x] Suíte de 41 testes unitários (`test_completer.py`, `test_prompt_session.py`), totalizando 928 testes globais passando com 100% de sucesso
+- [ ] **Sprint 3: Streaming Vivo com `Rich.Live`, Diffs Cirúrgicos e 20 Slash Commands** (Próxima)
 - [ ] **Sprint 4: Native MCP Client stdio/SSE & Integração com PEP**
 
 ---

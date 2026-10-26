@@ -1,10 +1,10 @@
 # Sprint — [v0.4.0] Sprint 2: Prompt Interativo & Autocomplete
 
-> **Status:** 📋 Planejado  
+> **Status:** ✅ Concluída  
 > **Versão Relacionada:** v0.4.0 (High-Performance Stream CLI, Slash Commands & Native MCP)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
-> **Data de Início:** A definir (Fase 4)  
-> **Data de Conclusão:** —  
+> **Data de Início:** 26/10/2026  
+> **Data de Conclusão:** 26/10/2026  
 
 ---
 
@@ -38,16 +38,16 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Adicionar dependência `prompt-toolkit>=3.0.40` no `pyproject.toml`.
-- [ ] Implementação de `OrionCompleter` em `src/orion/tui/completer.py`:
+- [x] Adicionar dependência `prompt-toolkit>=3.0.40` no `pyproject.toml`.
+- [x] Implementação de `OrionCompleter` em `src/orion/tui/completer.py`:
   - `SlashCommandCompleter`: detecta prefixo `/` e sugere os comandos cadastrados com descrições curtas e ícones.
   - `PathMentionCompleter`: detecta prefixo `@` e sugere arquivos e diretórios a partir da raiz do workspace ativo, ignorando `.git/`, `__pycache__/`, `node_modules/` e padrões de `.gitignore`.
-- [ ] Implementação de `InteractivePrompt` em `src/orion/tui/prompt.py`:
+- [x] Implementação de `InteractivePrompt` em `src/orion/tui/prompt.py`:
   - Histórico persistente gravado em `~/.orion/history`.
   - Suporte a entrada multilinha (`Alt+Enter` ou colar código grande sem executar prematuramente).
   - Captura graciosa de `KeyboardInterrupt` (`Ctrl+C`) emitindo sinal de interrupção para o ReAct Engine.
   - Barra de status inferior Rich integrada ao layout do `prompt_toolkit`.
-- [ ] Testes unitários do completer e do parser de menções `@`.
+- [x] Testes unitários do completer e do parser de menções `@`.
 
 ### 🚫 Fora de Escopo (Out of Scope / Anti-Metas)
 - Não implementar a execução dos 20 Slash Commands (escopo da Sprint 3).
@@ -109,8 +109,8 @@ class OrionCompleter(Completer):
 - **Teste 3:** Envio de `Ctrl+C` durante execução de tarefa emite `TurnCancelledEvent` sem fechar o CLI.
 
 ### Definition of Done (DoD)
-- [ ] `prompt_toolkit` totalmente integrado com histórico persistente.
-- [ ] Autocomplete duplo (`/` e `@`) operacional e veloz.
-- [ ] `pytest tests/unit/test_completer.py tests/unit/test_prompt_session.py` passando com 100% de sucesso.
-- [ ] Cobertura de testes dos módulos $\ge 90\%$.
-- [ ] Documentação de progresso atualizada em `.claudex/progress.md`.
+- [x] `prompt_toolkit` totalmente integrado com histórico persistente.
+- [x] Autocomplete duplo (`/` e `@`) operacional e veloz.
+- [x] `pytest tests/unit/test_completer.py tests/unit/test_prompt_session.py` passando com 100% de sucesso.
+- [x] Cobertura de testes dos módulos $\ge 90\%$. (Alcançado 95.69% no pacote `orion.tui`!)
+- [x] Documentação de progresso atualizada em `.claudex/progress.md`.

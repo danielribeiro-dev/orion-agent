@@ -166,6 +166,18 @@ class TurnCompleted(OrionEvent):
     error: str | None = None
 
 
+class TurnCancelledEvent(OrionEvent):
+    """Published when a turn or task is interrupted by the user (e.g. via Ctrl+C / SIGINT)."""
+
+    session_id: str = Field(default="")
+    turn_index: int = Field(default=0)
+    reason: str = Field(default="Interrupted by user (Ctrl+C / SIGINT)")
+
+
+# Alias for backward/forward naming consistency
+TurnCancelled = TurnCancelledEvent
+
+
 # ---------------------------------------------------------------------------
 # Union type for type-narrowing in handlers
 # ---------------------------------------------------------------------------
@@ -179,4 +191,5 @@ AnyEvent = (
     | ObservationReceived
     | FinalAnswer
     | TurnCompleted
+    | TurnCancelledEvent
 )

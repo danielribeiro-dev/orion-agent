@@ -30,6 +30,7 @@ dependencies = [
     "numpy>=1.26",
     "psutil>=5.9",
     "pyyaml>=6.0",
+    "prompt-toolkit>=3.0.40",
 ]
 
 [project.scripts]
