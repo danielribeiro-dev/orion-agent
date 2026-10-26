@@ -1,10 +1,10 @@
 # Sprint — [v0.3.0] Sprint 4: Resiliência Universal (Hardware-Friendly), Salvaguarda Cognitiva & Nuclear Step-Up Auth
 
-> **Status:** 📋 Planejado  
+> **Status:** ✅ Concluída  
 > **Versão Relacionada:** v0.3.0 (Model Gateway, Real-Time Cost Ledger & Offline Resilience)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
-> **Data de Início:** A definir (Fase 3)  
-> **Data de Conclusão:** —  
+> **Data de Início:** 2026-10-26  
+> **Data de Conclusão:** 2026-10-26  
 
 ---
 
@@ -47,26 +47,27 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Implementação de `CircuitBreaker` e Gerenciador de Resiliência em `src/orion/gateway/circuit_breaker.py`:
+- [x] Implementação de `CircuitBreaker` e Gerenciador de Resiliência em `src/orion/gateway/circuit_breaker.py`:
   - Retentativas com jitter exponencial em erros 429, 502, 503, 504 e timeout.
   - Salvaguarda Cognitiva: chaveamento para modelo de mesma potência (`equi_tier_frontier`) ou ativação de `SAFE_HOLDING`.
   - Modo `SAFE_HOLDING`: modelo leve explica ao desenvolvedor o motivo da parada (falha na API, saldo de créditos, timeout) e permite diálogo, mas bloqueia `write_file`, `edit_file` e comandos mutantes até a volta do modelo de topo.
+  - Salvaguarda Inviolável: se o usuário escolheu intencionalmente um modelo leve como diário (`intentional_lite_mode=True`), `SAFE_HOLDING` NUNCA é ativado e ferramentas permanecem 100% disponíveis.
   - Modo `OFFLINE_SUSPENDED`: pausa graciosa em caso de queda de rede sem fallback local, salvando checkpoint no banco.
-- [ ] Implementação de `LocalOllamaProvider` em `src/orion/gateway/providers/local_ollama.py`:
+- [x] Implementação de `LocalOllamaProvider` em `src/orion/gateway/providers/local_ollama.py`:
   - Adaptador opcional para Ollama via HTTP assíncrono.
   - Zero auto-download e zero auto-start; checagem rápida (`/api/tags`) de disponibilidade.
-- [ ] Implementação de `CommandTrustLedger` em `src/orion/governance/trust_ledger.py`:
+- [x] Implementação de `CommandTrustLedger` em `src/orion/governance/trust_ledger.py`:
   - Armazenamento SQLite de assinaturas de comandos já aprovados e bem-sucedidos.
   - Comandos conhecidos e não-destrutivos (`git status`, `pytest`, `npm test`) não interrompem o usuário em modo auto.
-- [ ] Implementação de `NuclearSafetyGate` em `src/orion/governance/nuclear.py`:
+- [x] Implementação de `NuclearSafetyGate` em `src/orion/governance/nuclear.py`:
   - Classificação estrita de *Blast Radius*: detecta `rm -rf`, deleção massiva, modificações em `/`, `/etc`, `~/.ssh`, `dd`, `mkfs`.
   - Disparo de autenticação nativa do sistema operacional:
     - Com display gráfico: aciona `zenity --password`, `kdialog` ou `pkexec`.
     - Headless / SSH: diálogo mascarado seguro no `/dev/tty` (`getpass`).
-- [ ] Integração no `PolicyEnforcementPoint` (`src/orion/governance/pep.py`):
+- [x] Integração no `PolicyEnforcementPoint` (`src/orion/governance/pep.py`):
   - Consulta ao `CommandTrustLedger` e ao `NuclearSafetyGate`.
-  - Bloqueio de mutações se o Circuit Breaker estiver em `SAFE_HOLDING`.
-- [ ] Testes unitários com mocks em `tests/unit/test_circuit_breaker.py`, `tests/unit/test_local_ollama.py`, `tests/unit/test_trust_ledger.py` e `tests/unit/test_nuclear.py`.
+  - Bloqueio de mutações se o Circuit Breaker estiver em `SAFE_HOLDING` (e não em `intentional_lite_mode`).
+- [x] Testes unitários com mocks em `tests/unit/test_circuit_breaker.py`, `tests/unit/test_local_ollama.py`, `tests/unit/test_trust_ledger.py` e `tests/unit/test_nuclear.py`.
 
 ### 🚫 Fora de Escopo (Out of Scope / Anti-Metas)
 - Não conectar microfone ou sintetizador de áudio real nesta sprint (escopo da v0.5.0).
@@ -131,11 +132,12 @@ class NuclearChallengeResult(BaseModel):
 
 ## 7. Critérios de Aceite (DoD)
 
-- [ ] Falha persistente no modelo de topo (`HEAVY`) sem modelo equi-tier ativa `SAFE_HOLDING`, avisando o desenvolvedor e impedindo mutações de código.
-- [ ] Chaveamento para modelo de mesma potência (`equi_tier_frontier`) preserva a capacidade de geração de código.
-- [ ] A flag `local_fallback_enabled` é `False` por padrão e nunca baixa modelos automaticamente.
-- [ ] Corte de rede sem fallback entra em modo `OFFLINE_SUSPENDED` sem congelar a máquina e sem disparar consumo de CPU/RAM.
-- [ ] Comandos inofensivos (`git status`, `npm test`) já executados rodam sem exibir prompt em modo auto.
-- [ ] Comandos com `sudo` benignos (`sudo apt install htop`) pedem confirmação apenas na primeira vez em modo auto.
-- [ ] Qualquer comando avaliado como `NUCLEAR_DESTRUCTIVE` dispara autenticação obrigatória do sistema operacional em todos os modos.
-- [ ] Suíte de testes com cobertura $\ge 85\%$.
+- [x] Falha persistente no modelo de topo (`HEAVY`) sem modelo equi-tier ativa `SAFE_HOLDING`, avisando o desenvolvedor e impedindo mutações de código.
+- [x] Chaveamento para modelo de mesma potência (`equi_tier_frontier`) preserva a capacidade de geração de código.
+- [x] Se o usuário configurar deliberadamente um modelo leve como rotina (`intentional_lite_mode=True`), `SAFE_HOLDING` NUNCA é ativado e ferramentas continuam 100% livres.
+- [x] A flag `local_fallback_enabled` é `False` por padrão e nunca baixa modelos automaticamente.
+- [x] Corte de rede sem fallback entra em modo `OFFLINE_SUSPENDED` sem congelar a máquina e sem disparar consumo de CPU/RAM.
+- [x] Comandos inofensivos (`git status`, `npm test`) já executados rodam sem exibir prompt em modo auto.
+- [x] Comandos com `sudo` benignos (`sudo apt install htop`) pedem confirmação apenas na primeira vez em modo auto.
+- [x] Qualquer comando avaliado como `NUCLEAR_DESTRUCTIVE` dispara autenticação obrigatória do sistema operacional em todos os modos.
+- [x] Suíte de testes com cobertura $\ge 85\%$ (**92.31% atingido**: `circuit_breaker.py`=94%, `local_ollama.py`=89%, `nuclear.py`=94%, `pep.py`=91%, `trust_ledger.py`=92%).

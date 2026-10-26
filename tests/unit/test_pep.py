@@ -356,3 +356,246 @@ def test_pep_set_mode(workspace: WorkspaceScope, audit: AuditLogger) -> None:
     assert pep.mode == AutonomyMode.SUPERVISED
     pep.set_mode(AutonomyMode.FULLY_AUTO)
     assert pep.mode == AutonomyMode.FULLY_AUTO
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sprint 4: CircuitBreaker & SafeHolding Integration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_pep_blocks_mutations_when_safe_holding_active(
+    tmp_path: Path, audit: AuditLogger
+) -> None:
+    """When a frontier model fails externally and safe holding triggers,
+    PEP must block mutating actions (write_file, edit_file, run_command)."""
+    from orion.gateway.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, FailureReason
+    from orion.gateway.models import ComplexityTier
+
+    workspace = WorkspaceScope(roots=[tmp_path])
+    cb = CircuitBreaker(
+        primary_model_id="anthropic/claude-sonnet-4-5",
+        primary_model_tier=ComplexityTier.HEAVY,
+        config=CircuitBreakerConfig(failure_threshold=1),
+    )
+    cb.record_failure(FailureReason.RATE_LIMIT)
+    assert cb.is_mutation_blocked() is True
+
+    pep = PolicyEnforcementPoint(
+        scope=workspace,
+        audit_logger=audit,
+        mode=AutonomyMode.FULLY_AUTO,
+        circuit_breaker=cb,
+    )
+
+    action_write = _action("write_file", {"path": str(tmp_path / "test.py"), "content": "x"})
+    with pytest.raises(ActionDenied, match="SAFE HOLDING"):
+        await pep.evaluate(action_write)
+
+
+@pytest.mark.asyncio
+async def test_pep_allows_read_operations_during_safe_holding(
+    tmp_path: Path, audit: AuditLogger
+) -> None:
+    """Read-only actions (read_file, search_files) must remain allowed
+    even when SAFE_HOLDING is active, so the agent can inspect context."""
+    from orion.gateway.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, FailureReason
+    from orion.gateway.models import ComplexityTier
+
+    workspace = WorkspaceScope(roots=[tmp_path])
+    cb = CircuitBreaker(
+        primary_model_id="anthropic/claude-sonnet-4-5",
+        primary_model_tier=ComplexityTier.HEAVY,
+        config=CircuitBreakerConfig(failure_threshold=1),
+    )
+    cb.record_failure(FailureReason.RATE_LIMIT)
+
+    pep = PolicyEnforcementPoint(
+        scope=workspace,
+        audit_logger=audit,
+        mode=AutonomyMode.FULLY_AUTO,
+        circuit_breaker=cb,
+    )
+
+    action_read = _action("read_file", {"path": str(tmp_path / "test.py")})
+    approved = await pep.evaluate(action_read)
+    assert approved is True
+
+
+@pytest.mark.asyncio
+async def test_pep_allows_mutations_when_user_intentionally_uses_lite_model(
+    tmp_path: Path, audit: AuditLogger
+) -> None:
+    """CRITICAL SAFETY INVARIANT:
+    If the user chose a lite model as their everyday driver (intentional_lite_mode=True),
+    the system must NEVER block tools or think it's in SAFE_HOLDING.
+    The user must have full tool access."""
+    from orion.gateway.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, FailureReason
+    from orion.gateway.models import ComplexityTier
+
+    workspace = WorkspaceScope(roots=[tmp_path])
+    cb = CircuitBreaker(
+        primary_model_id="google/gemini-2.0-flash-lite",
+        primary_model_tier=ComplexityTier.FAST,
+        config=CircuitBreakerConfig(failure_threshold=1),
+        intentional_lite_mode=True,  # User's intentional choice
+    )
+    cb.record_failure(FailureReason.RATE_LIMIT)
+
+    assert cb.is_mutation_blocked() is False
+
+    pep = PolicyEnforcementPoint(
+        scope=workspace,
+        audit_logger=audit,
+        mode=AutonomyMode.FULLY_AUTO,
+        circuit_breaker=cb,
+    )
+
+    action_write = _action("write_file", {"path": str(tmp_path / "test.py"), "content": "x"})
+    approved = await pep.evaluate(action_write)
+    assert approved is True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sprint 4: CommandTrustLedger Integration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_pep_trust_ledger_auto_approves_known_safe_command(
+    tmp_path: Path, audit: AuditLogger
+) -> None:
+    """A known-safe command recorded in TrustLedger bypasses confirmation in WORKSPACE_AUTO."""
+    from orion.governance.trust_ledger import CommandTrustLedger
+
+    workspace = WorkspaceScope(roots=[tmp_path])
+    trust_ledger = CommandTrustLedger(db_path=tmp_path / "test_trust.db")
+    trust_ledger.record_success("npm test")
+
+    # In WORKSPACE_AUTO, LEVEL_3 usually prompts; with trust_ledger hit, it should approve
+    pep = PolicyEnforcementPoint(
+        scope=workspace,
+        audit_logger=audit,
+        mode=AutonomyMode.WORKSPACE_AUTO,
+        confirm=lambda _: False,  # would deny if prompted
+        trust_ledger=trust_ledger,
+    )
+
+    action = _action("run_command", {"command": "npm test"})
+    approved = await pep.evaluate(action)
+    assert approved is True
+
+
+@pytest.mark.asyncio
+async def test_pep_trust_ledger_still_prompts_in_supervised(
+    tmp_path: Path, audit: AuditLogger
+) -> None:
+    """In SUPERVISED mode, TrustLedger does not bypass confirmation — user must confirm."""
+    from orion.governance.trust_ledger import CommandTrustLedger
+
+    workspace = WorkspaceScope(roots=[tmp_path])
+    trust_ledger = CommandTrustLedger(db_path=tmp_path / "test_trust.db")
+    trust_ledger.record_success("npm test")
+
+    pep = PolicyEnforcementPoint(
+        scope=workspace,
+        audit_logger=audit,
+        mode=AutonomyMode.SUPERVISED,
+        confirm=lambda _: False,  # user rejects
+        trust_ledger=trust_ledger,
+    )
+
+    action = _action("run_command", {"command": "npm test"})
+    approved = await pep.evaluate(action)
+    assert approved is False
+
+
+def test_pep_record_action_success_skips_nuclear(
+    tmp_path: Path, audit: AuditLogger
+) -> None:
+    """Nuclear commands must NEVER be recorded into the trust ledger."""
+    from orion.governance.trust_ledger import CommandTrustLedger
+
+    workspace = WorkspaceScope(roots=[tmp_path])
+    trust_ledger = CommandTrustLedger(db_path=tmp_path / "test_trust.db")
+    pep = PolicyEnforcementPoint(
+        scope=workspace,
+        audit_logger=audit,
+        trust_ledger=trust_ledger,
+    )
+
+    action_nuclear = _action("run_command", {"command": "rm -rf /tmp/test"})
+    pep.record_action_success(action_nuclear, exit_code=0)
+
+    # Must NOT be in the ledger
+    assert trust_ledger.lookup("rm -rf /tmp/test").is_trusted is False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sprint 4: NuclearSafetyGate Integration
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_pep_nuclear_gate_blocks_destructive_in_fully_auto(
+    tmp_path: Path, audit: AuditLogger
+) -> None:
+    """Even in FULLY_AUTO mode, a NUCLEAR_DESTRUCTIVE command triggers OS authentication.
+    If auth is denied, PEP raises ActionDenied."""
+    from orion.governance.nuclear import BlastRadius, NuclearChallengeResult, NuclearSafetyGate
+    from unittest.mock import patch
+
+    workspace = WorkspaceScope(roots=[tmp_path])
+    nuclear_gate = NuclearSafetyGate()
+
+    pep = PolicyEnforcementPoint(
+        scope=workspace,
+        audit_logger=audit,
+        mode=AutonomyMode.FULLY_AUTO,
+        nuclear_gate=nuclear_gate,
+    )
+
+    action = _action("run_command", {"command": "rm -rf /tmp/important_data"})
+
+    with patch.object(nuclear_gate, "challenge") as mock_challenge:
+        mock_challenge.return_value = NuclearChallengeResult(
+            authorized=False,
+            method_used="zenity",
+            duration_seconds=1.0,
+            command_pattern="rm -rf /tmp/important_data",
+            blast_radius=BlastRadius.NUCLEAR_DESTRUCTIVE,
+        )
+        with pytest.raises(ActionDenied, match="Nuclear operation denied"):
+            await pep.evaluate(action)
+
+
+@pytest.mark.asyncio
+async def test_pep_nuclear_gate_allows_destructive_when_authenticated(
+    tmp_path: Path, audit: AuditLogger
+) -> None:
+    """If user authenticates in OS challenge, nuclear command proceeds."""
+    from orion.governance.nuclear import BlastRadius, NuclearChallengeResult, NuclearSafetyGate
+    from unittest.mock import patch
+
+    workspace = WorkspaceScope(roots=[tmp_path])
+    nuclear_gate = NuclearSafetyGate()
+
+    pep = PolicyEnforcementPoint(
+        scope=workspace,
+        audit_logger=audit,
+        mode=AutonomyMode.FULLY_AUTO,
+        nuclear_gate=nuclear_gate,
+    )
+
+    action = _action("run_command", {"command": "rm -rf /tmp/clean_cache"})
+
+    with patch.object(nuclear_gate, "challenge") as mock_challenge:
+        mock_challenge.return_value = NuclearChallengeResult(
+            authorized=True,
+            method_used="zenity",
+            duration_seconds=1.2,
+            command_pattern="rm -rf /tmp/clean_cache",
+            blast_radius=BlastRadius.NUCLEAR_DESTRUCTIVE,
+        )
+        approved = await pep.evaluate(action)
+        assert approved is True
