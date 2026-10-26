@@ -88,11 +88,34 @@
   - [x] `tests/unit/test_timeline.py` (22 testes passando, verificação de concorrência e busca)
 - [ ] **Sprint 2: FastEmbed Local ONNX Vector & RRF Hybrid Fusion** 🟡 EM ANDAMENTO
   - [x] `pyproject.toml` atualizado com `aiosqlite`, `fastembed`, `numpy`, `psutil`
+### [CONCLUÍDO] Fase 2: v0.2.0 Cognitive Continuity & Triple Memory
+- [x] Especificação formal da versão em `docs/planning/versions/v0.2.0/VERSION.md`
+- [x] **Sprint 1: Main Timeline & SQLite FTS5** ✅ Concluída
+  - [x] `src/orion/memory/models.py` (Modelos Pydantic v2 do subsistema de memória)
+  - [x] `src/orion/memory/timeline.py` (TimelineManager SQLite WAL + FTS5 BM25 + DayMarkers)
+  - [x] Testes unitários `tests/unit/test_timeline.py` (22 testes passando)
+- [x] **Sprint 2: FastEmbed Local & RRF Fusion** ✅ Concluída
+  - [x] Dependências (`aiosqlite`, `fastembed`, `numpy`, `psutil`, `pyyaml`)
   - [x] `src/orion/memory/vector_store.py` (VectorStore com FastEmbed `bge-small-en-v1.5`, dedup $\ge 0.92$, NumPy dot product)
   - [x] `src/orion/memory/hybrid_retriever.py` (HybridRetriever com RRF $k=60$ e controle de token budget de 1500 tokens)
-  - [ ] Testes unitários `tests/unit/test_vector_store.py` e `tests/unit/test_hybrid_retriever.py`
-- [ ] **Sprint 3: The 5-Sphere Memory, Cognitive Tools & Remote HITL Connector** 📋 Planejada
-- [ ] **Sprint 4: Universal Skills Standard & Dynamic Compactor / Branches** 📋 Planejada
+  - [x] Testes unitários `tests/unit/test_vector_store.py` e `tests/unit/test_hybrid_retriever.py`
+- [x] **Sprint 3: The 5-Sphere Memory, Cognitive Tools & Remote HITL Connector** ✅ Concluída
+  - [x] `src/orion/runtime/environment.py` (EnvironmentMonitor com HeadroomGuard determinístico)
+  - [x] `src/orion/core/identity.py` (IdentityManager com Origem Imutável e Persona Modular Jarvis)
+  - [x] `src/orion/memory/facts_store.py` (FactsStore SQLite com máquina de estados anti-poisoning)
+  - [x] `src/orion/memory/manifest.py` (CognitiveManifestGenerator com teto estrito de 250 tokens)
+  - [x] `src/orion/memory/file_syncer.py` (MemoryFileSyncer com teto estrito de 200 linhas em MEMORY.md)
+  - [x] `src/orion/memory/hitl_telegram.py` (TelegramHITLConnector com aprovação PEP remota e mock)
+  - [x] `src/orion/memory/tools.py` (MemorizeTool, RecallTool, DeprecateFactTool, InspectEnvironmentTool)
+  - [x] Testes unitários das 5 esferas (104 testes passando)
+- [x] **Sprint 4: Universal Skills Standard & Dynamic Compactor / Branches** ✅ Concluída
+  - [x] `src/orion/skills/` (SkillsLoader com precedência Workspace > Global > Builtin, `use_skill` tool, `SKILL.md`)
+  - [x] `src/orion/builtin/skills/system-doctor/SKILL.md` (Habilidade nativa de auditoria de sistema)
+  - [x] `src/orion/timeline/compactor.py` (ContextCompactor com teto 80%, comando `/compact`, preservação de vital tail e arquivos ativos)
+  - [x] `src/orion/timeline/branch_manager.py` (BranchManager para `/branch`, `/merge` e arquivamento)
+  - [x] `src/orion/timeline/checkpoint_synthesis.py` (Síntese executiva de 3 a 5 linhas)
+  - [x] Testes unitários (24 testes passando: `test_skills_loader.py`, `test_compactor.py`, `test_branches.py`)
+  - [x] Cobertura global atingida: 93.39% (389 testes passando, 0 falhas)
 
 ---
 

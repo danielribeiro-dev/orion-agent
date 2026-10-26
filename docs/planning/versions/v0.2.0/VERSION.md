@@ -68,10 +68,10 @@ Após a consolidação da fundação limpa, do ReAct Engine e das 5 ferramentas 
 
 | Sprint | Nome da Sprint | Objetivo Principal | Documento | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Sprint 1** | Main Timeline & SQLite FTS5 | Linha do tempo perpétua em SQLite WAL com busca BM25 sub-10ms e Day Markers | [`sprints/sprint-1.md`](sprints/sprint-1.md) | 📋 Planejado |
-| **Sprint 2** | FastEmbed Local & RRF Fusion | Embeddings locais ONNX (`bge-small-en-v1.5`), deduplicação ($\ge 0.92$) e fusão RRF | [`sprints/sprint-2.md`](sprints/sprint-2.md) | 📋 Planejado |
-| **Sprint 3** | The 5-Sphere Memory & Cognitive Tools | Perfil do Usuário ("Senhor", Maestria), Persona Dual (Daniel / Jarvis), Telemetria Host, Telegram HITL e Manifest | [`sprints/sprint-3.md`](sprints/sprint-3.md) | 📋 Planejado |
-| **Sprint 4** | Universal Skills Standard & Compactor | Padrão `SKILL.md` com Progressive Disclosure, comando `/compact`, branches e checkpoints | [`sprints/sprint-4.md`](sprints/sprint-4.md) | 📋 Planejado |
+| **Sprint 1** | Main Timeline & SQLite FTS5 | Linha do tempo perpétua em SQLite WAL com busca BM25 sub-10ms e Day Markers | [`sprints/sprint-1.md`](sprints/sprint-1.md) | ✅ Concluído |
+| **Sprint 2** | FastEmbed Local & RRF Fusion | Embeddings locais ONNX (`bge-small-en-v1.5`), deduplicação ($\ge 0.92$) e fusão RRF | [`sprints/sprint-2.md`](sprints/sprint-2.md) | ✅ Concluído |
+| **Sprint 3** | The 5-Sphere Memory & Cognitive Tools | Perfil do Usuário ("Senhor", Maestria), Persona Dual (Daniel / Jarvis), Telemetria Host, Telegram HITL e Manifest | [`sprints/sprint-3.md`](sprints/sprint-3.md) | ✅ Concluído |
+| **Sprint 4** | Universal Skills Standard & Compactor | Padrão `SKILL.md` com Progressive Disclosure, comando `/compact`, branches e checkpoints | [`sprints/sprint-4.md`](sprints/sprint-4.md) | ✅ Concluído |
 
 ---
 
@@ -116,18 +116,18 @@ src/orion/
 
 | ID | Cenário | Comportamento Esperado | Como Validar | Status |
 |:---|:---|:---|:---|:---|
-| CA-01 | Main Timeline & FTS5 | Eventos gravados em WAL com busca BM25 retornando em $< 10\text{ ms}$ | `pytest tests/unit/test_timeline.py` | ⏳ Pendente |
-| CA-02 | FastEmbed Local & RRF | Embeddings ONNX gerados em CPU local sem PyTorch; deduplicação em $\ge 0.92$ | `pytest tests/unit/test_vector_store.py` | ⏳ Pendente |
-| CA-03 | Blindagem Anti-Poisoning | Fatos inferidos nunca sobrescrevem regras confirmadas pelo usuário | `pytest tests/unit/test_facts_store.py` | ⏳ Pendente |
-| CA-04 | Cognitive Manifest Budget | Bloco injetado no boot permanece rigorosamente abaixo de 250 tokens | `pytest tests/unit/test_manifest.py` | ⏳ Pendente |
-| CA-05 | Environment Headroom Guard| Bloqueio proativo de navegadores se RAM livre $< 1.5\text{ GB}$ | `pytest tests/unit/test_environment.py` | ⏳ Pendente |
-| CA-06 | Identidade Dual & Persona | Reconhece origem (Daniel Ribeiro) e assume persona Jarvis concisa/didática | `pytest tests/unit/test_identity.py` | ⏳ Pendente |
-| CA-07 | Escalonamento Remoto HITL | Inatividade no terminal ($> 180$s) dispara aprovação no Telegram Bot | `pytest tests/unit/test_hitl_telegram.py` | ⏳ Pendente |
-| CA-08 | Ferramentas Cognitivas | `memorize`, `recall`, `deprecate_fact`, `inspect_environment` no ReAct loop | `pytest tests/unit/test_memory_tools.py` | ⏳ Pendente |
-| CA-09 | Progressive Skills Standard | Boot varre skills consumindo $< 100$ tokens/skill; `use_skill` carrega tudo | `pytest tests/unit/test_skills_loader.py` | ⏳ Pendente |
-| CA-10 | Dynamic Compactor | Compacting automático a 80% do budget preserva *vital tail* e arquivos ativos | `pytest tests/unit/test_compactor.py` | ⏳ Pendente |
-| CA-11 | Branches & Síntese | Merge de branch gera checkpoint conciso na Main Timeline | `pytest tests/unit/test_branches.py` | ⏳ Pendente |
-| CA-12 | Cobertura de Testes | Suíte completa da v0.2.0 passando com cobertura global $\ge 85\%$ | `pytest --cov=src/orion` | ⏳ Pendente |
+| CA-01 | Main Timeline & FTS5 | Eventos gravados em WAL com busca BM25 retornando em $< 10\text{ ms}$ | `pytest tests/unit/test_timeline.py` | ✅ Concluído |
+| CA-02 | FastEmbed Local & RRF | Embeddings ONNX gerados em CPU local sem PyTorch; deduplicação em $\ge 0.92$ | `pytest tests/unit/test_vector_store.py` | ✅ Concluído |
+| CA-03 | Blindagem Anti-Poisoning | Fatos inferidos nunca sobrescrevem regras confirmadas pelo usuário | `pytest tests/unit/test_facts_store.py` | ✅ Concluído |
+| CA-04 | Cognitive Manifest Budget | Bloco injetado no boot permanece rigorosamente abaixo de 250 tokens | `pytest tests/unit/test_manifest.py` | ✅ Concluído |
+| CA-05 | Environment Headroom Guard| Bloqueio proativo de navegadores se RAM livre $< 1.5\text{ GB}$ | `pytest tests/unit/test_environment.py` | ✅ Concluído |
+| CA-06 | Identidade Dual & Persona | Reconhece origem (Daniel Ribeiro) e assume persona Jarvis concisa/didática | `pytest tests/unit/test_identity.py` | ✅ Concluído |
+| CA-07 | Escalonamento Remoto HITL | Inatividade no terminal ($> 180$s) dispara aprovação no Telegram Bot | `pytest tests/unit/test_hitl_telegram.py` | ✅ Concluído |
+| CA-08 | Ferramentas Cognitivas | `memorize`, `recall`, `deprecate_fact`, `inspect_environment` no ReAct loop | `pytest tests/unit/test_memory_tools.py` | ✅ Concluído |
+| CA-09 | Progressive Skills Standard | Boot varre skills consumindo $< 100$ tokens/skill; `use_skill` carrega tudo | `pytest tests/unit/test_skills_loader.py` | ✅ Concluído |
+| CA-10 | Dynamic Compactor | Compacting automático a 80% do budget preserva *vital tail* e arquivos ativos | `pytest tests/unit/test_compactor.py` | ✅ Concluído |
+| CA-11 | Branches & Síntese | Merge de branch gera checkpoint conciso na Main Timeline | `pytest tests/unit/test_branches.py` | ✅ Concluído |
+| CA-12 | Cobertura de Testes | Suíte completa da v0.2.0 passando com cobertura global $\ge 85\%$ | `pytest --cov=src/orion` | ✅ Concluído (93.4%) |
 
 ---
 
@@ -135,6 +135,7 @@ src/orion/
 
 - [x] Especificação técnica e arquitetural da v0.2.0 alinhada e aprovada pelo usuário.
 - [x] As 4 sprints da v0.2.0 devidamente atualizadas com as 5 Esferas Cognitivas, PCU e Remote HITL.
-- [ ] Implementação de todas as 4 sprints concluída com testes automatizados.
-- [ ] Bateria de testes com cobertura $\ge 85\%$.
+- [x] Implementação de todas as 4 sprints concluída com testes automatizados.
+- [x] Bateria de testes com cobertura $\ge 85\%$ (93.39% alcançado).
+- [ ] Tag Git `v0.2.0` criada.
 - [ ] Tag Git `v0.2.0` criada.
