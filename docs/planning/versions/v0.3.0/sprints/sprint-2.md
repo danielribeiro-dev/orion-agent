@@ -1,10 +1,10 @@
 # Sprint — [v0.3.0] Sprint 2: Dynamic Auto-Routing & Complexity Engine
 
-> **Status:** 📋 Planejado  
+> **Status:** ✅ Concluída  
 > **Versão Relacionada:** v0.3.0 (Model Gateway, Real-Time Cost Ledger & Offline Resilience)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
-> **Data de Início:** A definir (Fase 3)  
-> **Data de Conclusão:** —  
+> **Data de Início:** 2026-10-26  
+> **Data de Conclusão:** 2026-10-26  
 
 ---
 
@@ -38,18 +38,18 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Implementação de `ComplexityClassifier` em `src/orion/gateway/classifier.py`:
+- [x] Implementação de `ComplexityClassifier` em `src/orion/gateway/classifier.py`:
   - Análise léxica e contextual do prompt do usuário e histórico do turno.
   - Indicadores de alta complexidade: comandos `/plan`, refatoração multifuncional, raciocínio de segurança, depuração de erros complexos, planejamento arquitetural.
   - Indicadores de baixa complexidade: leitura de diretórios, formatação de dados, checagem de status, sumarização simples.
-- [ ] Implementação do `ModelRouter` em `src/orion/gateway/router.py`:
+- [x] Implementação do `ModelRouter` em `src/orion/gateway/router.py`:
   - Mapeamento dinâmico de tiers:
     - `FAST_LITE`: ex. Google Gemini 2.5 Flash / Qwen 2.5 Coder 32B via OpenRouter.
     - `BALANCED`: ex. Claude 3.5 Sonnet / GPT-4o-mini.
     - `HEAVY_FRONTIER`: ex. Claude 3.7 Sonnet (com extended thinking habilitado) / Gemini 2.0 Pro.
   - Suporte ao modo `fixed`: bypass do classificador e uso estrito do modelo escolhido pelo usuário.
-- [ ] Suporte à alternância dinâmica por linguagem natural (*"Orion, alterne para o modo automático"* ou *"Orion, fixe no Claude 3.7 Sonnet"*).
-- [ ] Testes unitários com benchmarks de roteamento em `tests/unit/test_router.py`.
+- [x] Suporte à alternância dinâmica por linguagem natural (*"Orion, alterne para o modo automático"* ou *"Orion, fixe no Claude 3.7 Sonnet"*).
+- [x] Testes unitários com benchmarks de roteamento em `tests/unit/test_router.py`.
 
 ### 🚫 Fora de Escopo (Out of Scope / Anti-Metas)
 - Não persistir o histórico financeiro no banco SQLite (escopo da Sprint 3).
@@ -96,7 +96,7 @@ class RoutingDecision(BaseModel):
 
 ## 7. Critérios de Aceite (DoD)
 
-- [ ] Prompts contendo palavras-chave de arquitetura ou `/plan` classificam como `HEAVY_FRONTIER`.
-- [ ] Tarefas simples de inspeção de arquivos classificam como `FAST_LITE`.
-- [ ] No modo `fixed`, a escolha do usuário é respeitada 100% das vezes independentemente da complexidade.
-- [ ] Suíte de testes unitários passando com cobertura $\ge 85\%$.
+- [x] Prompts contendo palavras-chave de arquitetura ou `/plan` classificam como `HEAVY_FRONTIER`.
+- [x] Tarefas simples de inspeção de arquivos classificam como `FAST_LITE`.
+- [x] No modo `fixed`, a escolha do usuário é respeitada 100% das vezes independentemente da complexidade.
+- [x] Suíte de testes unitários passando com cobertura $\ge 85\%$ (**98.46% atingido**: `classifier.py`=97%, `router.py`=100%).
