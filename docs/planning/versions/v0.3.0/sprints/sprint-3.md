@@ -1,10 +1,10 @@
 # Sprint — [v0.3.0] Sprint 3: Real-Time Multi-Currency Cost Ledger & Budgeting
 
-> **Status:** 📋 Planejado  
+> **Status:** ✅ Concluída  
 > **Versão Relacionada:** v0.3.0 (Model Gateway, Real-Time Cost Ledger & Offline Resilience)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
-> **Data de Início:** A definir (Fase 3)  
-> **Data de Conclusão:** —  
+> **Data de Início:** 2026-10-26  
+> **Data de Conclusão:** 2026-10-26  
 
 ---
 
@@ -38,16 +38,16 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Schema SQLite WAL em `src/orion/gateway/ledger.py`:
+- [x] Schema SQLite WAL em `src/orion/gateway/ledger.py`:
   - Criação automática da tabela `token_ledger` com índices de performance em `timestamp` e `model`.
   - Método `record_turn_cost(turn_id, provider, model, tokens_in, tokens_out, tokens_cached, routing_mode, complexity)`.
-- [ ] Módulo de Orçamento em `src/orion/gateway/budget.py`:
+- [x] Módulo de Orçamento em `src/orion/gateway/budget.py`:
   - Configuração de teto de gastos diário (`daily_budget_usd`).
   - Verificação prévia antes de cada despacho de inferência.
   - Alerta ao atingir 85% do orçamento.
   - Bloqueio ou sugestão de chaveamento para modelos locais ao atingir 100%.
-- [ ] Mecanismo de conversão cambial USD $\rightarrow$ BRL (valor default configurável em `~/.orion/config.json`).
-- [ ] Suíte de testes unitários em `tests/unit/test_ledger.py` e `tests/unit/test_budget.py`.
+- [x] Mecanismo de conversão cambial USD $\rightarrow$ BRL (valor default configurável em `~/.orion/config.json`).
+- [x] Suíte de testes unitários em `tests/unit/test_ledger.py` e `tests/unit/test_budget.py`.
 
 ### 🚫 Fora de Escopo (Out of Scope / Anti-Metas)
 - Não renderizar tabelas visuais ricas em ASCII/Rich no terminal (escopo do comando `/cost` na v0.4.0).
@@ -100,7 +100,7 @@ class BudgetStatus(BaseModel):
 
 ## 7. Critérios de Aceite (DoD)
 
-- [ ] Toda chamada de modelo grava uma linha atômica em `token_ledger`.
-- [ ] O cálculo de custo considera o desconto de tokens em cache conforme a tabela de preços do `ModelRegistry`.
-- [ ] Ao atingir o limite orçamentário configurado, novas requisições a APIs pagas são bloqueadas e emitem erro tipado `BudgetExceededError`.
-- [ ] Testes unitários com cobertura $\ge 85\%$.
+- [x] Toda chamada de modelo grava uma linha atômica em `token_ledger`.
+- [x] O cálculo de custo considera o desconto de tokens em cache conforme a tabela de preços do `ModelRegistry`.
+- [x] Ao atingir o limite orçamentário configurado, novas requisições a APIs pagas são bloqueadas e emitem erro tipado `BudgetExceededError`.
+- [x] Testes unitários com cobertura $\ge 85\%$ (**99.02% atingido**: `ledger.py`=99%, `budget.py`=100%).
