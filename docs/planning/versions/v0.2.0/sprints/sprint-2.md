@@ -1,10 +1,10 @@
 # Sprint — [v0.2.0] Sprint 2: FastEmbed Local & RRF Hybrid Fusion
 
-> **Status:** 🟡 Em Andamento  
+> **Status:** ✅ Concluída  
 > **Versão Relacionada:** v0.2.0 (Cognitive Continuity: The 5-Sphere Memory, Universal Skills Standard & Dynamic Compaction)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
 > **Data de Início:** 2026-10-25  
-> **Data de Conclusão:** Em progresso  
+> **Data de Conclusão:** 2026-10-25  
 
 ---
 
@@ -38,17 +38,17 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Adicionar dependência `fastembed>=0.3.0` ao `pyproject.toml`.
-- [ ] Implementação de `VectorStore` em `src/orion/memory/vector_store.py`:
+- [x] Adicionar dependência `fastembed>=0.3.0` ao `pyproject.toml`.
+- [x] Implementação de `VectorStore` em `src/orion/memory/vector_store.py`:
   - Carregamento lazy do modelo `bge-small-en-v1.5` via ONNX.
   - Armazenamento dos vetores e metadados no SQLite (`vector_embeddings` com serialização binária de floats ou suporte a sqlite-vec caso disponível).
   - Cálculo de similaridade de cosseno em lote (*vectorized dot product* com NumPy).
   - Algoritmo de deduplicação semântica: se `cosine_sim >= 0.92`, executa `touch_memory()` em vez de duplicar.
-- [ ] Implementação de `HybridRetriever` em `src/orion/memory/hybrid_retriever.py`:
+- [x] Implementação de `HybridRetriever` em `src/orion/memory/hybrid_retriever.py`:
   - Execução paralela: BM25 (Timeline) e Cosseno (VectorStore).
   - Cálculo da pontuação RRF: $RRF(d) = \sum_{m \in M} \frac{1}{k + r_m(d)}$ com $k=60$.
   - Truncamento orçamentário estrito para garantir que o texto agregado permaneça abaixo de 1.500 tokens.
-- [ ] Testes unitários de velocidade de inferência, deduplicação e integridade da fórmula RRF.
+- [x] Testes unitários de velocidade de inferência, deduplicação e integridade da fórmula RRF.
 
 ### 🚫 Fora de Escopo (Out of Scope / Anti-Metas)
 - Não gerenciar fatos estruturados tipados ou perfil de usuário (escopo da Sprint 3).
@@ -117,8 +117,8 @@ class HybridSearchResult(BaseModel):
 - **Teste 3:** Consulta híbrida via RRF nunca ultrapassa 1.500 tokens no total do payload retornado.
 
 ### Definition of Done (DoD)
-- [ ] `VectorStore` e `HybridRetriever` implementados sem dependência de PyTorch.
-- [ ] Modelo `bge-small-en-v1.5` operando 100% offline via ONNX Runtime.
-- [ ] `pytest tests/unit/test_vector_store.py tests/unit/test_hybrid_retriever.py` passando com 100% de sucesso.
-- [ ] Cobertura de testes dos módulos $\ge 90\%$.
-- [ ] Documentação de progresso atualizada em `.claudex/progress.md`.
+- [x] `VectorStore` e `HybridRetriever` implementados sem dependência de PyTorch.
+- [x] Modelo `bge-small-en-v1.5` operando 100% offline via ONNX Runtime.
+- [x] `pytest tests/unit/test_vector_store.py tests/unit/test_hybrid_retriever.py` passando com 100% de sucesso (46/46 testes).
+- [x] Cobertura de testes dos módulos $\ge 90\%$ (vector_store: 96%, hybrid_retriever: 100%, total: 97.55%).
+- [x] Documentação de progresso atualizada em `.claudex/progress.md`.
