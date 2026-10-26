@@ -43,10 +43,10 @@ Após a estruturação do Core ReAct Engine (v0.1.0) e da Memória Tríplice Con
 
 | Sprint | Nome da Sprint | Objetivo Principal | Documento | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Sprint 1** | Model Registry & OpenRouter Provider | Contrato abstrato `BaseLLMProvider`, integração completa do OpenRouter com streaming e tipagem de tokens | [`sprints/sprint-1.md`](sprints/sprint-1.md) | 📋 Planejado |
-| **Sprint 2** | Dynamic Auto-Routing & Complexity Engine | Motor classificador de complexidade de turno (Fast/Lite, Balanced, Heavy) e modos `auto` vs `fixed` | [`sprints/sprint-2.md`](sprints/sprint-2.md) | 📋 Planejado |
-| **Sprint 3** | Real-Time Multi-Currency Cost Ledger & Budgeting | Livro-razão em SQLite WAL (`metrics.db`), rastreamento de custos em USD/BRL e tetos orçamentários | [`sprints/sprint-3.md`](sprints/sprint-3.md) | 📋 Planejado |
-| **Sprint 4** | ORION Imortal (Failover Local) & Nuclear Step-Up Auth | Circuit breaker para failover local < 2s (Qwen Coder 1.5B/3B no Ollama) + Command Trust Ledger e Popup do SO | [`sprints/sprint-4.md`](sprints/sprint-4.md) | 📋 Planejado |
+| **Sprint 1** | Model Registry & OpenRouter Provider | Contrato abstrato `BaseLLMProvider`, integração completa do OpenRouter com streaming e tipagem de tokens | [`sprints/sprint-1.md`](sprints/sprint-1.md) | ✅ Concluída |
+| **Sprint 2** | Dynamic Auto-Routing & Complexity Engine | Motor classificador de complexidade de turno (Fast/Lite, Balanced, Heavy) e modos `auto` vs `fixed` | [`sprints/sprint-2.md`](sprints/sprint-2.md) | ✅ Concluída |
+| **Sprint 3** | Real-Time Multi-Currency Cost Ledger & Budgeting | Livro-razão em SQLite WAL (`metrics.db`), rastreamento de custos em USD/BRL e tetos orçamentários | [`sprints/sprint-3.md`](sprints/sprint-3.md) | ✅ Concluída |
+| **Sprint 4** | Resiliência Universal & Nuclear Step-Up Auth | Circuit breaker com salvaguarda cognitiva (anti-downgrade de código), modo seguro conversacional e trava nuclear | [`sprints/sprint-4.md`](sprints/sprint-4.md) | 📋 Planejado |
 
 ---
 
