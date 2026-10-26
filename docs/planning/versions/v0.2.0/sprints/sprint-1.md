@@ -1,10 +1,10 @@
 # Sprint — [v0.2.0] Sprint 1: Main Timeline & SQLite FTS5
 
-> **Status:** 📋 Planejado  
+> **Status:** ✅ Concluída  
 > **Versão Relacionada:** v0.2.0 (Cognitive Continuity: The 5-Sphere Memory, Universal Skills Standard & Dynamic Compaction)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
-> **Data de Início:** A definir (Fase 2)  
-> **Data de Conclusão:** —  
+> **Data de Início:** 2026-10-25  
+> **Data de Conclusão:** 2026-10-25  
 
 ---
 
@@ -38,17 +38,17 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Implementação de `TimelineManager` em `src/orion/memory/timeline.py` com conexão assíncrona SQLite WAL (`aiosqlite`).
-- [ ] Criação do schema SQL com migrações idênticas a:
+- [x] Implementação de `TimelineManager` em `src/orion/memory/timeline.py` com conexão assíncrona SQLite WAL (`aiosqlite`).
+- [x] Criação do schema SQL com migrações idênticas a:
   - Tabela `timeline_events` (id, session_id, timestamp, event_type, source, content, metadata_json).
   - Tabela virtual FTS5 `timeline_fts` vinculada via triggers para inserção/atualização automática de termos.
   - Tabela `day_markers` para registrar viradas de data (`YYYY-MM-DD`).
-- [ ] Métodos de alta performance:
+- [x] Métodos de alta performance:
   - `append_event(event: TurnEvent) -> int`: Persistência atômica.
   - `ensure_day_marker(date: datetime.date) -> None`: Inserção automática de marcador no primeiro evento do dia.
   - `search_lexical(query: str, limit: int = 20) -> list[TimelineRecord]`: Consulta BM25 com snippet e score.
   - `get_recent_history(limit: int = 50) -> list[TimelineRecord]`: Retorno cronológico rápido.
-- [ ] Testes unitários e benchmarks de busca cobrindo inserção em massa e recuperação por termos de código (ex: stack traces, nomes de arquivos, parâmetros).
+- [x] Testes unitários e benchmarks de busca cobrindo inserção em massa e recuperação por termos de código (ex: stack traces, nomes de arquivos, parâmetros).
 
 ### 🚫 Fora de Escopo (Out of Scope / Anti-Metas)
 - Não gerar embeddings vetoriais ou carregar modelos ONNX (escopo da Sprint 2).
@@ -115,8 +115,8 @@ class DayMarkerRecord(BaseModel):
 - **Teste 3:** Modos concorrentes de leitura e escrita não causam lock de banco de dados (validação WAL).
 
 ### Definition of Done (DoD)
-- [ ] `TimelineManager` implementado com tipagem estrita Pydantic v2.
-- [ ] Busca FTS5 respondendo com pontuação BM25 e snippets destacados.
-- [ ] Suíte `pytest tests/unit/test_timeline.py` passando com 100% de sucesso.
-- [ ] Cobertura de testes do módulo $\ge 90\%$.
-- [ ] Documentação de progresso atualizada em `.claudex/progress.md`.
+- [x] `TimelineManager` implementado com tipagem estrita Pydantic v2.
+- [x] Busca FTS5 respondendo com pontuação BM25 e snippets destacados.
+- [x] Suíte `pytest tests/unit/test_timeline.py` passando com 100% de sucesso (22/22 testes).
+- [x] Cobertura de testes do módulo $\ge 90\%$ (92% de cobertura em timeline.py, 96% em models.py).
+- [x] Documentação de progresso atualizada em `.claudex/progress.md`.

@@ -3,9 +3,9 @@
 
 ## 📊 Status Global do Projeto
 - **Repositório:** `orion-agent`
-- **Fase Atual:** Fase 1 (v0.1.0) **CONCLUÍDA** ✅ — Todas as 4 Sprints Finalizadas | Specs das Fases 2, 3 e 4 Formalizadas
-- **Linhas de Código em `src/`:** ~980 linhas de produção testadas
-- **Testes:** 210/210 passando (100% sucesso) · Cobertura: **92.57%** (meta: $\ge 85\%$) ✅
+- **Fase Atual:** Fase 2 (v0.2.0) **EM ANDAMENTO** 🟡 (Sprint 1 Concluída, Sprint 2 Em Andamento)
+- **Linhas de Código em `src/`:** ~1.400 linhas de produção testadas
+- **Testes:** 232/232 passando (100% sucesso) ✅ (210 da v0.1.0 + 22 da Sprint 1 v0.2.0)
 
 ---
 
@@ -42,7 +42,7 @@
 
 ---
 
-### [EM PROGRESSO] Fase 1: v0.1.0 Clean Foundation & Core ReAct Engine
+### [CONCLUÍDO] Fase 1: v0.1.0 Clean Foundation & Core ReAct Engine
 - [x] **Sprint 1: Tooling, Tipagem & Skeleton** ✅ CONCLUÍDA (2026-10-24) — Cobertura: 97.48%
   - [x] `pyproject.toml` moderno com PEP 621, hatchling, deps e dev-deps
   - [x] `src/orion/__init__.py` com `__version__ = "0.1.0-alpha"`
@@ -72,21 +72,27 @@
   - [x] Cobertura global ≥ 85% confirmada (92.57%)
   - [x] README.md atualizado com instruções de instalação e testes
   - [x] VERSION.md congelada · sprint-4.md marcada como concluída
-  - [x] Tag Git `v0.1.0` preparada
+  - [x] Tag Git `v0.1.0` criada
 
 ---
 
-### [ESPECIFICAÇÃO CONCLUÍDA & ATUALIZADA] Fase 2: v0.2.0 Cognitive Continuity: The 5-Sphere Memory, Universal Skills Standard & Dynamic Compaction
+### [EM ANDAMENTO] Fase 2: v0.2.0 Cognitive Continuity: The 5-Sphere Memory, Universal Skills Standard & Dynamic Compaction
 - [x] Especificação formal da versão em `docs/planning/versions/v0.2.0/VERSION.md` (As 5 Esferas Cognitivas, PCU, Headroom Guard e Telegram HITL)
 - [x] Especificação técnica de habilidades em `docs/architecture/AGENT_SKILLS_STANDARD.md`
 - [x] Especificação técnica da Memória Tríplice & 5 Esferas em `docs/architecture/TRIPLE_MEMORY.md`
 - [x] Especificação técnica de Timeline & Compactor em `docs/architecture/TIMELINE_SYSTEM.md`
-- [x] As 4 Sprints detalhadas e congeladas com as 5 Esferas e PCU:
-  - [x] `sprints/sprint-1.md` (Main Timeline & SQLite FTS5 BM25)
-  - [x] `sprints/sprint-2.md` (FastEmbed Local ONNX Vector & RRF Hybrid Fusion)
-  - [x] `sprints/sprint-3.md` (The 5-Sphere Memory, Cognitive Tools & Remote HITL Connector)
-  - [x] `sprints/sprint-4.md` (Universal Skills Standard & Dynamic Compactor / Branches)
-- [ ] Implementação de código e testes (aguardando autorização para iniciar a Sprint 1)
+- [x] As 4 Sprints detalhadas e congeladas com as 5 Esferas e PCU
+- [x] **Sprint 1: Main Timeline & SQLite FTS5 BM25** ✅ CONCLUÍDA (2026-10-25) — Cobertura: 92%
+  - [x] `src/orion/memory/models.py` (TimelineRecord, DayMarkerRecord e contratos das 5 esferas)
+  - [x] `src/orion/memory/timeline.py` (TimelineManager com WAL, FTS5 BM25, DayMarkers)
+  - [x] `tests/unit/test_timeline.py` (22 testes passando, verificação de concorrência e busca)
+- [ ] **Sprint 2: FastEmbed Local ONNX Vector & RRF Hybrid Fusion** 🟡 EM ANDAMENTO
+  - [x] `pyproject.toml` atualizado com `aiosqlite`, `fastembed`, `numpy`, `psutil`
+  - [x] `src/orion/memory/vector_store.py` (VectorStore com FastEmbed `bge-small-en-v1.5`, dedup $\ge 0.92$, NumPy dot product)
+  - [x] `src/orion/memory/hybrid_retriever.py` (HybridRetriever com RRF $k=60$ e controle de token budget de 1500 tokens)
+  - [ ] Testes unitários `tests/unit/test_vector_store.py` e `tests/unit/test_hybrid_retriever.py`
+- [ ] **Sprint 3: The 5-Sphere Memory, Cognitive Tools & Remote HITL Connector** 📋 Planejada
+- [ ] **Sprint 4: Universal Skills Standard & Dynamic Compactor / Branches** 📋 Planejada
 
 ---
 
