@@ -27,6 +27,20 @@ def _interpolate_color(start_hex: str, end_hex: str, t: float) -> str:
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
+# ---------------------------------------------------------------------------
+# Tipografia Oficial Stellar Cyber Block (6 linhas, 42 colunas)
+# ---------------------------------------------------------------------------
+
+STELLAR_CYBER_BLOCK: list[str] = [
+    "  ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗",
+    " ██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║",
+    " ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║",
+    " ██║   ██║██╔══██╗██║██║   ██║██║╚██╗██║",
+    " ╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║",
+    "  ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝",
+]
+
+
 class BannerRenderer:
     """Motor de renderização do banner adaptativo do O.R.I.O.N."""
 
@@ -35,7 +49,7 @@ class BannerRenderer:
         ascii_art_path: Path | None = None,
         status_bar: SessionStatusBar | None = None,
     ) -> None:
-        """Inicializa o renderizador carregando a arte ASCII do Buraco Negro se disponível."""
+        """Inicializa o renderizador carregando a arte ASCII de inicialização."""
         self.status_bar = status_bar or SessionStatusBar.from_environment()
         self.raw_lines: list[str] = []
 
@@ -62,51 +76,26 @@ class BannerRenderer:
             self.raw_lines = []
 
     def render_art(self, terminal_width: int | None = None) -> RenderableType:
-        """Renderiza apenas a arte ASCII adaptada para a largura especificada.
+        """Renderiza o logo ASCII oficial adaptado para a largura especificada.
 
-        - width < 100: Retorna Stellar Cyber Block.
-        - width >= 100: Retorna o horizonte de eventos com gradiente cósmico suave.
+        - width < 100: Retorna Stellar Cyber Block monocromático cyan.
+        - width >= 100: Retorna Stellar Cyber Block com gradiente cósmico TrueColor (#00D2FF -> #3A7BD5).
         """
         width = terminal_width or shutil.get_terminal_size((80, 24)).columns
 
         if width < 100:
             art_text = Text(no_wrap=True)
-            cyber_block = [
-                "  ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗",
-                " ██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║",
-                " ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║",
-                " ╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║",
-            ]
-            for line in cyber_block:
-                art_text.append(line + "\n", style="accent_cyan")
+            for line in STELLAR_CYBER_BLOCK:
+                art_text.append(line[:width] + "\n", style="accent_cyan")
             return art_text
 
-        # width >= 100: Horizonte de Eventos com Gradiente (#00D2FF -> #3A7BD5)
-        if not self.raw_lines:
-            # Fallback seguro caso o arquivo de arte não esteja presente
-            fallback_text = Text(no_wrap=True)
-            fallback_text.append("  O.R.I.O.N — Sovereign Cognitive Agent\n", style="accent_cyan")
-            return fallback_text
-
-        # As linhas 58 a 76 representam o horizonte de eventos e o disco de acreção
-        start_row = 58
-        end_row = min(76, len(self.raw_lines))
-        rows = (
-            self.raw_lines[start_row:end_row] if len(self.raw_lines) >= end_row else self.raw_lines
-        )
-
+        # width >= 100: Stellar Cyber Block com Gradiente TrueColor (#00D2FF -> #3A7BD5)
         grad_text = Text(no_wrap=True)
-        # O centro do buraco negro está por volta da coluna 140
-        center_col = 140
-        half_w = width // 2
-        start_col = max(0, center_col - half_w)
-
-        num_rows = len(rows)
-        for idx, row_str in enumerate(rows):
+        num_rows = len(STELLAR_CYBER_BLOCK)
+        for idx, line in enumerate(STELLAR_CYBER_BLOCK):
             t = idx / (num_rows - 1) if num_rows > 1 else 0.0
             color = _interpolate_color(ORION_COLORS["accent_cyan"], ORION_COLORS["accent_blue"], t)
-            sliced = row_str[start_col : start_col + width]
-            grad_text.append(sliced + "\n", style=color)
+            grad_text.append(line[:width] + "\n", style=color)
 
         return grad_text
 

@@ -12,6 +12,7 @@ from orion import __version__
 from orion.config import OrionConfig
 from orion.tui.banner import BannerRenderer
 from orion.tui.console import get_console
+from orion.tui.prompt import InteractivePrompt
 from orion.tui.status_bar import SessionStatusBar
 
 # ---------------------------------------------------------------------------
@@ -42,6 +43,88 @@ def print_banner() -> None:
     console.print(renderer.render(terminal_width=console.width))
 
 
+def run_interactive_repl(prompt: InteractivePrompt) -> None:
+    """Loop interativo principal do terminal orion-agent."""
+    while True:
+        try:
+            user_input = prompt.prompt(raise_on_interrupt=False)
+            if not user_input or not user_input.strip():
+                continue
+
+            cleaned = user_input.strip()
+
+            # Comandos de saída
+            if cleaned in ("/exit", "/quit", "exit", "quit", ":q"):
+                console.print("[dim cyan]✦ Até logo, Senhor. Sessão finalizada.[/dim cyan]\n")
+                break
+
+            # Limpeza do terminal
+            if cleaned in ("/clear", "clear", "cls"):
+                console.clear()
+                print_banner()
+                continue
+
+            # Ajuda rápida
+            if cleaned in ("/help", "help"):
+                from rich.table import Table
+
+                from orion.tui.completer import OFFICIAL_SLASH_COMMANDS
+
+                table = Table(
+                    title="[bold cyan]O.R.I.O.N — Catálogo de Slash Commands[/bold cyan]",
+                    border_style="dim blue",
+                    header_style="bold cyan",
+                )
+                table.add_column("Comando", style="accent_cyan", no_wrap=True)
+                table.add_column("Categoria", style="accent_blue", no_wrap=True)
+                table.add_column("Descrição", style="text_primary")
+
+                for cmd in OFFICIAL_SLASH_COMMANDS:
+                    table.add_row(
+                        f"{cmd.icon} {cmd.name}",
+                        cmd.category.capitalize(),
+                        cmd.description,
+                    )
+
+                console.print()
+                console.print(table)
+                console.print()
+                continue
+
+            # Diagnóstico / Info
+            if cleaned in ("/doctor", "/info"):
+                cmd_info()
+                continue
+
+            # Resolução e feedback de menções @
+            from orion.tui.completer import resolve_mentions
+
+            mentions = resolve_mentions(cleaned, workspace_root=prompt.workspace_root)
+            if mentions:
+                file_tags = " ".join(f"[bold cyan]@{m}[/bold cyan]" for m in mentions)
+                console.print(f"[dim]Arquivos vinculados:[/dim] {file_tags}")
+
+            # Feedback de comando ou instrução
+            if cleaned.startswith("/"):
+                cmd_name = cleaned.split()[0]
+                console.print(
+                    f"[bold cyan]{cmd_name}[/bold cyan] "
+                    f"[dim]reconhecido. Catálogo operacional completo disponível na Sprint 3.[/dim]\n"
+                )
+            else:
+                console.print(
+                    f"[dim]Instrução recebida:[/dim] [bold white]{cleaned}[/bold white]\n"
+                )
+
+        except EOFError:
+            # Entrada finalizada (Ctrl+D ou fim de pipe)
+            console.print("[dim cyan]✦ Sessão finalizada.[/dim cyan]\n")
+            break
+        except KeyboardInterrupt:
+            console.print("\n[dim]Operação cancelada (Ctrl+C).[/dim]\n")
+            continue
+
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
@@ -70,8 +153,8 @@ def cli_root(
     if ctx.invoked_subcommand is None:
         print_banner()
         status_bar = SessionStatusBar.from_environment()
-        console.print(status_bar.render_bottom_bar(width=console.width))
-        console.print()
+        prompt = InteractivePrompt(status_bar=status_bar)
+        run_interactive_repl(prompt)
 
 
 @app.command(name="info")

@@ -5,14 +5,13 @@ Covers: banner rendering, --version flag, --help, subcommand `info`.
 
 from __future__ import annotations
 
-import pytest
-from typer.testing import CliRunner
+import io
+from pathlib import Path
+
+from rich.console import Console
 
 from orion import __version__
-from orion.cli import app, print_banner
-from rich.console import Console
-import io
-
+from orion.cli import print_banner
 
 # ---------------------------------------------------------------------------
 # --version
@@ -148,3 +147,57 @@ class TestBanner:
             cli_module.console = original_console
         output = buf.getvalue()
         assert "ORION" in output or "PERSONAL OPERATING INTELLIGENCE" in output
+
+
+# ---------------------------------------------------------------------------
+# Interactive REPL
+# ---------------------------------------------------------------------------
+
+
+class TestInteractiveRepl:
+    """Valida o loop interativo run_interactive_repl."""
+
+    def test_repl_exits_on_exit_command(self) -> None:
+        from unittest.mock import MagicMock
+
+        from orion.cli import run_interactive_repl
+
+        mock_prompt = MagicMock()
+        mock_prompt.prompt.side_effect = ["/exit"]
+
+        run_interactive_repl(mock_prompt)
+        assert mock_prompt.prompt.call_count == 1
+
+    def test_repl_handles_help_command(self) -> None:
+        from unittest.mock import MagicMock
+
+        from orion.cli import run_interactive_repl
+
+        mock_prompt = MagicMock()
+        mock_prompt.prompt.side_effect = ["/help", "/exit"]
+
+        run_interactive_repl(mock_prompt)
+        assert mock_prompt.prompt.call_count == 2
+
+    def test_repl_handles_mentions_and_empty_inputs(self) -> None:
+        from unittest.mock import MagicMock
+
+        from orion.cli import run_interactive_repl
+
+        mock_prompt = MagicMock()
+        mock_prompt.workspace_root = Path.cwd()
+        mock_prompt.prompt.side_effect = ["", "   ", "Please check @README.md", "/quit"]
+
+        run_interactive_repl(mock_prompt)
+        assert mock_prompt.prompt.call_count == 4
+
+    def test_repl_handles_keyboard_interrupt_gracefully(self) -> None:
+        from unittest.mock import MagicMock
+
+        from orion.cli import run_interactive_repl
+
+        mock_prompt = MagicMock()
+        mock_prompt.prompt.side_effect = [KeyboardInterrupt(), "/exit"]
+
+        run_interactive_repl(mock_prompt)
+        assert mock_prompt.prompt.call_count == 2
