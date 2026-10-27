@@ -26,11 +26,13 @@
      - Barra de status inferior Rich integrada ao layout do `prompt_toolkit`.
      - Execução de tarefas com captura graciosa de `KeyboardInterrupt` (`Ctrl+C`) e emissão de `TurnCancelledEvent` para o `EventBus` sem derrubar o CLI.
    - `TurnCancelledEvent` adicionado a `src/orion/core/events.py`.
-   - 41 novos testes unitários adicionados em `tests/unit/test_completer.py` e `tests/unit/test_prompt_session.py` (928 testes globais passando, 0 regressões).
+   - Loop interativo REPL integrado no entrypoint oficial `orion-agent` em `src/orion/cli.py` (`run_interactive_repl`), mantendo o terminal ativo com prompt responsivo, autocomplete flutuante, resolução de menções `@`, captura de comandos rápidos (`/help`, `/doctor`, `/clear`, `/exit`) e encerramento gracioso.
+   - Renderizador do banner em `src/orion/tui/banner.py` calibrado com o logo oficial `Stellar Cyber Block` em gradiente TrueColor (#00D2FF -> #3A7BD5), eliminando o slice bruto estático e desformatado de `ascii-art.txt`.
+   - 45 novos testes unitários adicionados em `tests/unit/test_completer.py`, `tests/unit/test_prompt_session.py` e `tests/unit/test_cli.py` (932 testes globais passando, 0 regressões).
 3. **Métricas de Qualidade Atuais:**
-   - Total de Testes: 928 passando (0 falhas).
-   - Cobertura do Pacote TUI: 95.69%.
-   - Mypy Strict: 0 erros em 8 arquivos TUI + 1 arquivo core/events.
+   - Total de Testes: 932 passando (0 falhas).
+   - Cobertura do Pacote TUI + CLI: 94.15%.
+   - Mypy Strict: 0 erros em 9 arquivos TUI + CLI + core/events.
    - Ruff Lint: 0 avisos / 100% limpo.
 
 ---
