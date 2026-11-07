@@ -65,14 +65,52 @@ class TestMonetaryFormatting:
         assert bar.format_cost_usd() == "$0.0100 USD"
         assert bar.format_cost_brl() == "0,058"
 
-        # Validar que a barra de status inferior contém ambas as strings
+        # Validar que a barra de status inferior em terminal amplo (>= 110) contém ambas as moedas
+        buf = io.StringIO()
+        console = Console(file=buf, width=120, force_terminal=True)
+        console.print(bar.render_bottom_bar(width=120))
+        output = buf.getvalue()
+
+        assert "$0.0100" in output
+        assert "R$ 0,058" in output
+
+    def test_clean_status_line_item_4_wireframe(self) -> None:
+        """Item 4: Valida a Clean Status Line na faixa de 80 a 109 colunas."""
+        bar = SessionStatusBar(
+            model_name="claude-3-7-sonnet",
+            session_tokens_in=2400,
+            session_tokens_out=1000,
+            session_cost_usd=0.0120,
+            reasoning_effort=ReasoningEffort.HIGH,
+            is_online=True,
+        )
         buf = io.StringIO()
         console = Console(file=buf, width=80, force_terminal=True)
         console.print(bar.render_bottom_bar(width=80))
-        output = buf.getvalue()
+        output = buf.getvalue().strip()
 
-        assert "$0.0100 USD" in output
-        assert "R$ 0,058" in output
+        expected = "claude-3-7-sonnet · 3.4k tok · $0.0120 · Ready ●"
+        assert expected in output
+
+    def test_wide_line_shows_mode_and_split_tokens(self) -> None:
+        bar = SessionStatusBar(
+            model_name="claude-3-7-sonnet",
+            session_tokens_in=12400,
+            session_tokens_out=3400,
+            agent_mode="plan",
+            pep_level=1,
+        )
+        text = "".join(part for _, part in bar.status_segments(120))
+        assert text.startswith("plan · claude-3-7-sonnet · 12.4k in / 3.4k out")
+        assert "PEP: 1" in text
+
+    def test_busy_state_shows_working(self) -> None:
+        bar = SessionStatusBar(is_busy=True)
+        assert "Working ●" in "".join(part for _, part in bar.status_segments(70))
+
+    def test_offline_wins_over_busy(self) -> None:
+        bar = SessionStatusBar(is_busy=True, is_online=False)
+        assert "Offline ●" in "".join(part for _, part in bar.status_segments(70))
 
 
 class TestTerminalWidthsCA01:
@@ -224,3 +262,45 @@ class TestZeroAnsiBreakagesCA04:
         ansi_regex = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
         stripped = ansi_regex.sub("", raw)
         assert "\x1b" not in stripped, "Código de escape ANSI quebrado ou não terminado detectado"
+
+
+class TestBottomBarNoSolidBackground:
+    """CA-04 (Sprint 3): Valida que a barra de status inferior não usa fundo sólido bg:surface_panel."""
+
+    def test_ca04_bottom_toolbar_style_no_solid_background(self) -> None:
+        """CA-04: get_prompt_style() não deve conter bg: na definição da toolbar base."""
+        from orion.tui.prompt import get_prompt_style
+
+        style = get_prompt_style()
+        style_rules = dict(style.style_rules)
+
+        # A classe base da toolbar não deve ter bg: (fundo sólido eliminado)
+        toolbar_base = style_rules.get("bottom-toolbar", "")
+        assert "bg:" not in toolbar_base, (
+            f"Fundo sólido detectado em 'bottom-toolbar': '{toolbar_base}'. "
+            "A toolbar deve usar o fundo nativo do terminal (sem bg:surface_panel)."
+        )
+
+    def test_ca04_tunnel_border_style_removed(self) -> None:
+        """CA-04: get_prompt_style() não deve mais conter 'tunnel-border' (túneis rígidos eliminados)."""
+        from orion.tui.prompt import get_prompt_style
+
+        style = get_prompt_style()
+        style_rules = dict(style.style_rules)
+
+        assert "tunnel-border" not in style_rules, (
+            "Estilo 'tunnel-border' encontrado — os túneis rígidos foram eliminados na Sprint 3. "
+            "Remova a entrada do dicionário de estilos."
+        )
+
+    def test_ca03_prompt_uses_geometric_glyph(self) -> None:
+        """CA-03: O prefixo do prompt deve usar '❯' (glifo geométrico), não emojis."""
+        from orion.tui.prompt import InteractivePrompt
+
+        prompt = InteractivePrompt()
+        prefix = prompt.get_prompt_prefix()
+        plain_text = "".join(part[1] for part in prefix)
+        assert "❯" in plain_text, (
+            f"Prefixo do prompt '{plain_text}' não contém o glifo '❯'. "
+            "Use '❯ ' como cursor do prompt conforme CLI_DESIGN_SYSTEM.md."
+        )

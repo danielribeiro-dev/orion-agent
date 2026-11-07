@@ -149,8 +149,18 @@
   - [x] Módulo `src/orion/tui/prompt.py` com `InteractivePrompt`, histórico persistente em `~/.orion/history`, layout Rich integrado no bottom toolbar e execução resiliente com `TurnCancelledEvent`
   - [x] Evento `TurnCancelledEvent` adicionado em `src/orion/core/events.py`
   - [x] Suíte de 41 testes unitários (`test_completer.py`, `test_prompt_session.py`), totalizando 928 testes globais passando com 100% de sucesso
-- [ ] **Sprint 3: Streaming Vivo com `Rich.Live`, Diffs Cirúrgicos e 20 Slash Commands** (Próxima)
-- [ ] **Sprint 4: Native MCP Client stdio/SSE & Integração com PEP**
+- [x] **Sprint 3: Refinamento Estético, Geometria Anti-Emoji & Dynamic Prompt**
+- [x] **Sprint 4: Streaming Vivo, Diffs Cirúrgicos & 23 Slash Commands** (falta validar com provedor real)
+  - [x] `StreamRenderer`, `DiffViewer`, painéis dos blueprints e modais com teclado
+  - [x] `AgentSession`: ponte Gateway → ReAct → PEP, custos, conversa, `/undo`, branches de contexto
+  - [x] Modos `plan`, `accept-edits`, `auto`, `manual` ligados ao PEP
+- [x] **Sprint 5: Native MCP Client stdio/SSE & Integração com PEP + Starter Pack**
+  - [x] `src/orion/mcp/` (models, client, transports, adapter lazy, runner em thread, spawn_policy) + `mcp_servers.default.json` (Serena e Context7 ON read-only; Sequential Thinking OFF)
+  - [x] PEP dinâmico por tool (`register_tool_level`), SAFE_HOLDING cobre tools MCP mutadoras, `/mcp list|enable|disable|ping|tools`
+  - [x] 31 testes MCP (incl. handshake stdio real); `ORION_MCP=0` desliga o cliente
+  - [x] Versões fixadas (serena-agent 2.1.0, context7-mcp 4.5.1, sequential-thinking 2.1.1), SSE real, `RecallTool` corrigido, benchmark determinístico em `docs/planning/versions/v0.4.0/benchmarks/`
+  - [~] A/B com LLM real: parcial (4/8 execuções válidas, sem conclusão); bugs do `search_files` corrigidos
+  - [ ] Repetir A/B com modelo pago; injetar `HybridRetriever` na sessão; erro de autodetecção de linguagem do Serena
 
 ---
 

@@ -90,136 +90,142 @@ OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
     SlashCommandInfo(
         "/plan",
         "Gerar plano estruturado de execução antes da implementação",
-        icon="📋",
+        icon="❯",
         category="cognitive",
     ),
     SlashCommandInfo(
         "/goal",
         "Modo de execução autônoma contínua até conclusão",
-        icon="🎯",
+        icon="❯",
         category="cognitive",
     ),
     SlashCommandInfo(
         "/grill-me",
         "Entrevista investigativa para alinhar e refinar decisões",
-        icon="🔥",
+        icon="❯",
         category="cognitive",
     ),
     SlashCommandInfo(
         "/review",
         "Revisão rigorosa de código e conformidade com padrões",
-        icon="🔍",
+        icon="❯",
         category="cognitive",
     ),
     # Memória & Habilidades
     SlashCommandInfo(
         "/learn",
         "Auto-destilação: compilar solução em nova skill SKILL.md",
-        icon="🧠",
+        icon="●",
         category="memory",
     ),
     SlashCommandInfo(
         "/memory",
         "Inspecionar e gerenciar fatos da memória tríplice",
-        icon="💾",
+        icon="●",
         category="memory",
     ),
     SlashCommandInfo(
         "/timeline",
         "Visualizar linha do tempo contínua no SQLite WAL",
-        icon="⏱️",
+        icon="●",
         category="memory",
     ),
     SlashCommandInfo(
         "/recall",
         "Busca profunda híbrida RRF em episódios e memórias",
-        icon="🔮",
+        icon="●",
         category="memory",
     ),
     # Contexto & Branches
     SlashCommandInfo(
         "/compact",
         "Compactar histórico de conversa liberando contexto",
-        icon="🗜️",
+        icon="›",
         category="context",
     ),
     SlashCommandInfo(
         "/context",
         "Exibir uso de tokens e detalhamento de contexto atual",
-        icon="📊",
+        icon="›",
         category="context",
     ),
     SlashCommandInfo(
         "/branch",
         "Criar novo workspace isolado em branch",
-        icon="🌿",
+        icon="›",
         category="context",
     ),
     SlashCommandInfo(
         "/merge",
         "Integrar alterações do branch ativo à Main Timeline",
-        icon="🔀",
+        icon="›",
         category="context",
     ),
     # Operação & Governança
     SlashCommandInfo(
         "/diff",
         "Visualizar alterações e diffs pendentes no workspace",
-        icon="📝",
+        icon="❯",
         category="operation",
     ),
     SlashCommandInfo(
         "/undo",
         "Reverter últimas alterações ou turno anterior",
-        icon="↩️",
+        icon="❯",
         category="operation",
     ),
     SlashCommandInfo(
         "/run",
         "Executar comando ou script com governança PEP",
-        icon="⚡",
+        icon="❯",
         category="operation",
     ),
     SlashCommandInfo(
         "/doctor",
         "Diagnóstico de integridade do ambiente e dependências",
-        icon="🩺",
+        icon="❯",
         category="operation",
     ),
     SlashCommandInfo(
         "/cost",
         "Relatório financeiro de custos e consumo acumulado (USD/BRL)",
-        icon="💰",
+        icon="❯",
         category="operation",
     ),
     SlashCommandInfo(
         "/config",
         "Inspecionar e alterar configurações do ORION",
-        icon="⚙️",
+        icon="❯",
+        category="operation",
+    ),
+    SlashCommandInfo(
+        "/model",
+        "Selecionar o modelo de IA ativo",
+        icon="❯",
         category="operation",
     ),
     SlashCommandInfo(
         "/mcp",
         "Gerenciar conexões e ferramentas do Model Context Protocol",
-        icon="🔌",
+        icon="❯",
         category="operation",
     ),
     SlashCommandInfo(
         "/voice",
         "Ativar ou silenciar o daemon de voz e presença ambiente",
-        icon="🎙️",
+        icon="❯",
         category="operation",
     ),
     SlashCommandInfo(
         "/clear",
         "Limpar terminal preservando estado da sessão",
-        icon="🧹",
+        icon="❯",
         category="operation",
     ),
     SlashCommandInfo(
         "/help",
         "Exibir ajuda detalhada e lista de comandos disponíveis",
-        icon="❓",
+        icon="❯",
         category="operation",
     ),
 ]
@@ -430,7 +436,7 @@ class PathMentionCompleter(Completer):
                     yield Completion(
                         text=full_rel,
                         start_position=start_pos,
-                        display=f"{'📁 ' if is_dir else '📄 '}{name}{'/' if is_dir else ''}",
+                        display=f"{'● ' if is_dir else '› '}{name}{'/' if is_dir else ''}",
                         display_meta="dir" if is_dir else "file",
                     )
         else:
@@ -443,7 +449,7 @@ class PathMentionCompleter(Completer):
                     yield Completion(
                         text=full_rel,
                         start_position=start_pos,
-                        display=f"{'📁 ' if is_dir else '📄 '}{name}{'/' if is_dir else ''}",
+                        display=f"{'● ' if is_dir else '› '}{name}{'/' if is_dir else ''}",
                         display_meta="dir" if is_dir else "file",
                     )
 

@@ -70,3 +70,6 @@ local_cache/
 .env.local
 .env.*.local
 .token-optimizer/
+
+# Serena MCP project cache (created in the workspace on first use)
+.serena/

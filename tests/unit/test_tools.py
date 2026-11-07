@@ -591,3 +591,32 @@ class TestEngineWithRuntime:
         engine = ReActEngine(event_bus=bus, llm=llm)
         answer = await engine.run("hello")
         assert answer == "stub_answer"
+
+
+class TestSearchFilesAgentPromptContract:
+    """The agent prompt says search_files(mode="content"|"grep", pattern=<text>)."""
+
+    @pytest.mark.parametrize("mode", ["grep", "content"])
+    async def test_text_only_search_finds_matches_in_any_file(self, tmp_path, mode):
+        from orion.runtime.tools.search_files import SearchFilesTool
+
+        (tmp_path / "a.py").write_text("class PolicyEnforcementPoint:\n    pass\n")
+        (tmp_path / "b.txt").write_text("nothing here\n")
+        res = await SearchFilesTool().run(path=str(tmp_path), pattern="PolicyEnforcementPoint", mode=mode)
+        assert res.success and "a.py:1" in res.output and "b.txt" not in res.output
+
+    async def test_explicit_regex_keeps_file_glob(self, tmp_path):
+        from orion.runtime.tools.search_files import SearchFilesTool
+
+        (tmp_path / "a.py").write_text("needle\n")
+        (tmp_path / "b.txt").write_text("needle\n")
+        res = await SearchFilesTool().run(path=str(tmp_path), pattern="*.py", mode="grep", regex="needle")
+        assert "a.py" in res.output and "b.txt" not in res.output
+
+    async def test_path_can_be_a_single_file(self, tmp_path):
+        from orion.runtime.tools.search_files import SearchFilesTool
+
+        f = tmp_path / "pep.py"
+        f.write_text("class A:\n    async def evaluate(self):\n        pass\n")
+        res = await SearchFilesTool().run(path=str(f), pattern="def evaluate", mode="content")
+        assert res.success and "pep.py:2" in res.output

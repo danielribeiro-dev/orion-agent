@@ -19,9 +19,8 @@ ADR-013: 5-Sphere Cognitive Architecture
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from orion.memory.facts_store import FactPoisoningAttempt, FactsStore
 from orion.memory.hybrid_retriever import HybridRetriever
@@ -29,7 +28,7 @@ from orion.memory.models import FactCategory, FactEntry, FactStatus
 from orion.runtime.provider import RuntimeResult
 
 if TYPE_CHECKING:
-    from orion.runtime.environment import EnvironmentMonitor
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +140,7 @@ class RecallTool:
     def __init__(
         self,
         facts_store: FactsStore,
-        retriever: Optional[HybridRetriever] = None,
+        retriever: HybridRetriever | None = None,
     ) -> None:
         self._store = facts_store
         self._retriever = retriever
@@ -150,38 +149,56 @@ class RecallTool:
         return name == self.TOOL_NAME
 
     def execute(self, params: dict[str, Any]) -> RuntimeResult:
+        """Synchronous facts-only recall (no event loop needed)."""
+        return self._build(params, hybrid_text="")
+
+    async def run(self, **params: Any) -> RuntimeResult:
+        """Async recall: facts + optional hybrid (BM25 + semantic) retrieval.
+
+        The runtime prefers ``run`` over ``execute``, so this is the path used
+        by the agent; it awaits the retriever on the running loop.
+        """
+        hybrid_text = ""
+        query = str(params.get("query", "")).strip()
+        if self._retriever is not None and query:
+            limit = int(params.get("limit", 10))
+            try:
+                result = await self._retriever.retrieve(query, limit=limit)
+                snippets = []
+                for rec in result.records[:5]:
+                    text = getattr(rec, "content", None) or getattr(rec, "text", "") or ""
+                    snippets.append("  - " + " ".join(str(text).split())[:200])
+                if snippets:
+                    hybrid_text = (
+                        f"\n[Hybrid retrieval: {len(result.records)} records, "
+                        f"~{result.total_tokens_estimate} tokens]\n" + "\n".join(snippets)
+                    )
+            except Exception as exc:
+                logger.warning("RecallTool hybrid retrieval failed: %s", exc)
+        return self._build(params, hybrid_text=hybrid_text)
+
+    def _build(self, params: dict[str, Any], hybrid_text: str) -> RuntimeResult:
         query = str(params.get("query", "")).strip()
         limit = int(params.get("limit", 10))
 
         if not query:
             return RuntimeResult(success=False, error="'query' is required for recall.")
 
-        # Structured facts search (keyword match on key/value)
-        facts = self._store.search(limit=limit)
-        matched_facts = [
-            f for f in facts
-            if query.lower() in f.key.lower() or query.lower() in f.value.lower()
-        ]
-
-        # Hybrid retriever search (BM25 + semantic) — optional
-        hybrid_summary = ""
-        if self._retriever is not None:
-            try:
-                loop = asyncio.get_event_loop()
-                result = loop.run_until_complete(
-                    self._retriever.retrieve(query, limit=limit)
-                )
-                hybrid_summary = (
-                    f"\n[Hybrid retrieval: {len(result.records)} records, "
-                    f"~{result.total_tokens_estimate} tokens]"
-                )
-            except Exception as exc:
-                logger.warning("RecallTool hybrid retrieval failed: %s", exc)
+        # Scan ALL facts, then rank by how many query words hit key/value.
+        words = query.lower().split()
+        scored = []
+        for fact in self._store.search(limit=10_000):
+            haystack = f"{fact.key} {fact.value}".lower()
+            hits = sum(1 for w in words if w in haystack)
+            if hits:
+                scored.append((hits, fact))
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        matched_facts = [f for _, f in scored[:limit]]
 
         if not matched_facts:
             return RuntimeResult(
                 success=True,
-                output=f"No facts found matching '{query}'.{hybrid_summary}",
+                output=f"No facts found matching '{query}'.{hybrid_text}",
                 metadata={"query": query, "count": 0},
             )
 
@@ -191,11 +208,9 @@ class RecallTool:
                 f"  [{fact.status.value}] {fact.key} = {fact.value} "
                 f"(confidence: {int(fact.confidence * 100)}%, source: {fact.source})"
             )
-        output = "\n".join(lines) + hybrid_summary
-
         return RuntimeResult(
             success=True,
-            output=output,
+            output="\n".join(lines) + hybrid_text,
             metadata={"query": query, "count": len(matched_facts)},
         )
 
@@ -264,7 +279,7 @@ class InspectEnvironmentTool:
 
     TOOL_NAME = "inspect_environment"
 
-    def __init__(self, monitor: Optional[Any] = None) -> None:
+    def __init__(self, monitor: Any | None = None) -> None:
         if monitor is None:
             from orion.runtime.environment import EnvironmentMonitor
 

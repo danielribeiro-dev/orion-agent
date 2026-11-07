@@ -1,6 +1,8 @@
 # ORION — Design System, UX de Terminal & Interface Sci-Fi eDEX
 
-> Especificação da experiência do desenvolvedor (UX), onboarding interativo, CLI de alta performance (`orion-agent`) e centro de comando sci-fi imersivo (`orion`).
+> Especificação da experiência do desenvolvedor (UX), onboarding interativo, CLI de alta performance (`orion-agent`) e centro de comando sci-fi imersivo (`orion`).  
+> **Documento Oficial Normativo da CLI:** Consulte [`docs/design/CLI_DESIGN_SYSTEM.md`](CLI_DESIGN_SYSTEM.md) para a especificação visual e técnica detalhada.  
+> **Regras Obrigatórias para Agentes:** Consulte [`docs/design/CLI_AGENT_RULES.md`](CLI_AGENT_RULES.md) antes de criar ou modificar qualquer componente de interface.
 
 ---
 
@@ -142,11 +144,11 @@ sequenceDiagram
    - Modificações de código são apresentadas em painéis de diff cirúrgicos formatados em Rich (verde suave para adições, vermelho suave para remoções), nunca através de dumps brutos de arquivos inteiros.
    - Colapso automático de logs longos (ex: saída de 100 linhas de compilação ou testes é resumida com opção de expandir).
 
-4. **Barra de Entrada Inteligente (Smart Bottom Input):**
-   - Cursor responsivo na base do terminal gerenciado por `prompt_toolkit`.
-   - Menu flutuante de autocompletar ao digitar `/`, com busca fuzzy e descrições dos comandos.
+4. **Barra de Entrada Inteligente & Linha de Status Limpa:**
+   - Cursor minimalista `❯ ` na base do terminal gerenciado por `prompt_toolkit`, com expansão e retração vertical dinâmica para multilinhas e zero linhas fantasmas.
+   - Menu flutuante de autocompletar ao digitar `/`, com busca fuzzy e descrições dos comandos (utilizando estritamente glifos `❯` e `●`, sem emojis).
    - Suporte a `@` para anexar ou citar arquivos locais com expansão automática de caminho respeitando `.gitignore`.
-   - Status bar inferior persistente exibindo modo, modelo, tokens e custos em USD/BRL.
+   - Linha de status inferior discreta e elegante sobre fundo transparente, com separadores sutis (`·` ou `│`), exibindo modelo, tokens, custos em USD/BRL e estado da governança PEP sem barras sólidas preenchidas.
 
 5. **Controle Total de Autonomia e Segurança (PEP):**
    - Diálogos claros de permissão com contexto explícito da ação antes de executar qualquer mutação fora do workspace.

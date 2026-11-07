@@ -7,7 +7,6 @@ Reference: docs/architecture/GOVERNANCE_PEP.md
 
 from __future__ import annotations
 
-import os
 from enum import IntEnum
 from pathlib import Path
 
@@ -39,15 +38,41 @@ TOOL_LEVELS: dict[str, ActionLevel] = {
     "write_file": ActionLevel.LEVEL_2,
     "edit_file": ActionLevel.LEVEL_2,
     "run_command": ActionLevel.LEVEL_3,
+    "mcp_schema": ActionLevel.LEVEL_0,
 }
+
+
+# Runtime-registered levels (e.g. MCP tools discovered after connect).
+# Kept separate from the static map so it can be cleared on disconnect.
+_DYNAMIC_LEVELS: dict[str, ActionLevel] = {}
+
+
+def register_tool_level(tool_name: str, level: ActionLevel) -> None:
+    """Register (or override) the ActionLevel of a dynamically discovered tool."""
+    _DYNAMIC_LEVELS[tool_name] = level
+
+
+def unregister_tool_levels(prefix: str) -> None:
+    """Drop every dynamic level whose tool name starts with *prefix*."""
+    for key in [k for k in _DYNAMIC_LEVELS if k.startswith(prefix)]:
+        del _DYNAMIC_LEVELS[key]
+
+
+def is_dynamic_mutating(tool_name: str) -> bool:
+    """True if *tool_name* was dynamically registered as LEVEL_2 or higher."""
+    level = _DYNAMIC_LEVELS.get(tool_name)
+    return level is not None and level >= ActionLevel.LEVEL_2
 
 
 def tool_action_level(tool_name: str) -> ActionLevel:
     """Return the ActionLevel for a given tool name.
 
-    Unknown tools default to LEVEL_3 (safest assumption).
+    Static map first, then dynamic registrations. Unknown tools default to
+    LEVEL_3 (safest assumption).
     """
-    return TOOL_LEVELS.get(tool_name, ActionLevel.LEVEL_3)
+    if tool_name in TOOL_LEVELS:
+        return TOOL_LEVELS[tool_name]
+    return _DYNAMIC_LEVELS.get(tool_name, ActionLevel.LEVEL_3)
 
 
 class WorkspaceScope:
@@ -63,7 +88,7 @@ class WorkspaceScope:
         self._roots: list[Path] = [r.resolve() for r in roots]
 
     @classmethod
-    def default(cls) -> "WorkspaceScope":
+    def default(cls) -> WorkspaceScope:
         """Return a scope anchored at the current working directory."""
         return cls([Path.cwd()])
 

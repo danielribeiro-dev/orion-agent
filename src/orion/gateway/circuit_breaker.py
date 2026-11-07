@@ -450,7 +450,9 @@ class CircuitBreaker:
             SafeHoldingViolation: Se o estado for SAFE_HOLDING e o modo
                                   lite não for intencional.
         """
-        if self.is_mutation_blocked() and tool in MUTATING_TOOLS:
+        from orion.governance.permissions import is_dynamic_mutating
+
+        if self.is_mutation_blocked() and (tool in MUTATING_TOOLS or is_dynamic_mutating(tool)):
             raise SafeHoldingViolation(
                 tool=tool,
                 reason=self._last_failure_reason or FailureReason.UNKNOWN,
@@ -755,25 +757,25 @@ class CircuitBreaker:
     def _build_user_message(self) -> str:
         """Constrói mensagem informativa para o usuário com base no estado atual."""
         if self._state == CircuitState.CLOSED:
-            return "✅ Gateway operacional."
+            return "✔ Gateway operacional."
 
         if self._state == CircuitState.OPEN:
             reason = self._last_failure_reason
             retry_in = self._seconds_until_retry()
             return (
-                f"⚠️  Gateway temporariamente indisponível "
+                f"!  Gateway temporariamente indisponível "
                 f"({reason.value if reason else 'erro desconhecido'}). "
                 f"Tentando recuperação em {retry_in:.0f}s."
             )
 
         if self._state == CircuitState.HALF_OPEN:
-            return "🔄 Testando recuperação do gateway..."
+            return "› Testando recuperação do gateway..."
 
         if self._state == CircuitState.SAFE_HOLDING:
             reason = self._last_failure_reason
             model = self._failed_model or self._primary_model_id
             return (
-                f"🔒 SAFE HOLDING: Modelo de fronteira '{model}' indisponível "
+                f"[PEP] SAFE HOLDING: Modelo de fronteira '{model}' indisponível "
                 f"({reason.value if reason else 'razão desconhecida'}). "
                 f"Modo conversacional ativo — posso dialogar mas NÃO posso "
                 f"modificar código ou executar comandos. "
@@ -782,7 +784,7 @@ class CircuitBreaker:
 
         if self._state == CircuitState.OFFLINE_SUSPENDED:
             return (
-                "📴 SESSÃO SUSPENSA: Sem conectividade de rede. "
+                "! SESSÃO SUSPENSA: Sem conectividade de rede. "
                 "Estado preservado. Sessão será retomada automaticamente "
                 "quando a conexão for restaurada."
             )

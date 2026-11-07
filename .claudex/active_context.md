@@ -1,7 +1,7 @@
 # O.R.I.O.N — Active Context (Memória de Sessão de Desenvolvimento)
 
-> **Data de Atualização:** 26/10/2026  
-> **Status Atual:** v0.4.0 Sprint 2 CONCLUÍDA (928 testes passando, 100% sucesso, Cobertura TUI 95.69%).  
+> **Data de Atualização:** 06/11/2026  
+> **Status Atual:** v0.4.0 Sprint 4 IMPLEMENTADA (1077 testes passando, cobertura global 94%). Turno com provedor real ainda não validado.  
 > **Fase Ativa:** v0.4.0 (High-Performance Stream CLI, Slash Commands & Native MCP).  
 > **Branch Ativo:** `version/v0.4.0`  
 > **Regra Suprema:** Nenhuma linha de código em `src/` é escrita sem o comando explícito de início da Sprint correspondente (Doc-First).
@@ -38,4 +38,4 @@
 ---
 
 ## 📌 Próximo Passo
-Aguardar aprovação do usuário e comando explícito para iniciar a **Sprint 3 (Streaming Vivo, Diffs Cirúrgicos & 20 Slash Commands)** da v0.4.0.
+Validar um turno real com `OPENROUTER_API_KEY` ou Ollama e, depois, iniciar a **Sprint 5 (Native MCP Client & Integração PEP)** mediante comando explícito.

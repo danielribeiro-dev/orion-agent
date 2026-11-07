@@ -1,150 +1,108 @@
-# Sprint — [v0.4.0] Sprint 3: Streaming Vivo, Diffs & Catálogo de Slash Commands
+# Sprint — [v0.4.0] Sprint 3: Refinamento Estético da CLI, Geometria Anti-Emoji & Dynamic Prompt Engine
 
-> **Status:** 📋 Planejado  
+> **Status:** ✔ Concluída  
 > **Versão Relacionada:** v0.4.0 (High-Performance Stream CLI, Slash Commands & Native MCP)  
-> **Responsável / Agente:** Daniel Dev & Antigravity  
-> **Data de Início:** A definir (Fase 4)  
-> **Data de Conclusão:** —  
+> **Responsável / Agente:** Daniel Dev & Antigravity (Pair Programming com Gemini 3.8 Flash High)  
+> **Data de Início:** 27/10/2026  
+> **Data de Conclusão:** 27/10/2026  
+> **Branch Alvo:** `version/v0.4.0`
 
 ---
 
 ## 1. Identificação & Objetivo
 
-* **Objetivo Primário:** Implementar o renderizador de streaming em tempo real via `Rich.Live` (garantindo que as respostas do modelo fluam em Markdown renderizado com realce sintático sem quebrar o scroll nativo do terminal), o visualizador de **diffs cirúrgicos** formatados em caixas Rich com realce verde/vermelho para arquivos editados, e o despachante e catálogo completo dos **20 Slash Commands oficiais** do O.R.I.O.N.
-* **Dependências Prévias:** Sprint 1 e 2 concluídas (CLI Skeleton, Banner e Prompt Interativo operacionais).
-* **Entregável Verificável:** Módulos `src/orion/tui/stream_renderer.py`, `src/orion/tui/diff_viewer.py` e pacote `src/orion/tui/commands/` totalmente funcionais, permitindo interagir com streaming vivo, ver alterações em diffs elegantes e disparar comandos rápidos.
+* **Objetivo Primário:** Eliminar as falhas estéticas e bugs visuais da CLI identificados no uso real, alinhando a experiência do desenvolvedor com o padrão de excelência de mercado (Claude Code, Google Antigravity e Hermes Agent):
+  1. **Banimento Completo de Emojis:** Substituir todos os emojis na CLI, autocomplete e mensagens de sistema por glifos geométricos precisos do padrão monospace oficial (`❯`, `●`, `✔`, `✖`, `!`, `[PEP]`, `›`), eliminando de vez problemas de desalinhamento de largura (`wcwidth`) e conferindo estética técnica e sóbria de engenharia.
+  2. **Correção do Bug das Linhas do Campo de Texto (Input Engine):** Eliminar a injeção estática de janelas `char="─"` e a colisão de scrollback com o menu de autocomplete. Adotar o padrão minimalista estilo Claude Code / gh (`❯ `), cuja altura expande suavemente com multilinhas e retrai imediatamente para 1 linha ao apagar, com zero linhas fantasmas.
+  3. **Correção da Barra de Status Inferior (Bottom Line):** Remover a faixa sólida colorida de fundo (`bg:surface_panel`) que atravessa toda a largura do terminal. Implementar uma linha de status sobre o fundo nativo do terminal, com textos atenuados e separadores discretos (`·` ou `│`).
+  4. **Documentação Normativa Definitiva:** Criar a especificação mestra `docs/design/CLI_DESIGN_SYSTEM.md` e o manual prescritivo `docs/design/CLI_AGENT_RULES.md` para garantir que qualquer desenvolvedor ou agente de IA saiba exatamente como construir telas, modais e saídas sem inventar estilos da própria cabeça.
+* **Dependências Prévias:** Sprint 1 e Sprint 2 concluídas (Estrutura do CLI, tema e prompt interativo com `prompt_toolkit`).
+* **Entregável Verificável:** CLI executando com prompt limpo `❯ `, digitação de `/plan` e autocomplete operando sem duplicar linhas horizontais, rodapé discreto sem barra colorida sólida, ausência total de emojis na interface e suíte de testes passando.
 
 ---
 
-## 2. Contexto de Engenharia
+## 2. Contexto de Engenharia & Filosofia
 
-* **Por que esta sprint existe:** Respostas de IA não podem ser dumps estáticos que travam o terminal por 10 segundos antes de exibir uma parede de texto. O desenvolvedor precisa ver o raciocínio e o código surgindo em tempo real. Além disso, ver diffs claros com cores antes de aceitar alterações é a maior garantia de segurança e controle em agentes modernos.
-* **Como se encaixa na visão global:** Entrega o núcleo da interação ativa do assistente, transformando o `orion-agent` em uma ferramenta prazerosa, estética e com comandos profissionais.
-* **Decisões arquiteturais associadas:** ADR-015 (Stack Stream CLI com `Rich.Live`), ADR-016 (Catálogo Oficial de Slash Commands).
+### Por que esta sprint é indispensável?
+Uma CLI de agente de IA é o cartão de visitas e o ambiente onde o engenheiro passará horas diárias. 
+1. **O problema do `wcwidth` dos emojis:** Emojis têm largura variável em diferentes emuladores de terminal (Kitty, WezTerm, Ghostty, Alacritty, GNOME Terminal). Tratá-los como símbolos de largura fixa causa quebras de colunas e efeitos de "cursor drift". A indústria de ferramentas sérias (Claude Code, Antigravity, Git, Docker) usa geometria monocromática e TrueColor precisa.
+2. **O problema do scrollback do prompt:** A injeção de `Window(char="─")` diretamente no container do `prompt_toolkit`, combinada com menus flutuantes que empurram linhas para o histórico de rolagem do terminal, gera o bug onde linhas horizontais crescem e nunca voltam ao normal. O cursor limpo `❯ ` com tratamento dinâmico de multilinhas resolve a causa raiz de forma robusta e elegante.
+3. **O problema da barra colorida pesada:** A barra inferior ocupando 100% da largura com cor sólida cria fadiga visual e poluição estética. O padrão moderno utiliza o fundo nativo do terminal com dados sutis e atenuados.
 
 ---
 
 ## 3. Estado Atual vs. Estado Desejado
 
-| Aspecto | Estado Inicial (Antes da Sprint) | Estado Final Esperado (DoD) |
+| Aspecto | Estado Inicial (Sprint 2) | Estado Final Esperado (Sprint 3 DoD) |
 | :--- | :--- | :--- |
-| **Streaming de Texto** | Impressão básica em blocos | `Rich.Live` com parsing de Markdown contínuo e realce sintático |
-| **Exibição de Diffs** | Texto unificado puro no terminal | Painéis Rich elegantes com destaque visual de adições e remoções |
-| **Slash Commands** | Apenas suporte básico | Catálogo modular completo com 20 comandos cadastrados e tipados |
+| **Uso de Emojis** | Emojis no catálogo de `/`, no status de memória e mensagens (`📋`, `🎯`, `🧠`, `⚠️`, `✅`) | **Zero emojis.** Padrão Unicode oficial: `❯ /plan`, `❯ /goal`, `● [Memory]`, `!`, `✔`, `✖`, `[PEP]` |
+| **Linhas do Campo de Texto** | Linhas horizontais `─` fixas acima e abaixo que se multiplicavam ao autocompletar e não reduziam | Prompt minimalista estilo Claude Code / gh (`❯ `), expansão vertical dinâmica para multilinhas e retração imediata sem resíduos |
+| **Barra de Status Inferior** | Faixa retangular sólida preenchendo toda a largura (`bg:surface_panel`) | Linha limpa sobre fundo transparente/nativa do terminal, separadores discretos (`·` ou `│`) e dados enxutos |
+| **Diretrizes para Agentes** | Princípios dispersos em specs gerais | Documentos formais `CLI_DESIGN_SYSTEM.md` e `CLI_AGENT_RULES.md` congelados |
 
 ---
 
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Implementação de `StreamRenderer` em `src/orion/tui/stream_renderer.py`:
-  - Consumo assíncrono do gerador de tokens do ReAct Engine.
-  - Renderização via `rich.live.Live` sem buffers travados de tela cheia, preservando a rolagem natural do mouse/trackpad.
-  - Exibição de indicador de pensamento (*thinking spinner*) enquanto o raciocínio é formulado.
-- [ ] Implementação de `DiffViewer` em `src/orion/tui/diff_viewer.py`:
-  - Conversão de diffs unificados gerados por `edit_file` em painéis Rich formatados.
-  - Números de linha originais e novas, cabeçalho com nome do arquivo e resumo de adições/remoções (`+X / -Y`).
-- [ ] Implementação da arquitetura de comandos em `src/orion/tui/commands/`:
-  - `BaseSlashCommand`: contrato com `name`, `description`, `usage` e método assíncrono `execute(args, context)`.
-  - `CommandRegistry`: descoberta automática e despacho determinístico.
-  - Implementação dos 20 comandos:
-    - Cognitivos: `/plan`, `/goal`, `/grill-me`, `/review`
-    - Memória & Skills: `/learn`, `/memory`, `/timeline`, `/recall`
-    - Contexto & Branches: `/compact`, `/context`, `/branch`, `/merge`
-    - Operação & Governança: `/diff`, `/undo`, `/run`, `/doctor`, `/cost`, `/config`, `/clear`, `/help`
-- [ ] Testes unitários do despachante de comandos e dos componentes de streaming e diffs.
+- [x] Criação de `docs/design/CLI_DESIGN_SYSTEM.md` contendo a especificação visual e técnica completa (cores, glifos, wireframes de chat, modais como `/config`, seletor de modelos, autorização PEP e streaming).
+- [x] Criação de `docs/design/CLI_AGENT_RULES.md` com as regras mandatárias para agentes de IA implementarem novos comandos e componentes.
+- [x] Atualização de `docs/design/TUI_DESIGN_SYSTEM.md` e dos roadmaps de planejamento.
+- [x] Refatoração de `src/orion/tui/completer.py`:
+  - Substituição de todos os ícones de emojis em `OFFICIAL_SLASH_COMMANDS` por `❯` e `●`.
+- [x] Refatoração de `src/orion/tui/prompt.py`:
+  - Remoção de `top_tunnel` e `bottom_tunnel` injetados com `char="─"`.
+  - Configuração do prompt minimalista com indicador `❯ ` em cyan.
+  - Ajuste do `get_bottom_toolbar` e tabela de estilos para eliminar fundos sólidos (`bg:surface_panel` generalizado).
+  - Configuração correta de reservas de menu e redimensionamento dinâmico.
+- [x] Refatoração de `src/orion/tui/status_bar.py`:
+  - Ajuste de `render_bottom_bar` para paleta atenuada e sem barras de fundo espessas.
+- [x] Limpeza de emojis em arquivos de memória, governança e gateway (`src/orion/memory/file_syncer.py`, `src/orion/memory/hitl_telegram.py`, `src/orion/governance/nuclear.py`, `src/orion/governance/pep.py`, `src/orion/gateway/circuit_breaker.py`, `src/orion/cli.py`).
+- [x] Atualização e expansão dos testes unitários em `tests/unit/test_prompt_session.py`, `tests/unit/test_status_bar.py`, `tests/unit/test_completer.py` e `tests/unit/test_cli.py`.
 
-### 🚫 Fora de Escopo (Out of Scope / Anti-Metas)
-- Não construir conexões MCP nativas com transporte SSE/stdio (escopo da Sprint 4).
+### 🚫 Fora de Escopo (Anti-Metas)
+- Não implementar os 20 Slash Commands (escopo da Sprint 4).
+- Não implementar streaming em tempo real `Rich.Live` e diffs de arquivos (escopo da Sprint 4).
+- Não implementar conectores MCP (escopo da Sprint 5).
+- Não configurar instalação global via script `curl | bash` neste momento (postergado para etapa posterior conforme decisão do desenvolvedor).
 
 ---
 
 ## 5. Arquitetura & Arquivos Afetados
 
 ```
-src/orion/tui/
-├── stream_renderer.py                 # Renderizador de streaming Markdown (Rich.Live)
-├── diff_viewer.py                     # Visualizador de diffs cirúrgicos
-└── commands/                          # Catálogo oficial de comandos
-    ├── __init__.py
-    ├── base.py                        # BaseSlashCommand
-    ├── registry.py                    # CommandRegistry central
-    ├── plan.py                        # /plan
-    ├── goal.py                        # /goal
-    ├── grill_me.py                    # /grill-me
-    ├── review.py                      # /review
-    ├── learn.py                       # /learn
-    ├── memory.py                      # /memory
-    ├── timeline.py                    # /timeline
-    ├── recall.py                      # /recall
-    ├── compact.py                     # /compact
-    ├── context.py                     # /context
-    ├── branch.py                      # /branch
-    ├── merge.py                       # /merge
-    ├── diff.py                        # /diff
-    ├── undo.py                        # /undo
-    ├── run.py                         # /run
-    ├── cost.py                        # /cost
-    ├── doctor.py                      # /doctor
-    ├── config.py                      # /config
-    ├── clear.py                       # /clear
-    └── help.py                        # /help
-tests/
-└── unit/
-    ├── test_stream_renderer.py
-    ├── test_diff_viewer.py
-    └── test_slash_commands.py
+docs/
+├── design/
+│   ├── CLI_DESIGN_SYSTEM.md           # [NOVO] Especificação mestra de design da CLI
+│   ├── CLI_AGENT_RULES.md             # [NOVO] Regras e restrições obrigatórias para Agentes
+│   └── TUI_DESIGN_SYSTEM.md           # [ATUALIZADO] Sincronização com o novo padrão
+└── planning/
+    ├── ROADMAP.md                     # [ATUALIZADO] Inserção da Sprint 3 no mapa
+    └── versions/
+        └── v0.4.0/
+            ├── VERSION.md             # [ATUALIZADO] Nova grade de 5 sprints
+            └── sprints/
+                ├── sprint-3.md        # [NOVO] Esta sprint
+                ├── sprint-4.md        # [RENOMEADO] Streaming Vivo & Diffs (antiga sprint-3)
+                └── sprint-5.md        # [RENOMEADO] MCP Nativo (antiga sprint-4)
+
+src/orion/
+├── cli.py                             # Limpeza de emojis e símbolos de banner
+└── tui/
+    ├── completer.py                   # Catálogo com glifos ❯ e ● no lugar de emojis
+    ├── prompt.py                      # Dynamic prompt ❯, remoção do túnel rígido e toolbar sem fundo
+    └── status_bar.py                  # Barra de status sem blocos pesados
 ```
 
 ---
 
-## 6. Contratos de Código & Tipagem
+## 6. Critérios de Aceite & Verificação (Definition of Done)
 
-```python
-from abc import ABC, abstractmethod
-from typing import Any, List
-from pydantic import BaseModel
-
-class CommandResult(BaseModel):
-    success: bool
-    output_message: str
-    data: Any = None
-
-class BaseSlashCommand(ABC):
-    name: str
-    description: str
-    usage: str = ""
-    aliases: List[str] = []
-
-    @abstractmethod
-    async def execute(self, args: str, context: Any) -> CommandResult:
-        """Executa a rotina do comando slash e retorna o resultado formatado."""
-        pass
-```
-
----
-
-## 7. Estratégia de Implementação (Passo a Passo)
-
-1. **Passo 1:** Desenvolver `StreamRenderer` com `Rich.Live` e buffer dinâmico de tokens.
-2. **Passo 2:** Desenvolver `DiffViewer` tratando blocos de diff `@@ -A,B +C,D @@` com sintaxe colorida.
-3. **Passo 3:** Criar a classe abstrata `BaseSlashCommand` e o registro central `CommandRegistry`.
-4. **Passo 4:** Implementar comandos prioritários de memória e contexto (`/compact`, `/context`, `/cost`, `/timeline`, `/memory`).
-5. **Passo 5:** Implementar comandos de alinhamento e operação (`/plan`, `/goal`, `/grill-me`, `/review`, `/diff`, `/doctor`, `/help`).
-6. **Passo 6:** Escrever bateria de testes unitários validando despacho de argumentos e formatação de saídas.
-
----
-
-## 8. Testes Automatizados & Critérios de Aceite (DoD)
-
-### Cenários de Teste Obrigatórios
-- **Teste 1:** Streaming de 500 tokens renderiza sem erros de formatação de tags Markdown incompletas.
-- **Teste 2:** Diff de substituição cirúrgica gera painel visual com destaque em verde e vermelho.
-- **Teste 3:** Todos os 20 comandos respondem adequadamente a argumentos válidos e exibem mensagem de uso para argumentos incorretos.
-
-### Definition of Done (DoD)
-- [ ] `StreamRenderer` e `DiffViewer` operando sem quebrar a rolagem do terminal.
-- [ ] Catálogo oficial de Slash Commands implementado e testado.
-- [ ] `pytest tests/unit/test_stream_renderer.py tests/unit/test_diff_viewer.py tests/unit/test_slash_commands.py` passando com 100% de sucesso.
-- [ ] Cobertura de testes dos módulos $\ge 90\%$.
-- [ ] Documentação de progresso atualizada em `.claudex/progress.md`.
+| ID | Critério de Aceite | Como Validar |
+| :--- | :--- | :--- |
+| **CA-01** | Zero emojis no completer e nos comandos | `uv run pytest tests/unit/test_completer.py` |
+| **CA-02** | Zero emojis nas mensagens de sistema, PEP e memória | Busca estática com regex de emojis em `src/orion/` retornando 0 ocorrências de emojis decorativos de interface |
+| **CA-03** | Prompt com cursor `❯ ` e sem linhas horizontais fantasmas ao autocompletar `/plan` | Teste de unidade em `tests/unit/test_prompt_session.py` e validação interativa |
+| **CA-04** | Barra inferior sem fundo sólido ocupando toda a tela | Teste de estilo em `tests/unit/test_status_bar.py` verificando ausência de `bg:surface_panel` contínuo |
+| **CA-05** | Especificações de design completas e aprovadas | Existência e integridade de `docs/design/CLI_DESIGN_SYSTEM.md` e `docs/design/CLI_AGENT_RULES.md` |
+| **CA-06** | Testes automatizados passando | `uv run pytest tests/unit/` com 100% de sucesso |

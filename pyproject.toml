@@ -31,6 +31,8 @@ dependencies = [
     "psutil>=5.9",
     "pyyaml>=6.0",
     "prompt-toolkit>=3.0.40",
+    "pygments>=2.17",
+    "mcp>=1.0.0",
 ]
 
 [project.scripts]

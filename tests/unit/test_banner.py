@@ -86,7 +86,7 @@ class TestBannerRendererCA01Widths:
 
         # Deve conter o bloco Stellar Cyber Block e dica compacta
         assert "██████╗" in output
-        assert "GATEWAY" in output
+        assert "STATUS" in output
         assert "MODEL" in output
         assert "Dica:" in output
 
@@ -105,7 +105,8 @@ class TestBannerRendererCA01Widths:
         # Deve conter o cabeçalho amplo e a dica completa
         assert "Operational Reasoning & Intelligence Orchestration Network" in output
         assert "Non Ducor, Duco" in output
-        assert "TIMELINE" in output
+        assert "PEP GOVERNANCE" in output
+        assert "STATUS" in output
         assert "Ctrl+C" in output
 
 

@@ -6,12 +6,12 @@ Covers: banner rendering, --version flag, --help, subcommand `info`.
 from __future__ import annotations
 
 import io
-from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 from rich.console import Console
 
 from orion import __version__
-from orion.cli import print_banner
+from orion.cli import print_banner, run_interactive_repl
 
 # ---------------------------------------------------------------------------
 # --version
@@ -157,47 +157,51 @@ class TestBanner:
 class TestInteractiveRepl:
     """Valida o loop interativo run_interactive_repl."""
 
+    @staticmethod
+    def _session() -> MagicMock:
+        session = MagicMock()
+        session.session_id = "test"
+        session.run_turn = AsyncMock(return_value="ok")
+        return session
+
+    @staticmethod
+    def _prompt(*inputs: object) -> MagicMock:
+        async def _run_turn(coro, *_args, **_kwargs):  # type: ignore[no-untyped-def]
+            return await coro
+
+        prompt = MagicMock()
+        prompt.prompt.side_effect = list(inputs)
+        prompt.run_turn = _run_turn
+        return prompt
+
     def test_repl_exits_on_exit_command(self) -> None:
-        from unittest.mock import MagicMock
+        prompt = self._prompt("/exit")
+        run_interactive_repl(prompt, self._session())
+        assert prompt.prompt.call_count == 1
 
-        from orion.cli import run_interactive_repl
+    def test_repl_dispatches_slash_commands_to_registry(self) -> None:
+        prompt = self._prompt("/help", "/exit")
+        session = self._session()
+        run_interactive_repl(prompt, session)
+        session.run_turn.assert_not_called()
 
-        mock_prompt = MagicMock()
-        mock_prompt.prompt.side_effect = ["/exit"]
+    def test_repl_sends_instructions_to_the_agent(self) -> None:
+        prompt = self._prompt("", "   ", "Please check @README.md", "/quit")
+        session = self._session()
+        run_interactive_repl(prompt, session)
+        session.run_turn.assert_awaited_once_with("Please check @README.md")
 
-        run_interactive_repl(mock_prompt)
-        assert mock_prompt.prompt.call_count == 1
-
-    def test_repl_handles_help_command(self) -> None:
-        from unittest.mock import MagicMock
-
-        from orion.cli import run_interactive_repl
-
-        mock_prompt = MagicMock()
-        mock_prompt.prompt.side_effect = ["/help", "/exit"]
-
-        run_interactive_repl(mock_prompt)
-        assert mock_prompt.prompt.call_count == 2
-
-    def test_repl_handles_mentions_and_empty_inputs(self) -> None:
-        from unittest.mock import MagicMock
-
-        from orion.cli import run_interactive_repl
-
-        mock_prompt = MagicMock()
-        mock_prompt.workspace_root = Path.cwd()
-        mock_prompt.prompt.side_effect = ["", "   ", "Please check @README.md", "/quit"]
-
-        run_interactive_repl(mock_prompt)
-        assert mock_prompt.prompt.call_count == 4
+    def test_repl_reports_unknown_command(self, capsys) -> None:  # type: ignore[no-untyped-def]
+        prompt = self._prompt("/naoexiste", "/exit")
+        run_interactive_repl(prompt, self._session())
+        assert prompt.prompt.call_count == 2
 
     def test_repl_handles_keyboard_interrupt_gracefully(self) -> None:
-        from unittest.mock import MagicMock
+        prompt = self._prompt(KeyboardInterrupt(), "/exit")
+        run_interactive_repl(prompt, self._session())
+        assert prompt.prompt.call_count == 2
 
-        from orion.cli import run_interactive_repl
-
-        mock_prompt = MagicMock()
-        mock_prompt.prompt.side_effect = [KeyboardInterrupt(), "/exit"]
-
-        run_interactive_repl(mock_prompt)
-        assert mock_prompt.prompt.call_count == 2
+    def test_double_ctrl_c_exits(self) -> None:
+        prompt = self._prompt(KeyboardInterrupt(), KeyboardInterrupt(), "nunca")
+        run_interactive_repl(prompt, self._session())
+        assert prompt.prompt.call_count == 2

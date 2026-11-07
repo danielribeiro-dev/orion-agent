@@ -357,7 +357,7 @@ class OpenRouterProvider(BaseLLMProvider):
                         choice = choices[0]
                         delta = choice.get("delta", {})
                         text_delta: str = delta.get("content") or ""
-                        reasoning_delta: Optional[str] = delta.get("reasoning_content")
+                        reasoning_delta: Optional[str] = delta.get("reasoning_content") or delta.get("reasoning")
                         finish_reason: Optional[str] = choice.get("finish_reason")
 
                         is_final = finish_reason is not None

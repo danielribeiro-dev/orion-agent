@@ -204,17 +204,17 @@ class TelegramHITLConnector:
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton(
-                    "✅ Aprovar",
+                    "✔ Aprovar",
                     callback_data=f"hitl:approve:{request.request_id}",
                 ),
                 InlineKeyboardButton(
-                    "❌ Rejeitar",
+                    "✖ Rejeitar",
                     callback_data=f"hitl:reject:{request.request_id}",
                 ),
             ]
         ])
         text = (
-            f"⚠️ *O.R.I.O.N — Aprovação PEP {request.risk_level} Necessária*\n\n"
+            f"! *O.R.I.O.N — Aprovação PEP {request.risk_level} Necessária*\n\n"
             f"Ação: `{request.action_description}`\n\n"
             f"ID: `{request.request_id}`\n"
             f"TTL: {request.ttl_seconds // 60} minutos"

@@ -55,6 +55,8 @@ v0.7.0  ── Dedicated Desktop App & Sci-Fi Cockpit (eDEX-UI Standalone)
 v1.0.0  ── Production Release: Autonomous Personal Operating Intelligence
   │        (Blindagem de Segurança Militar, Pacotes Binários e Multiplataforma)
 v1.5.0  ── Self-Healing Engine, Bubblewrap Sandboxing & Dynamic Subagents
+v1.6.0  ── Native Model Providers & Code Copilot Mode [FUTURO, bloqueado por gates de prontidão]
+  │        (Provedor Anthropic nativo, tool use nativo atrás do PEP, ORION como copiloto de código)
 v2.0.0  ── Ghost Input (/dev/uinput), Chrome CDP Automation & Zero-Knowledge Vault
 v2.5.0  ── Spatial Interaction & Hands-Free Burst Vision (Ray Casting & AT-SPI2)
 v3.0.0  ── Full Ambient Symbiosis & Multi-Device Distributed Coordination
@@ -80,14 +82,19 @@ v3.0.0  ── Full Ambient Symbiosis & Multi-Device Distributed Coordination
 * **Documentação:** [`docs/planning/versions/v0.3.0/VERSION.md`](versions/v0.3.0/VERSION.md)
 
 ### 🖥️ v0.4.0 — High-Performance Stream CLI, Slash Commands & Native MCP
-* **Status:** 🚀 EM EXECUÇÃO — Planejamento Congelado & 4 Sprints Prontas  
-* **Foco:** Ponto de entrada oficial `orion-agent` (CLI de terminal de altíssima performance, com rolagem nativa e sem flickering), Design System Cósmico Glacial, `prompt_toolkit` (autocomplete flutuante `/` com busca difusa e expansão `@` com `.gitignore`), `Rich.Live` (streaming token a token, diffs cirúrgicos syntax-highlighted e banner adaptativo da Mão Cósmica com Buraco Negro), Catálogo Oficial dos 20 Slash Commands e Cliente nativo MCP (stdio e SSE).
+* **Status:** 🚀 EM EXECUÇÃO — Planejamento Congelado & 5 Sprints Detalhadas  
+* **Foco:** Ponto de entrada oficial `orion-agent` (CLI de terminal de altíssima performance, com rolagem nativa e sem flickering), Design System Cósmico Glacial, banimento total de emojis com geometria monospace precisa, `prompt_toolkit` (prompt dinâmico minimalista `❯ `, autocomplete flutuante `/` com busca difusa e expansão `@` com `.gitignore`), `Rich.Live` (streaming token a token, diffs cirúrgicos syntax-highlighted e banner adaptativo da Mão Cósmica com Buraco Negro), Catálogo Oficial dos 20 Slash Commands e Cliente nativo MCP (stdio e SSE).
 * **Documentação:** [`docs/planning/versions/v0.4.0/VERSION.md`](versions/v0.4.0/VERSION.md)
 
 ### 🌌 v0.7.0 — Dedicated Desktop App & Sci-Fi Cockpit (eDEX-UI Standalone)
 * **Status:** 📋 Planejado (Versão Gráfica Dedicada)  
 * **Foco:** Centro de comando sci-fi imersivo executado como app de desktop independente (Tauri v2 + WebGL/Canvas), alimentado por Design Tokens do Figma, sequência cinematográfica de boot, cockpit de 4 quadrantes, tacômetros de hardware e telemetria gráfica em tempo real.
 * **Documentação:** [`docs/design/TUI_DESIGN_SYSTEM.md`](../design/TUI_DESIGN_SYSTEM.md)
+
+### 🧊 v1.6.0 — Native Model Providers & Code Copilot Mode
+* **Status:** 🧊 FUTURO — Só inicia quando o ORION atingir paridade agêntica com o Claude Code, com melhor eficiência de tokens, memória e tools (8 gates de prontidão)  
+* **Foco:** Provedores nativos (Anthropic primeiro) no lugar do intermediário OpenRouter, tool use nativo sempre mediado pelo PEP, prompt caching, thinking adaptativo e modo copiloto de código. Antecipar esta versão gastaria tokens de modelos caros num agente ainda imaturo.
+* **Documentação:** [`docs/planning/versions/v1.6.0/VERSION.md`](versions/v1.6.0/VERSION.md)
 
 ---
 

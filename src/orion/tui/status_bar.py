@@ -14,9 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
-from rich import box
 from rich.console import Group, RenderableType
-from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
@@ -57,6 +55,9 @@ class SessionStatusBar(BaseModel):
     session_tokens_out: int = 0
     session_cost_usd: float = 0.0
     usd_to_brl_rate: float = 5.75
+    agent_mode: str = "accept-edits"
+    is_busy: bool = False
+    fast_mode: bool = False
 
     @property
     def session_cost_brl(self) -> float:
@@ -155,19 +156,29 @@ class SessionStatusBar(BaseModel):
         )
 
     def render_header_panel(self, width: int = 80) -> RenderableType:
-        """Gera o painel de cabeçalho formatado em Rich com bordas arredondadas."""
-        auth_val = f"GitHub [@{self.github_user}]" if self.github_user else "Local (Not connected)"
-        google_val = self.google_account or "Not connected"
-        gateway_status = "Online (Auto-Routing)" if self.is_online else "Offline (Local Only)"
+        """Gera o painel de cabeçalho formatado em Rich com layout aberto e arejado."""
+        auth_val = f"GitHub [@{self.github_user}]" if self.github_user else "Local Session"
+        status_text = "ONLINE (Cloud Gateway)" if self.is_online else "OFFLINE (Local Gateway)"
         status_dot = "status_ok" if self.is_online else "status_offline"
+
+        # Abreviação elegante do caminho do workspace (~/orion-agent)
+        ws_display = self.workspace_path or str(Path.cwd())
+        try:
+            home_dir = str(Path.home())
+            if ws_display.startswith(home_dir):
+                ws_display = "~" + ws_display[len(home_dir) :]
+        except Exception:
+            pass
+
+        if len(ws_display) > 36:
+            ws_display = "..." + ws_display[-33:]
 
         if width < 100:
             # 📐 Cenário A: Modo Compacto (< 100 colunas)
-            # Tipografia Stellar Cyber Block
             cyber_block = [
                 ("  ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗", "   O.R.I.O.N (ORION)  v0.4.0"),
                 (" ██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║", "   Sovereign Cognitive Agent"),
-                (" ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║", "   github.com/danielribeiro-dev"),
+                (" ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║", "   Non Ducor, Duco"),
                 (" ╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║", ""),
             ]
 
@@ -182,33 +193,33 @@ class SessionStatusBar(BaseModel):
                 # 1 coluna para terminais estreitos (< 75 cols, ex: 60)
                 grid = Table.grid(padding=(0, 1), expand=True)
                 grid.add_column(ratio=1, no_wrap=True)
-                grid.add_row(_make_badge("GATEWAY", gateway_status, status_dot))
+                grid.add_row(_make_badge("STATUS", status_text, status_dot))
                 grid.add_row(_make_badge("MODEL", self.model_name))
-                grid.add_row(_make_badge("REASONING", self.reasoning_effort.value))
+                grid.add_row(_make_badge("WORKSPACE", ws_display))
                 grid.add_row(_make_badge("PEP", f"Level {self.pep_level} (Supervised)"))
             else:
                 # 2 colunas padrão (80 cols)
-                grid = Table.grid(padding=(0, 1), expand=True)
+                grid = Table.grid(padding=(0, 2), expand=True)
                 grid.add_column(ratio=1, no_wrap=True)
                 grid.add_column(ratio=1, no_wrap=True)
                 grid.add_row(
-                    _make_badge("GATEWAY", gateway_status, status_dot),
+                    _make_badge("STATUS", status_text, status_dot),
                     _make_badge("MODEL", self.model_name),
                 )
                 grid.add_row(
-                    _make_badge("REASONING", f"{self.reasoning_effort.value} (Depth Thinking)"),
                     _make_badge("AUTH", auth_val),
+                    _make_badge("WORKSPACE", ws_display),
                 )
                 grid.add_row(
-                    _make_badge("MEMORY", f"5 Spheres ({self.events_count} Events)"),
                     _make_badge("PEP", f"Level {self.pep_level} (Supervised)"),
+                    _make_badge("MEMORY", "5 Spheres Active"),
                 )
 
-            return Panel(
-                Group(top_content, Rule(style=ORION_COLORS["border_subtle"]), grid),
-                box=box.ROUNDED,
-                width=width,
-                border_style=ORION_COLORS["border_subtle"],
+            return Group(
+                top_content,
+                Rule(style=ORION_COLORS["border_subtle"]),
+                grid,
+                Rule(style=ORION_COLORS["border_subtle"]),
             )
 
         # 📐 Cenário B: Modo Standard / Amplo (>= 100 colunas)
@@ -222,120 +233,100 @@ class SessionStatusBar(BaseModel):
             style="text_dim",
         )
 
-        grid_wide = Table.grid(padding=(0, 2), expand=True)
+        grid_wide = Table.grid(padding=(0, 3), expand=True)
         grid_wide.add_column(ratio=1, no_wrap=True)
         grid_wide.add_column(ratio=1, no_wrap=True)
 
-        status_text = "ONLINE (Cloud Gateway)" if self.is_online else "OFFLINE (Local Gateway)"
         grid_wide.add_row(
             _make_badge("STATUS", status_text, status_dot),
-            _make_badge("REASONING", f"{self.reasoning_effort.value} (Depth Thinking Active)"),
-        )
-        grid_wide.add_row(
-            _make_badge("MODEL", self.model_name),
-            _make_badge("GATEWAY", "Auto-Routing (Fast/Deep Dynamic)"),
+            _make_badge("MODEL", f"{self.model_name} [Thinking: {self.reasoning_effort.value}]"),
         )
         grid_wide.add_row(
             _make_badge("AUTH", auth_val),
-            _make_badge("GOOGLE", google_val),
-        )
-        grid_wide.add_row(
-            _make_badge("TIMELINE", f"{self.events_count} events in SQLite WAL"),
-            _make_badge("MEMORY", "5 Spheres Active (FTS5 + ONNX Embeddings)"),
-        )
-        ws_display = self.workspace_path or "/home/danieldev/orion-agent"
-        if len(ws_display) > 35:
-            ws_display = "..." + ws_display[-32:]
-        grid_wide.add_row(
-            _make_badge("PEP GOVERNANCE", f"Level {self.pep_level} (Supervised)"),
             _make_badge("WORKSPACE", ws_display),
         )
-
-        return Panel(
-            Group(header_text, Rule(style=ORION_COLORS["border_subtle"]), grid_wide),
-            box=box.ROUNDED,
-            width=width,
-            border_style=ORION_COLORS["border_subtle"],
+        grid_wide.add_row(
+            _make_badge("PEP GOVERNANCE", f"Level {self.pep_level} (Supervised)"),
+            _make_badge("MEMORY", "5 Spheres Active"),
         )
+
+        return Group(
+            header_text,
+            Rule(style=ORION_COLORS["border_subtle"]),
+            grid_wide,
+            Rule(style=ORION_COLORS["border_subtle"]),
+        )
+
+    def status_segments(self, width: int = 80) -> list[tuple[str, str]]:
+        """Monta a linha de status como pares (papel, texto) por faixa de largura.
+
+        Papéis: mode, dim, sep, pep, ok, offline. A mesma fonte alimenta o prompt
+        (prompt_toolkit) e o rodapé do streaming (Rich).
+        """
+
+        def _fmt_tokens(n: int) -> str:
+            if n >= 1000:
+                val = n / 1000.0
+                text = f"{val:.1f}k" if val < 100 else f"{round(val)}k"
+                return text.replace(".0k", "k")
+            return str(n)
+
+        sep = ("sep", " · ")
+        cost = f"${self.session_cost_usd:.4f}"
+        short_model = self.model_name.replace("-thinking", "")
+        if self.fast_mode:
+            short_model += " (fast)"
+        if not self.is_online:
+            state = ("offline", "Offline ●")
+        elif self.is_busy:
+            state = ("ok", "Working ●")
+        else:
+            state = ("ok", "Ready ●")
+
+        if width >= 110:
+            tokens_in = _fmt_tokens(self.session_tokens_in)
+            tokens_out = _fmt_tokens(self.session_tokens_out)
+            return [
+                ("mode", self.agent_mode),
+                sep,
+                ("dim", short_model),
+                sep,
+                ("dim", f"{tokens_in} in / {tokens_out} out"),
+                sep,
+                ("dim", f"{cost} / R$ {self.format_cost_brl()}"),
+                sep,
+                ("dim", f"thinking: {self.reasoning_effort.value.lower()}"),
+                sep,
+                ("pep", f"PEP: {self.pep_level}"),
+                sep,
+                state,
+            ]
+
+        abbreviated = short_model.split("/")[-1]
+        if width >= 80:
+            total = _fmt_tokens(self.session_tokens_in + self.session_tokens_out)
+            return [
+                ("dim", abbreviated),
+                sep,
+                ("dim", f"{total} tok"),
+                sep,
+                ("dim", cost),
+                sep,
+                state,
+            ]
+        return [("dim", abbreviated), sep, ("dim", cost), sep, state]
 
     def render_bottom_bar(self, width: int = 80) -> RenderableType:
-        """Gera a linha de status inferior com tokens e custos em USD e BRL sem estouro."""
-        cost_str = f"{self.format_cost_usd()} (~R$ {self.format_cost_brl()})"
-        status_dot_str = "Ready ●" if self.is_online else "Offline ●"
-        status_dot_style = "status_ok" if self.is_online else "status_offline"
-
-        # Cenário 1: Largura Ampla (>= 115 colunas — Cenário C completo)
-        full_candidate_len = (
-            len(self.model_name)
-            + len(self.reasoning_effort.value)
-            + len(cost_str)
-            + len(status_dot_str)
-            + 70
-        )
-        if width >= full_candidate_len:
-            t = Text(no_wrap=True)
-            t.append(f"[{self.model_name}]", style="accent_cyan")
-            t.append(" ")
-            t.append(f"[Thinking: {self.reasoning_effort.value}]", style="accent_blue")
-            t.append(" ")
-            t.append(f"[PEP: Level {self.pep_level}]", style="pep_warn")
-            t.append(" │ ", style="border_subtle")
-            t.append(
-                f"Tokens: {self.session_tokens_in:,} in / {self.session_tokens_out:,} out",
-                style="text_dim",
-            )
-            t.append(" │ ", style="border_subtle")
-            t.append(cost_str, style="text_primary")
-            t.append(" │ ", style="border_subtle")
-            t.append(status_dot_str, style=status_dot_style)
-            return t
-
-        short_model = self.model_name.replace("-thinking", "")
-
-        # Cenário 2: Largura Média (>= 90 colunas)
-        med_candidate_len = len(short_model) + len(cost_str) + len(status_dot_str) + 50
-        if width >= med_candidate_len:
-            t = Text(no_wrap=True)
-            t.append(f"[{short_model}]", style="accent_cyan")
-            t.append(" ")
-            t.append(f"[{self.reasoning_effort.value}]", style="accent_blue")
-            t.append(" ")
-            t.append(f"[PEP:{self.pep_level}]", style="pep_warn")
-            t.append(" │ ", style="border_subtle")
-            t.append(
-                f"Tokens: {self.session_tokens_in:,}/{self.session_tokens_out:,}",
-                style="text_dim",
-            )
-            t.append(" │ ", style="border_subtle")
-            t.append(cost_str, style="text_primary")
-            t.append(" │ ", style="border_subtle")
-            t.append(status_dot_str, style=status_dot_style)
-            return t
-
-        # Cenário 3: Terminal Padrão 80 Colunas (>= 72 colunas)
-        std_candidate_len = len(short_model) + len(cost_str) + len(status_dot_str) + 26
-        if width >= std_candidate_len:
-            t = Text(no_wrap=True)
-            t.append(f"[{short_model}]", style="accent_cyan")
-            t.append(" │ ", style="border_subtle")
-            t.append(
-                f"{self.session_tokens_in:,}/{self.session_tokens_out:,} tok",
-                style="text_dim",
-            )
-            t.append(" │ ", style="border_subtle")
-            t.append(cost_str, style="text_primary")
-            t.append(" │ ", style="border_subtle")
-            t.append(status_dot_str, style=status_dot_style)
-            return t
-
-        # Cenário 4: Terminal Estreito (60 colunas)
-        t = Text(no_wrap=True)
-        t.append(
-            f"{self.session_tokens_in:,}/{self.session_tokens_out:,} tok",
-            style="text_dim",
-        )
-        t.append(" │ ", style="border_subtle")
-        t.append(cost_str, style="text_primary")
-        t.append(" │ ", style="border_subtle")
-        t.append(status_dot_str, style=status_dot_style)
-        return t
+        """Gera a linha de status inferior sobre o fundo nativo do terminal."""
+        styles = {
+            "mode": "accent_blue",
+            "dim": "text_dim",
+            "sep": "border_subtle",
+            "pep": "pep_warn",
+            "ok": "status_ok",
+            "offline": "status_offline",
+        }
+        line = Text(no_wrap=True)
+        for role, text in self.status_segments(width):
+            line.append(text, style=styles[role])
+        return line

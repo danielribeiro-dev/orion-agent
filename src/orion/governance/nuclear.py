@@ -345,7 +345,7 @@ class NuclearSafetyGate:
 
         prompt_msg = (
             f"{self._prompt_prefix}\n\n"
-            f"⚠️  OPERAÇÃO DESTRUTIVA DETECTADA\n"
+            f"!  OPERAÇÃO DESTRUTIVA DETECTADA\n"
             f"Comando: {short_cmd}\n"
             f"Risco: {blast.value.upper()}\n\n"
             f"Esta ação é IRREVERSÍVEL. Digite sua senha para confirmar:"
@@ -438,9 +438,9 @@ class NuclearSafetyGate:
         """
         print(
             "\n" + "━" * 60,
-            "\n🔐 ORION NUCLEAR SAFETY GATE — AUTENTICAÇÃO REQUERIDA",
+            "\n[PEP] ORION NUCLEAR SAFETY GATE — AUTENTICAÇÃO REQUERIDA",
             "\n" + "━" * 60,
-            "\n⚠️  Esta operação é IRREVERSÍVEL e requer sua presença física.",
+            "\n!  Esta operação é IRREVERSÍVEL e requer sua presença física.",
             f"\n{prompt}",
             "\n" + "━" * 60,
         )

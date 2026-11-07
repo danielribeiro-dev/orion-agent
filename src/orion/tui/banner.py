@@ -111,21 +111,21 @@ class BannerRenderer:
         header_panel = self.status_bar.render_header_panel(width=width)
 
         if width < 75:
-            hint_text = "  Dica: Digite / para comandos ou @ para arquivos."
+            hint_text = "  Dica: Digite / para comandos, @ para arquivos, Esc para limpar."
             if len(hint_text) > width:
                 hint_text = hint_text[:width]
             hint = Text(hint_text, style="text_dim", no_wrap=True)
             return Group(header_panel, hint)
 
         if width < 100:
-            hint_text = "  Dica: Digite / para comandos rápidos, @ para anexar arquivos ou pergunte livremente."
+            hint_text = "  Dica: Digite / para comandos, @ para arquivos, Esc para limpar/voltar e Ctrl+C duplo para sair."
             if len(hint_text) > width:
                 hint_text = hint_text[:width]
             hint = Text(hint_text, style="text_dim", no_wrap=True)
             return Group(header_panel, hint)
 
         art = self.render_art(terminal_width=width)
-        hint_wide_text = "  Dica: Digite / para comandos rápidos, @ para anexar arquivos locais ou pressione Ctrl+C para cancelar."
+        hint_wide_text = "  Dica: Digite / para comandos rápidos, @ para anexar arquivos locais, Esc para limpar/voltar e Ctrl+C duplo para sair."
         if len(hint_wide_text) > width:
             hint_wide_text = hint_wide_text[:width]
         hint_wide = Text(hint_wide_text, style="text_dim", no_wrap=True)

@@ -13,7 +13,6 @@ Tests:
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,7 +27,6 @@ from orion.memory.tools import (
 )
 from orion.runtime.environment import EnvironmentMonitor
 from orion.runtime.provider import RuntimeResult
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -354,3 +352,47 @@ class TestInspectEnvironmentTool:
 
         assert isinstance(result, RuntimeResult)
         assert result.success is True
+
+
+class TestRecallRegressions:
+    """Bugs found in the Sprint 5 review of RecallTool."""
+
+    def test_match_beyond_first_page_is_found(self, store):
+        # Old code fetched `limit` newest facts and only then filtered.
+        store.upsert(FactEntry(key="needle_fact", value="x", category=FactCategory.INFRASTRUCTURE,
+                               status=FactStatus.CONFIRMED))
+        for i in range(15):
+            store.upsert(FactEntry(key=f"noise_{i}", value="y", category=FactCategory.INFRASTRUCTURE,
+                                   status=FactStatus.CONFIRMED))
+        result = RecallTool(facts_store=store).execute({"query": "needle", "limit": 3})
+        assert result.metadata["count"] == 1 and "needle_fact" in result.output
+
+    def test_multi_word_query_ranks_by_hits(self, store):
+        store.upsert(FactEntry(key="python_linter", value="ruff", category=FactCategory.CODING_STANDARD,
+                               status=FactStatus.CONFIRMED))
+        store.upsert(FactEntry(key="python_version", value="3.11", category=FactCategory.INFRASTRUCTURE,
+                               status=FactStatus.CONFIRMED))
+        result = RecallTool(facts_store=store).execute({"query": "python ruff"})
+        assert result.output.index("python_linter") < result.output.index("python_version")
+
+    async def test_async_run_uses_hybrid_retriever_on_running_loop(self, store):
+        from types import SimpleNamespace
+
+        rec = SimpleNamespace(content="decided to use  ruff\nfor lint")
+
+        class FakeRetriever:
+            async def retrieve(self, query, limit=20):
+                return SimpleNamespace(records=[rec], total_tokens_estimate=7)
+
+        tool = RecallTool(facts_store=store, retriever=FakeRetriever())
+        result = await tool.run(query="lint")
+        assert "Hybrid retrieval: 1 records" in result.output
+        assert "decided to use ruff for lint" in result.output
+
+    async def test_async_run_survives_retriever_failure(self, store):
+        class Boom:
+            async def retrieve(self, query, limit=20):
+                raise RuntimeError("down")
+
+        result = await RecallTool(facts_store=store, retriever=Boom()).run(query="zzz")
+        assert result.success is True and "No facts found" in result.output

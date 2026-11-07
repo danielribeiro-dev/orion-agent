@@ -47,18 +47,52 @@ class TestInteractivePromptBasics:
         prompt = InteractivePrompt()
         prefix = prompt.get_prompt_prefix()
         plain_text = "".join(part[1] for part in prefix)
-        assert "orion" in plain_text
-        assert "›" in plain_text
+        assert "❯" in plain_text
+        assert "─" not in plain_text
+        assert plain_text == "❯ "
+
+    def test_dock_to_bottom(self) -> None:
+        prompt = InteractivePrompt()
+        # Não deve levantar exceções nem injetar newlines forçadas
+        prompt.dock_to_bottom(rendered_lines=15)
+        prompt.dock_to_bottom(rendered_lines=200)
 
     def test_prompt_style_mapping(self) -> None:
+        from prompt_toolkit.styles import default_ui_style, merge_styles
+
         style = get_prompt_style()
         assert style is not None
+        # Validar ausência de bg:surface_panel na toolbar (CA-04: sem fundo sólido)
+        style_rules = dict(style.style_rules)
+        assert "bottom-toolbar" in style_rules
+        toolbar_style = style_rules.get("bottom-toolbar", "")
+        assert "bg:" not in toolbar_style
+        assert "noreverse" in toolbar_style
+
+        # Garantir que a mesclagem com default_ui_style desativa reverse (evita barra colorida sólida invertida)
+        merged = merge_styles([default_ui_style(), style])
+        attrs = merged.get_attrs_for_style_str("class:bottom-toolbar")
+        assert attrs.reverse is False
+
+    def test_tunnel_layout_structure(self) -> None:
+        """Verifica a presença do menu flutuante acima do prompt e ausência de túneis rígidos (CA-03)."""
+        prompt = InteractivePrompt()
+        children = prompt.session.layout.container.children
+        # Estrutura deve conter comp_window + main_input (mínimo 2 filhos)
+        assert len(children) >= 2
+        # Zero espaço reservado forçado (menu abre dinamicamente no container flutuante superior)
+        assert prompt.session.reserve_space_for_menu == 0
+        # Túneis rígidos foram eliminados: top_tunnel e bottom_tunnel não devem existir
+        assert not hasattr(prompt, "top_tunnel"), "top_tunnel removido na Sprint 3"
+        assert not hasattr(prompt, "bottom_tunnel"), "bottom_tunnel removido na Sprint 3"
 
 
 class TestBottomToolbarIntegration:
     """Testes da integração da barra de status inferior Rich com o prompt_toolkit."""
 
     def test_bottom_toolbar_online_with_costs(self) -> None:
+        import os
+
         status_bar = SessionStatusBar(
             is_online=True,
             model_name="claude-3-7-sonnet-thinking",
@@ -70,20 +104,38 @@ class TestBottomToolbarIntegration:
             usd_to_brl_rate=5.50,
         )
         prompt = InteractivePrompt(status_bar=status_bar)
-        toolbar = prompt.get_bottom_toolbar()
-        plain_text = "".join(part[1] for part in toolbar)
 
-        assert "claude-3-7-sonnet-thinking" in plain_text
-        assert "Thinking: HIGH" in plain_text
-        assert "PEP: Level 2" in plain_text
-        assert "1,500/600" in plain_text
-        assert "$0.0125 USD" in plain_text
-        assert "R$" in plain_text
-        assert "Ready ●" in plain_text
+        # Em terminal standard/amplo (>= 110 colunas): exibe layout limpo com separadores · sutis
+        with patch("shutil.get_terminal_size", return_value=os.terminal_size((140, 24))):
+            toolbar = prompt.get_bottom_toolbar()
+            plain_text = "".join(part[1] for part in toolbar)
 
-        # Verificar se classe CSS online foi aplicada
-        styles = [part[0] for part in toolbar]
-        assert "class:bottom-toolbar.ok" in styles
+            assert "claude-3-7-sonnet" in plain_text
+            assert "thinking: high" in plain_text
+            assert "PEP: 2" in plain_text
+            assert "1.5k in / 600 out" in plain_text
+            assert "$0.0125" in plain_text
+            assert "R$" in plain_text
+            assert "Ready ●" in plain_text
+            assert " · " in plain_text
+            assert " │ " not in plain_text
+
+            # Verificar se classe CSS online foi aplicada
+            styles = [part[0] for part in toolbar]
+            assert "class:bottom-toolbar.ok" in styles
+            assert "class:bottom-toolbar.border" in styles
+            assert "─" not in plain_text
+
+        # Em terminal padrão 80 colunas (Item 4: Clean Status Line):
+        # claude-3-7-sonnet · 2.1k tok · $0.0125 · Ready ●
+        with patch("shutil.get_terminal_size", return_value=os.terminal_size((80, 24))):
+            toolbar_compact = prompt.get_bottom_toolbar()
+            compact_text = "".join(part[1] for part in toolbar_compact)
+            assert "claude-3-7-sonnet · 2.1k tok · $0.0125 · Ready ●" in compact_text
+            assert " · " in compact_text
+            assert " │ " not in compact_text
+            assert "Ready ●" in compact_text
+            assert "─" not in compact_text
 
     def test_bottom_toolbar_offline_status(self) -> None:
         status_bar = SessionStatusBar(
@@ -163,6 +215,30 @@ class TestKeybindings:
         mock_event = MagicMock()
         binding.call(mock_event)
         mock_event.app.renderer.clear.assert_called_once()
+
+    def test_escape_clears_buffer_when_text_present(self) -> None:
+        from prompt_toolkit.keys import Keys
+
+        kb = create_key_bindings()
+        binding = next(b for b in kb.bindings if b.keys == (Keys.Escape,))
+
+        mock_event = MagicMock()
+        mock_event.current_buffer.text = "comando digitado"
+
+        binding.call(mock_event)
+        assert mock_event.current_buffer.text == ""
+
+    def test_escape_exits_prompt_when_buffer_empty(self) -> None:
+        from prompt_toolkit.keys import Keys
+
+        kb = create_key_bindings()
+        binding = next(b for b in kb.bindings if b.keys == (Keys.Escape,))
+
+        mock_event = MagicMock()
+        mock_event.current_buffer.text = ""
+
+        binding.call(mock_event)
+        mock_event.app.exit.assert_called_once_with(result="")
 
     def test_custom_keybinding_hooks(self) -> None:
         from prompt_toolkit.keys import Keys

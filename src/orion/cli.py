@@ -5,15 +5,25 @@ Command-line interface using Typer + Rich with The Hunter Crest ASCII banner.
 
 from __future__ import annotations
 
+import asyncio
+import os
+import time
+from typing import TYPE_CHECKING
+
 import typer
 from rich.console import Console
+from rich.text import Text
 
 from orion import __version__
 from orion.config import OrionConfig
 from orion.tui.banner import BannerRenderer
 from orion.tui.console import get_console
+from orion.tui.keybindings import create_key_bindings
 from orion.tui.prompt import InteractivePrompt
 from orion.tui.status_bar import SessionStatusBar
+
+if TYPE_CHECKING:
+    from orion.tui.session import AgentSession
 
 # ---------------------------------------------------------------------------
 # App & Console
@@ -36,93 +46,95 @@ err_console = Console(stderr=True)
 # ---------------------------------------------------------------------------
 
 
-def print_banner() -> None:
-    """Render the full ORION boot banner to the terminal."""
-    renderer = BannerRenderer()
+def print_banner(status_bar: SessionStatusBar | None = None) -> int:
+    """Render the full ORION boot banner to the terminal and return line count."""
+    renderer = BannerRenderer(status_bar=status_bar)
     console.print()
-    console.print(renderer.render(terminal_width=console.width))
+    rendered = renderer.render(terminal_width=console.width)
+    console.print(rendered)
+    try:
+        panel_lines = len(
+            list(console.render_lines(rendered, console.options.update_width(console.width)))
+        )
+        return panel_lines + 2
+    except Exception:
+        return 16
 
 
-def run_interactive_repl(prompt: InteractivePrompt) -> None:
+def _clear_screen(prompt: InteractivePrompt) -> None:
+    """Redesenha o banner sem perder a sessão."""
+    console.clear()
+    prompt.dock_to_bottom(print_banner(prompt.status_bar))
+
+
+def create_session(status_bar: SessionStatusBar) -> AgentSession:
+    """Constrói a sessão do agente; importado aqui para manter o boot do CLI leve."""
+    from orion.tui.session import AgentSession
+
+    session = AgentSession(status_bar=status_bar, console=console)
+    if os.environ.get("ORION_MCP", "1") != "0":
+        session.start_mcp()
+    return session
+
+
+def create_prompt(status_bar: SessionStatusBar, session: AgentSession) -> InteractivePrompt:
+    """Cria o prompt com os atalhos ligados à sessão."""
+    bindings = create_key_bindings(
+        on_cycle_mode=session.cycle_mode,
+        on_cycle_effort=session.cycle_effort,
+        on_toggle_fast=session.toggle_fast,
+        on_expand_reasoning=session.renderer.expand_reasoning,
+        on_expand_output=session.renderer.expand_output,
+    )
+    return InteractivePrompt(status_bar=status_bar, custom_key_bindings=bindings)
+
+
+def run_interactive_repl(prompt: InteractivePrompt, session: AgentSession) -> None:
     """Loop interativo principal do terminal orion-agent."""
+    from orion.tui.commands import CommandContext, CommandRegistry
+
+    registry = CommandRegistry.discover()
+    context = CommandContext(
+        session=session,
+        console=console,
+        clear_screen=lambda: _clear_screen(prompt),
+    )
+    last_ctrl_c: float = 0.0
+
     while True:
         try:
-            user_input = prompt.prompt(raise_on_interrupt=False)
+            user_input = prompt.prompt(raise_on_interrupt=True)
             if not user_input or not user_input.strip():
                 continue
 
             cleaned = user_input.strip()
 
-            # Comandos de saída
             if cleaned in ("/exit", "/quit", "exit", "quit", ":q"):
-                console.print("[dim cyan]✦ Até logo, Senhor. Sessão finalizada.[/dim cyan]\n")
+                console.print("[text_dim]● Até logo, Senhor. Sessão finalizada.[/text_dim]\n")
                 break
 
-            # Limpeza do terminal
-            if cleaned in ("/clear", "clear", "cls"):
-                console.clear()
-                print_banner()
-                continue
-
-            # Ajuda rápida
-            if cleaned in ("/help", "help"):
-                from rich.table import Table
-
-                from orion.tui.completer import OFFICIAL_SLASH_COMMANDS
-
-                table = Table(
-                    title="[bold cyan]O.R.I.O.N — Catálogo de Slash Commands[/bold cyan]",
-                    border_style="dim blue",
-                    header_style="bold cyan",
+            is_command = cleaned.startswith("/") or registry.get(cleaned) is not None
+            if is_command:
+                result = asyncio.run(
+                    prompt.run_turn(registry.dispatch(cleaned, context), session.session_id)
                 )
-                table.add_column("Comando", style="accent_cyan", no_wrap=True)
-                table.add_column("Categoria", style="accent_blue", no_wrap=True)
-                table.add_column("Descrição", style="text_primary")
-
-                for cmd in OFFICIAL_SLASH_COMMANDS:
-                    table.add_row(
-                        f"{cmd.icon} {cmd.name}",
-                        cmd.category.capitalize(),
-                        cmd.description,
-                    )
-
-                console.print()
-                console.print(table)
-                console.print()
-                continue
-
-            # Diagnóstico / Info
-            if cleaned in ("/doctor", "/info"):
-                cmd_info()
-                continue
-
-            # Resolução e feedback de menções @
-            from orion.tui.completer import resolve_mentions
-
-            mentions = resolve_mentions(cleaned, workspace_root=prompt.workspace_root)
-            if mentions:
-                file_tags = " ".join(f"[bold cyan]@{m}[/bold cyan]" for m in mentions)
-                console.print(f"[dim]Arquivos vinculados:[/dim] {file_tags}")
-
-            # Feedback de comando ou instrução
-            if cleaned.startswith("/"):
-                cmd_name = cleaned.split()[0]
-                console.print(
-                    f"[bold cyan]{cmd_name}[/bold cyan] "
-                    f"[dim]reconhecido. Catálogo operacional completo disponível na Sprint 3.[/dim]\n"
-                )
+                if result is not None and result.output_message:
+                    style = "text_dim" if result.success else "diff_del"
+                    console.print(Text(result.output_message, style=style))
             else:
-                console.print(
-                    f"[dim]Instrução recebida:[/dim] [bold white]{cleaned}[/bold white]\n"
-                )
+                asyncio.run(prompt.run_turn(session.run_turn(cleaned), session.session_id))
+            console.print()
 
         except EOFError:
-            # Entrada finalizada (Ctrl+D ou fim de pipe)
-            console.print("[dim cyan]✦ Sessão finalizada.[/dim cyan]\n")
+            console.print("[text_dim]● Sessão finalizada.[/text_dim]\n")
             break
         except KeyboardInterrupt:
-            console.print("\n[dim]Operação cancelada (Ctrl+C).[/dim]\n")
-            continue
+            now = time.monotonic()
+            if now - last_ctrl_c < 2.0:
+                console.print("\n[text_dim]● Até logo, Senhor. Sessão finalizada.[/text_dim]\n")
+                break
+            last_ctrl_c = now
+            console.print("\n[text_dim]Pressione Ctrl+C novamente para sair (ou digite /exit)[/text_dim]\n")
 
 
 # ---------------------------------------------------------------------------
@@ -151,10 +163,12 @@ def cli_root(
         raise typer.Exit()
 
     if ctx.invoked_subcommand is None:
-        print_banner()
         status_bar = SessionStatusBar.from_environment()
-        prompt = InteractivePrompt(status_bar=status_bar)
-        run_interactive_repl(prompt)
+        session = create_session(status_bar)
+        banner_lines = print_banner(status_bar)
+        prompt = create_prompt(status_bar, session)
+        prompt.dock_to_bottom(banner_lines)
+        run_interactive_repl(prompt, session)
 
 
 @app.command(name="info")
@@ -190,9 +204,9 @@ def cmd_info() -> None:
         monitor = EnvironmentMonitor()
         telemetry = monitor.snapshot()
         headroom_icon = (
-            "[green]✓ Seguro (>= 1.5GB)[/green]"
+            "[green]✔ Seguro (>= 1.5GB)[/green]"
             if telemetry.headroom_safe
-            else "[red]⚠ Bloqueado (< 1.5GB)[/red]"
+            else "[red]! Bloqueado (< 1.5GB)[/red]"
         )
         table.add_row(
             "RAM Livre / Total", f"{telemetry.ram_free_gb:.2f} GB / {telemetry.ram_total_gb:.2f} GB"

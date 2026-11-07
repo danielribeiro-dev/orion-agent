@@ -27,7 +27,9 @@ Sprint 4 additions (v0.3.0):
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
+from collections.abc import Callable
 from enum import Enum
 from typing import Any, Optional
 
@@ -39,7 +41,12 @@ from orion.governance.nuclear import (
     NuclearAuthDenied,
     NuclearSafetyGate,
 )
-from orion.governance.permissions import ActionLevel, WorkspaceScope, tool_action_level
+from orion.governance.permissions import (
+    ActionLevel,
+    WorkspaceScope,
+    is_dynamic_mutating,
+    tool_action_level,
+)
 from orion.governance.trust_ledger import CommandTrustLedger
 
 logger = logging.getLogger(__name__)
@@ -103,6 +110,10 @@ class PolicyEnforcementPoint:
         confirm        : Async or sync callable for human confirmation prompts.
                          Must accept (prompt: str) and return bool.
                          Defaults to stdin prompt.
+        action_confirm : Optional async or sync callable receiving (action, level)
+                         for structured dialogs. Returns bool, or a dict of edited
+                         params, which pass the static safety checks again before
+                         being approved. Takes precedence over ``confirm``.
         trust_ledger   : Optional CommandTrustLedger for capability caching.
                          If provided, known-safe commands skip prompts in auto.
         nuclear_gate   : Optional NuclearSafetyGate. If provided, NUCLEAR_DESTRUCTIVE
@@ -119,6 +130,7 @@ class PolicyEnforcementPoint:
         mode: AutonomyMode = AutonomyMode.SUPERVISED,
         audit_logger: Optional[AuditLogger] = None,
         confirm: Optional[ConfirmCallback] = None,
+        action_confirm: Optional[Callable[[Action, ActionLevel], Any]] = None,
         trust_ledger: Optional[CommandTrustLedger] = None,
         nuclear_gate: Optional[NuclearSafetyGate] = None,
         circuit_breaker: Optional[Any] = None,  # CircuitBreaker (avoid circular import)
@@ -127,6 +139,8 @@ class PolicyEnforcementPoint:
         self._mode = mode
         self._audit = audit_logger or AuditLogger()
         self._confirm = confirm if confirm is not None else _default_confirm
+        self._action_confirm = action_confirm
+        self._edited_params: dict[str, dict[str, Any]] = {}
         self._trust_ledger = trust_ledger
         self._nuclear_gate = nuclear_gate or NuclearSafetyGate()
         self._circuit_breaker = circuit_breaker  # Optional[CircuitBreaker]
@@ -246,6 +260,10 @@ class PolicyEnforcementPoint:
         )
         return True
 
+    def take_edited_params(self, action_id: str) -> Optional[dict[str, Any]]:
+        """Return (and clear) params the human edited while approving *action_id*."""
+        return self._edited_params.pop(action_id, None)
+
     def record_action_success(self, action: Action, exit_code: int = 0) -> None:
         """Records a successful action in the Trust Ledger (if applicable).
 
@@ -316,7 +334,7 @@ class PolicyEnforcementPoint:
         # Import here to avoid circular import
         from orion.gateway.circuit_breaker import MUTATING_TOOLS, SafeHoldingViolation
 
-        if action.tool in MUTATING_TOOLS:
+        if action.tool in MUTATING_TOOLS or is_dynamic_mutating(action.tool):
             try:
                 self._circuit_breaker.assert_mutation_allowed(action.tool)
             except SafeHoldingViolation as exc:
@@ -460,9 +478,22 @@ class PolicyEnforcementPoint:
 
     async def _ask_user(self, action: Action, level: ActionLevel) -> bool:
         """Display confirmation prompt and return the human's decision."""
+        if self._action_confirm is not None:
+            decision = self._action_confirm(action, level)
+            if inspect.isawaitable(decision):
+                decision = await decision
+            if isinstance(decision, dict):
+                edited = action.model_copy(update={"params": decision})
+                self._assert_no_sudo(edited, level)
+                self._assert_path_scope(edited, level)
+                await self._assert_nuclear_safe(edited, level)
+                self._edited_params[action.event_id] = decision
+                return True
+            return bool(decision)
+
         level_label = f"LEVEL_{level}"
         prompt = (
-            f"\n⚠️  O.R.I.O.N wants to execute a {level_label} action:\n"
+            f"\n!  O.R.I.O.N wants to execute a {level_label} action:\n"
             f"   Tool   : {action.tool}\n"
             f"   Params : {action.params}\n"
             f"Approve?"

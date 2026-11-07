@@ -81,11 +81,13 @@ class SearchFilesTool(BaseTool):
         if mode == "glob":
             return self._glob(root, pattern, max_results, include_hidden)
 
-        if mode == "grep":
+        if mode in ("grep", "content"):  # "content" is the name the agent prompt uses
+            file_pattern = pattern
             if not regex:
-                # Fall back: use pattern as the regex
-                regex = pattern
-            return self._grep(root, pattern, regex, case_sensitive, max_results, include_hidden)
+                # Only a text was given: search it as a regex inside every file,
+                # instead of also (wrongly) using it as the file glob.
+                regex, file_pattern = pattern, "*"
+            return self._grep(root, file_pattern, regex, case_sensitive, max_results, include_hidden)
 
         return RuntimeResult.fail(
             f"search_files: unknown mode '{mode}'. Choose 'glob' or 'grep'."
@@ -147,8 +149,11 @@ class SearchFilesTool(BaseTool):
         lines: list[str] = []
         truncated = False
 
-        for file_path in root.rglob(file_pattern):
-            if _should_skip(file_path, include_hidden):
+        # An explicit file path is searched directly (rglob inside a file finds nothing).
+        explicit_file = root.is_file()
+        candidates = [root] if explicit_file else root.rglob(file_pattern)
+        for file_path in candidates:
+            if not explicit_file and _should_skip(file_path, include_hidden):
                 continue
             if not file_path.is_file():
                 continue

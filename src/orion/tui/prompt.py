@@ -18,9 +18,18 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.filters import has_completions, is_done
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import FileHistory, History, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.layout.containers import ConditionalContainer, Window
+from prompt_toolkit.layout.dimension import Dimension
+from prompt_toolkit.layout.margins import ScrollbarMargin
+from prompt_toolkit.layout.menus import (
+    CompletionsMenu,
+    CompletionsMenuControl,
+    MultiColumnCompletionsMenu,
+)
 from prompt_toolkit.styles import Style
 from rich.console import Console
 
@@ -39,18 +48,20 @@ def get_prompt_style() -> Style:
     """Gera a tabela de estilos do prompt_toolkit alinhada com a paleta Deep Cosmos."""
     return Style.from_dict(
         {
+            "prompt.border": f"{ORION_COLORS['border_subtle']}",
             "prompt.symbol": f"{ORION_COLORS['accent_cyan']} bold",
             "prompt.dim": f"{ORION_COLORS['text_dim']}",
             "prompt.identity": f"{ORION_COLORS['text_primary']} bold",
-            # Barra de status inferior
-            "bottom-toolbar": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['text_primary']}",
-            "bottom-toolbar.cyan": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['accent_cyan']} bold",
-            "bottom-toolbar.blue": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['accent_blue']}",
-            "bottom-toolbar.dim": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['text_dim']}",
-            "bottom-toolbar.cost": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['text_primary']} bold",
-            "bottom-toolbar.ok": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['status_ok']} bold",
-            "bottom-toolbar.offline": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['status_offline']} bold",
-            "bottom-toolbar.pep": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['pep_warn']} bold",
+            # Barra de status inferior — sem fundo sólido, sobre o fundo nativo do terminal (noreverse)
+            "bottom-toolbar": f"noreverse {ORION_COLORS['text_dim']}",
+            "bottom-toolbar.border": f"noreverse {ORION_COLORS['border_subtle']}",
+            "bottom-toolbar.cyan": f"noreverse {ORION_COLORS['accent_cyan']} bold",
+            "bottom-toolbar.blue": f"noreverse {ORION_COLORS['accent_blue']}",
+            "bottom-toolbar.dim": f"noreverse {ORION_COLORS['text_dim']}",
+            "bottom-toolbar.cost": f"noreverse {ORION_COLORS['text_primary']} bold",
+            "bottom-toolbar.ok": f"noreverse {ORION_COLORS['status_ok']} bold",
+            "bottom-toolbar.offline": f"noreverse {ORION_COLORS['status_offline']} bold",
+            "bottom-toolbar.pep": f"noreverse {ORION_COLORS['pep_warn']} bold",
             # Menu flutuante de autocompletar
             "completion-menu": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['text_primary']}",
             "completion-menu.completion": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['text_primary']}",
@@ -108,6 +119,7 @@ class InteractivePrompt:
             message=self.get_prompt_prefix,
             completer=self.completer,
             complete_while_typing=True,
+            reserve_space_for_menu=0,
             history=self.history,
             key_bindings=self.key_bindings,
             bottom_toolbar=self.get_bottom_toolbar,
@@ -115,46 +127,66 @@ class InteractivePrompt:
             multiline=False,
         )
 
-    def get_prompt_prefix(self) -> FormattedText:
-        """Gera o indicador visual do prompt oficial do ORION."""
-        return FormattedText(
-            [
-                ("class:prompt.symbol", "✦ orion "),
-                ("class:prompt.dim", "› "),
-            ]
+        # 6. Reconfiguração do layout: Menu Flutuante acima do prompt, sem túnel rígido
+        comp_window = ConditionalContainer(
+            Window(
+                content=CompletionsMenuControl(),
+                height=Dimension(min=1, max=8),
+                right_margins=[ScrollbarMargin(display_arrows=True)],
+                dont_extend_width=True,
+                style="class:completion-menu",
+            ),
+            filter=has_completions & ~is_done,
         )
+
+        # Estrutura HSplit: [comp_window (upward), main_input, ..., bottom_toolbar]
+        # Remove linhas horizontais rígidas (top_tunnel / bottom_tunnel eliminados)
+        children = self.session.layout.container.children  # type: ignore[attr-defined]
+        children.insert(0, comp_window)
+
+        # Desativa os menus flutuantes inferiores padrão para evitar menus duplicados ou truncados
+        try:
+            main_content = children[1]
+            alt = getattr(main_content, "alternative_content", None)
+            if alt and hasattr(alt, "floats"):
+                alt.floats = [
+                    f
+                    for f in alt.floats
+                    if not isinstance(
+                        f.content, (CompletionsMenu, MultiColumnCompletionsMenu)
+                    )
+                ]
+        except Exception:
+            pass
+
+    def get_prompt_prefix(self) -> FormattedText:
+        """Gera o cursor minimalista `❯ `, sem réguas ao redor do campo."""
+        return FormattedText([("class:prompt.symbol", "❯ ")])
 
     def get_bottom_toolbar(self) -> FormattedText:
-        """Gera a barra de status inferior integrada ao layout do prompt_toolkit."""
-        cost_str = (
-            f"{self.status_bar.format_cost_usd()} (~R$ {self.status_bar.format_cost_brl()})"
-        )
-        status_dot_str = "Ready ●" if self.status_bar.is_online else "Offline ●"
-        status_dot_class = (
-            "class:bottom-toolbar.ok"
-            if self.status_bar.is_online
-            else "class:bottom-toolbar.offline"
+        """Gera a linha de status inferior sobre o fundo nativo do terminal."""
+        import shutil
+
+        try:
+            term_cols = shutil.get_terminal_size((80, 24)).columns
+        except Exception:
+            term_cols = 80
+
+        classes = {
+            "mode": "class:bottom-toolbar.blue",
+            "dim": "class:bottom-toolbar.dim",
+            "sep": "class:bottom-toolbar.border",
+            "pep": "class:bottom-toolbar.pep",
+            "ok": "class:bottom-toolbar.ok",
+            "offline": "class:bottom-toolbar.offline",
+        }
+        return FormattedText(
+            [(classes[role], text) for role, text in self.status_bar.status_segments(term_cols)]
         )
 
-        return FormattedText(
-            [
-                ("class:bottom-toolbar.cyan", f" [{self.status_bar.model_name}] "),
-                (
-                    "class:bottom-toolbar.blue",
-                    f"[Thinking: {self.status_bar.reasoning_effort.value}] ",
-                ),
-                ("class:bottom-toolbar.pep", f"[PEP: Level {self.status_bar.pep_level}] "),
-                ("class:bottom-toolbar.dim", "│ "),
-                (
-                    "class:bottom-toolbar.dim",
-                    f"Tokens: {self.status_bar.session_tokens_in:,}/{self.status_bar.session_tokens_out:,} ",
-                ),
-                ("class:bottom-toolbar.dim", "│ "),
-                ("class:bottom-toolbar.cost", f"{cost_str} "),
-                ("class:bottom-toolbar.dim", "│ "),
-                (status_dot_class, f"{status_dot_str} "),
-            ]
-        )
+    def dock_to_bottom(self, rendered_lines: int = 15) -> None:
+        """Mantido para compatibilidade com inicialização da CLI sem causar scrollback forçado."""
+        return
 
     async def prompt_async(
         self,
@@ -207,6 +239,6 @@ class InteractivePrompt:
                 with contextlib.suppress(Exception):
                     await self.event_bus.publish(event)
             self.console.print(
-                "\n[bold yellow]⚠ Turno interrompido pelo desenvolvedor (Ctrl+C). Sessão e memórias preservadas.[/bold yellow]"
+                "\n[pep_warn]! Turno interrompido pelo desenvolvedor (Ctrl+C). Sessão e memórias preservadas.[/pep_warn]"
             )
             return None

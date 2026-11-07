@@ -254,6 +254,7 @@ class ReActEngine:
                         action_id=action.event_id,
                         tool=tool_name,
                         risk_level=risk,
+                        params=params,
                     )
                 )
 
@@ -379,10 +380,11 @@ class ReActEngine:
 
         When ``self._runtime`` is set (Sprint 3+), the LocalRuntimeProvider
         executes the tool through the PEP and returns a real result.
+        Unknown tools come back as a failed Observation, so the model can react.
         When ``self._runtime`` is None, a synthetic stub Observation is returned
         to preserve full backward-compatibility with Sprint 2 tests.
         """
-        if self._runtime is not None and self._runtime.supports(action.tool):
+        if self._runtime is not None:
             result = await self._runtime.execute(action.tool, dict(action.params))
             return Observation(
                 action_id=action.event_id,
@@ -392,7 +394,7 @@ class ReActEngine:
                 metadata=result.metadata,
             )
 
-        # Stub path (Sprint 2 compatibility / unsupported tools)
+        # Stub path (Sprint 2 compatibility)
         return Observation(
             action_id=action.event_id,
             success=True,

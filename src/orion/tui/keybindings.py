@@ -6,12 +6,16 @@ Configures ergonomic terminal navigation:
 - Alt+Enter / Escape+Enter: Multi-line entry (insert newline without submitting).
 - Ctrl+L: Clear terminal screen while preserving prompt state.
 - Enter: Validate and submit current command/prompt.
+- Shift+Tab / Alt+T / Alt+O: cycle agent mode, reasoning effort and fast mode.
+- Alt+R / Alt+E: expand the last reasoning block / the last collapsed tool output.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
+from prompt_toolkit.application import run_in_terminal
+from prompt_toolkit.filters import has_completions
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 
@@ -19,6 +23,12 @@ from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 def create_key_bindings(
     on_interrupt: Callable[[KeyPressEvent], None] | None = None,
     on_clear: Callable[[KeyPressEvent], None] | None = None,
+    on_escape: Callable[[KeyPressEvent], None] | None = None,
+    on_cycle_mode: Callable[[], None] | None = None,
+    on_cycle_effort: Callable[[], None] | None = None,
+    on_toggle_fast: Callable[[], None] | None = None,
+    on_expand_reasoning: Callable[[], None] | None = None,
+    on_expand_output: Callable[[], None] | None = None,
 ) -> KeyBindings:
     """Cria e registra os atalhos de teclado oficiais do O.R.I.O.N."""
     kb = KeyBindings()
@@ -39,8 +49,21 @@ def create_key_bindings(
         if buf.text:
             buf.text = ""
         else:
-            # Emite KeyboardInterrupt capturável pelo loop interativo
+            # Emite KeyboardInterrupt capturável pelo loop interativo para checar duplo Ctrl+C
             event.app.exit(exception=KeyboardInterrupt("Prompt turn cancelled by user (Ctrl+C)"))
+
+    @kb.add("escape", filter=~has_completions)
+    def _handle_escape(event: KeyPressEvent) -> None:
+        """Trata Esc para cancelar / limpar o prompt ou fechar abas quando o menu não estiver ativo."""
+        if on_escape is not None:
+            on_escape(event)
+            return
+
+        buf = event.current_buffer
+        if buf.text:
+            buf.text = ""
+        else:
+            event.app.exit(result="")
 
     @kb.add("escape", "enter")
     def _handle_alt_enter(event: KeyPressEvent) -> None:
@@ -54,5 +77,32 @@ def create_key_bindings(
             on_clear(event)
         else:
             event.app.renderer.clear()
+
+    def _bind_state(key: tuple[str, ...], action: Callable[[], None] | None, **kw: object) -> None:
+        """Atalho que altera o estado da sessão e redesenha a linha de status."""
+        if action is None:
+            return
+
+        def _handler(event: KeyPressEvent) -> None:
+            action()
+            event.app.invalidate()
+
+        kb.add(*key, **kw)(_handler)  # type: ignore[arg-type]
+
+    def _bind_print(key: tuple[str, ...], action: Callable[[], None] | None) -> None:
+        """Atalho que imprime no scrollback sem corromper o prompt."""
+        if action is None:
+            return
+
+        def _handler(event: KeyPressEvent) -> None:
+            run_in_terminal(action)
+
+        kb.add(*key)(_handler)
+
+    _bind_state(("s-tab",), on_cycle_mode, filter=~has_completions)
+    _bind_state(("escape", "t"), on_cycle_effort)
+    _bind_state(("escape", "o"), on_toggle_fast)
+    _bind_print(("escape", "r"), on_expand_reasoning)
+    _bind_print(("escape", "e"), on_expand_output)
 
     return kb

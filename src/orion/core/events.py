@@ -9,12 +9,11 @@ Events are published to the EventBus and permanently recorded in the turn histor
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import IntEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Risk level (used by Action before PEP validation in Sprint 3)
@@ -48,7 +47,7 @@ class OrionEvent(BaseModel):
 
     event_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
 
 
@@ -138,6 +137,10 @@ class ActionEmitted(OrionEvent):
     action_id: str
     tool: str
     risk_level: RiskLevel
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Tool parameters, used by the CLI to render tool cards and diffs.",
+    )
 
 
 class ObservationReceived(OrionEvent):

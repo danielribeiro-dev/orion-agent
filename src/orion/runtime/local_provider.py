@@ -167,6 +167,7 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
             )
 
         # ── Execute ──────────────────────────────────────────────────────
+        params = self._pep.take_edited_params(action.event_id) or params
         impl = self._tools[tool]
         try:
             return await self._dispatch_impl(impl, params)

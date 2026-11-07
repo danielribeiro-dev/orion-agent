@@ -1,6 +1,6 @@
-# Sprint — [v0.4.0] Sprint 4: Native MCP Client & Integração PEP
+# Sprint — [v0.4.0] Sprint 4: Streaming Vivo, Diffs & Catálogo de Slash Commands
 
-> **Status:** 📋 Planejado  
+> **Status:** 🔄 Implementada, validação com provedor real pendente  
 > **Versão Relacionada:** v0.4.0 (High-Performance Stream CLI, Slash Commands & Native MCP)  
 > **Responsável / Agente:** Daniel Dev & Antigravity  
 > **Data de Início:** A definir (Fase 4)  
@@ -10,17 +10,17 @@
 
 ## 1. Identificação & Objetivo
 
-* **Objetivo Primário:** Implementar o cliente nativo do **Model Context Protocol (MCP)** no O.R.I.O.N, com suporte aos dois transportes padrão da indústria (**stdio** via subprocesso e **SSE** via HTTP), adaptador dinâmico que converte ferramentas MCP remotas em instâncias de `BaseTool` nativas do ORION, integração determinística com o Policy Enforcement Point (PEP) para controle de permissões e auditoria, e o comando slash `/mcp` para inspeção e gerenciamento de conexões.
-* **Dependências Prévias:** Sprints 1, 2 e 3 concluídas (Stream CLI, Prompt Interativo e Slash Commands funcionais).
-* **Entregável Verificável:** Pacote `src/orion/mcp/` totalmente operacional, capaz de se conectar a servidores MCP como GitHub MCP, Postgres MCP ou Brave Search MCP através de `~/.orion/mcp_servers.json`, descobrindo ferramentas e executando tool calls sob o crivo de governança do PEP.
+* **Objetivo Primário:** Implementar o renderizador de streaming em tempo real via `Rich.Live` (garantindo que as respostas do modelo fluam em Markdown renderizado com realce sintático sem quebrar o scroll nativo do terminal), o visualizador de **diffs cirúrgicos** formatados em caixas Rich com realce verde/vermelho para arquivos editados, e o despachante e catálogo completo dos **23 Slash Commands oficiais** do O.R.I.O.N.
+* **Dependências Prévias:** Sprints 1, 2 e 3 concluídas (Stream CLI Skeleton, Banner, Prompt Interativo e Refinamento Estético operacionais).
+* **Entregável Verificável:** Módulos `src/orion/tui/stream_renderer.py`, `src/orion/tui/diff_viewer.py` e pacote `src/orion/tui/commands/` totalmente funcionais, permitindo interagir com streaming vivo, ver alterações em diffs elegantes e disparar comandos rápidos.
 
 ---
 
 ## 2. Contexto de Engenharia
 
-* **Por que esta sprint existe:** Para garantir que o ORION seja universalmente extensível sem a necessidade de codificar manualmente cada serviço externo no núcleo do projeto. O padrão aberto MCP (criado pela Anthropic e adotado pela indústria) permite conectar bancos de dados, APIs e serviços de terceiros de forma padronizada e segura.
-* **Como se encaixa na visão global:** Conclui a v0.4.0, entregando uma interface de terminal hiperprodutiva e uma ponte universal de ferramentas externas com governança militar.
-* **Decisões arquiteturais associadas:** ADR-002 (Núcleo Aberto com Integrações Agnósticas), ADR-006 (Governança PEP), ADR-016 (Catálogo de Slash Commands).
+* **Por que esta sprint existe:** Respostas de IA não podem ser dumps estáticos que travam o terminal por 10 segundos antes de exibir uma parede de texto. O desenvolvedor precisa ver o raciocínio e o código surgindo em tempo real. Além disso, ver diffs claros com cores antes de aceitar alterações é a maior garantia de segurança e controle em agentes modernos.
+* **Como se encaixa na visão global:** Entrega o núcleo da interação ativa do assistente, transformando o `orion-agent` em uma ferramenta prazerosa, estética e com comandos profissionais.
+* **Decisões arquiteturais associadas:** ADR-015 (Stack Stream CLI com `Rich.Live`), ADR-016 (Catálogo Oficial de Slash Commands).
 
 ---
 
@@ -28,54 +28,72 @@
 
 | Aspecto | Estado Inicial (Antes da Sprint) | Estado Final Esperado (DoD) |
 | :--- | :--- | :--- |
-| **Integração MCP** | Inexistente | Cliente nativo assíncrono conectando via stdio e SSE |
-| **Conversão de Tools** | Apenas as 5 primitivas nativas | Ferramentas MCP expostas dinamicamente no ReAct Engine |
-| **Governança de MCP** | Nenhuma | Toda chamada de ferramenta MCP passa pelo PEP e gera log em `audit.log` |
-| **Gestão no CLI** | Inexistente | Comando `/mcp` para listar status, ping e ferramentas conectadas |
+| **Streaming de Texto** | Impressão básica em blocos | `Rich.Live` com parsing de Markdown contínuo e realce sintático |
+| **Exibição de Diffs** | Texto unificado puro no terminal | Painéis Rich elegantes com destaque visual de adições e remoções |
+| **Slash Commands** | Apenas suporte básico | Catálogo modular completo com 23 comandos cadastrados e tipados |
 
 ---
 
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo (In Scope)
-- [ ] Adicionar dependência `mcp>=1.0.0` (ou implementação leve direta de JSON-RPC 2.0 assíncrona) no `pyproject.toml`.
-- [ ] Implementação de `MCPClient` em `src/orion/mcp/client.py`:
-  - Leitura de configuração em `~/.orion/mcp_servers.json` e `<workspace>/.orion/mcp_servers.json`.
-  - Gerenciamento de ciclo de vida de servidores (inicialização, ping de saúde, reconexão e encerramento).
-- [ ] Implementação dos transportes em `src/orion/mcp/transports/`:
-  - `StdioTransport`: execução de subprocessos (`npx`, `uvx`, `python`) com comunicação por pipes assíncronos.
-  - `SSETransport`: comunicação HTTP com Server-Sent Events para servidores remotos.
-- [ ] Implementação de `MCPToolAdapter` em `src/orion/mcp/adapter.py`:
-  - Mapeamento de schemas JSON de ferramentas MCP para schemas Pydantic v2 do ORION.
-  - Interceptação de cada chamada pelo Policy Enforcement Point (PEP): ferramentas de leitura autorizadas (LEVEL_1), ferramentas mutadoras bloqueadas até confirmação do usuário no modo supervisionado (LEVEL_2).
-- [ ] Implementação do comando slash `/mcp` em `src/orion/tui/commands/mcp.py`.
-- [ ] Testes unitários com servidores MCP mockados validando descoberta, execução e interceptação de segurança.
+- [ ] Implementação de `StreamRenderer` em `src/orion/tui/stream_renderer.py`:
+  - Consumo assíncrono do gerador de tokens do ReAct Engine.
+  - Renderização via `rich.live.Live` sem buffers travados de tela cheia, preservando a rolagem natural do mouse/trackpad.
+  - Exibição de indicador de pensamento (*thinking spinner*) enquanto o raciocínio é formulado.
+- [ ] Implementação de `DiffViewer` em `src/orion/tui/diff_viewer.py`:
+  - Conversão de diffs unificados gerados por `edit_file` em painéis Rich formatados.
+  - Números de linha originais e novas, cabeçalho com nome do arquivo e resumo de adições/remoções (`+X / -Y`).
+- [ ] Implementação da arquitetura de comandos em `src/orion/tui/commands/`:
+  - `BaseSlashCommand`: contrato com `name`, `description`, `usage` e método assíncrono `execute(args, context)`.
+  - `CommandRegistry`: descoberta automática e despacho determinístico.
+  - Implementação dos 23 comandos (módulos por categoria em `commands/`):
+    - Cognitivos: `/plan`, `/goal`, `/grill-me`, `/review`
+    - Memória & Skills: `/learn`, `/memory`, `/timeline`, `/recall`
+    - Contexto & Branches: `/compact`, `/context`, `/branch`, `/merge`
+    - Operação & Governança: `/diff`, `/undo`, `/run`, `/doctor`, `/cost`, `/model`, `/config`, `/mcp`, `/voice`, `/clear`, `/help`
+- [ ] Testes unitários do despachante de comandos e dos componentes de streaming e diffs.
 
 ### 🚫 Fora de Escopo (Out of Scope / Anti-Metas)
-- Não construir servidores MCP próprios nesta versão (apenas cliente receptor).
-- Não criar assistente de voz headless (escopo da v0.5.0).
+- Não construir conexões MCP nativas com transporte SSE/stdio (escopo da Sprint 5).
 
 ---
 
 ## 5. Arquitetura & Arquivos Afetados
 
 ```
-src/orion/mcp/
-├── __init__.py
-├── client.py                          # MCPClient gerenciador de múltiplos servidores
-├── models.py                          # MCPServerConfig, MCPToolDefinition
-├── adapter.py                         # Converte MCP Tool -> Orion BaseTool
-├── transports/
-│   ├── __init__.py
-│   ├── base.py                        # BaseTransport
-│   ├── stdio.py                       # Transporte Stdio assíncrono
-│   └── sse.py                          # Transporte HTTP SSE
-└── commands/mcp.py                    # Implementação do comando /mcp
+src/orion/tui/
+├── stream_renderer.py                 # Renderizador de streaming Markdown (Rich.Live)
+├── diff_viewer.py                     # Visualizador de diffs cirúrgicos
+└── commands/                          # Catálogo oficial de comandos
+    ├── __init__.py
+    ├── base.py                        # BaseSlashCommand
+    ├── registry.py                    # CommandRegistry central
+    ├── plan.py                        # /plan
+    ├── goal.py                        # /goal
+    ├── grill_me.py                    # /grill-me
+    ├── review.py                      # /review
+    ├── learn.py                       # /learn
+    ├── memory.py                      # /memory
+    ├── timeline.py                    # /timeline
+    ├── recall.py                      # /recall
+    ├── compact.py                     # /compact
+    ├── context.py                     # /context
+    ├── branch.py                      # /branch
+    ├── merge.py                       # /merge
+    ├── diff.py                        # /diff
+    ├── undo.py                        # /undo
+    ├── run.py                         # /run
+    ├── cost.py                        # /cost
+    ├── doctor.py                      # /doctor
+    ├── config.py                      # /config
+    ├── clear.py                       # /clear
+    └── help.py                        # /help
 tests/
 └── unit/
-    ├── test_mcp_client.py
-    ├── test_mcp_adapter.py
-    └── test_mcp_pep_security.py
+    ├── test_stream_renderer.py
+    ├── test_diff_viewer.py
+    └── test_slash_commands.py
 ```
 
 ---
@@ -83,48 +101,57 @@ tests/
 ## 6. Contratos de Código & Tipagem
 
 ```python
-from typing import Dict, Any, List, Optional
+from abc import ABC, abstractmethod
+from typing import Any, List
 from pydantic import BaseModel
 
-class MCPServerConfig(BaseModel):
-    name: str
-    command: Optional[str] = None
-    args: List[str] = []
-    env: Dict[str, str] = {}
-    url: Optional[str] = None
-    transport: str = "stdio" # "stdio" ou "sse"
+class CommandResult(BaseModel):
+    success: bool
+    output_message: str
+    data: Any = None
 
-class MCPToolDefinition(BaseModel):
-    server_name: str
+class BaseSlashCommand(ABC):
     name: str
     description: str
-    input_schema: Dict[str, Any]
+    usage: str = ""
+    aliases: List[str] = []
+
+    @abstractmethod
+    async def execute(self, args: str, context: Any) -> CommandResult:
+        """Executa a rotina do comando slash e retorna o resultado formatado."""
+        pass
 ```
 
 ---
 
 ## 7. Estratégia de Implementação (Passo a Passo)
 
-1. **Passo 1:** Definir os contratos Pydantic de configuração e ferramentas MCP em `src/orion/mcp/models.py`.
-2. **Passo 2:** Implementar os transportes assíncronos `stdio` e `sse` com tratamento de timeouts e encerramento limpo de processos filhos.
-3. **Passo 3:** Desenvolver `MCPClient` para gerenciar a lista de conexões ativas a partir de `mcp_servers.json`.
-4. **Passo 4:** Criar `MCPToolAdapter` conectando cada ferramenta remota à máquina de execução do ReAct com validação no PEP.
-5. **Passo 5:** Implementar o comando `/mcp` exibindo tabela Rich com servidores, ferramentas ativas e latência.
-6. **Passo 6:** Escrever testes de integração com servidor MCP de teste mockado.
+1. **Passo 1:** Desenvolver `StreamRenderer` com `Rich.Live` e buffer dinâmico de tokens.
+2. **Passo 2:** Desenvolver `DiffViewer` tratando blocos de diff `@@ -A,B +C,D @@` com sintaxe colorida.
+3. **Passo 3:** Criar a classe abstrata `BaseSlashCommand` e o registro central `CommandRegistry`.
+4. **Passo 4:** Implementar comandos prioritários de memória e contexto (`/compact`, `/context`, `/cost`, `/timeline`, `/memory`).
+5. **Passo 5:** Implementar comandos de alinhamento e operação (`/plan`, `/goal`, `/grill-me`, `/review`, `/diff`, `/doctor`, `/help`).
+6. **Passo 6:** Escrever bateria de testes unitários validando despacho de argumentos e formatação de saídas.
 
 ---
 
 ## 8. Testes Automatizados & Critérios de Aceite (DoD)
 
 ### Cenários de Teste Obrigatórios
-- **Teste 1:** Conexão stdio inicializa subprocesso, executa handshake JSON-RPC e lista ferramentas em $< 200\text{ ms}$.
-- **Teste 2:** Ferramenta MCP mutadora (ex: `delete_record`) é interceptada pelo PEP antes da execução.
-- **Teste 3:** Servidor MCP que cai ou trava não congela o CLI principal (timeout e isolamento gracioso).
+- **Teste 1:** Streaming de 500 tokens renderiza sem erros de formatação de tags Markdown incompletas.
+- **Teste 2:** Diff de substituição cirúrgica gera painel visual com destaque em verde e vermelho.
+- **Teste 3:** Todos os 23 comandos respondem adequadamente a argumentos válidos e exibem mensagem de uso para argumentos incorretos.
 
 ### Definition of Done (DoD)
-- [ ] Cliente MCP nativo implementado para `stdio` e `sse`.
-- [ ] Ferramentas MCP convertidas para `BaseTool` e registradas no catálogo do ReAct.
-- [ ] Comando `/mcp` funcional no CLI.
-- [ ] `pytest tests/unit/test_mcp_client.py tests/unit/test_mcp_pep_security.py` passando com 100% de sucesso.
-- [ ] Cobertura de testes dos módulos $\ge 90\%$.
-- [ ] Documentação de progresso atualizada em `.claudex/progress.md`.
+- [x] `StreamRenderer` e `DiffViewer` operando sem quebrar a rolagem do terminal (validado em PTY com emulador de terminal e provedor roteirizado).
+- [x] Catálogo oficial de Slash Commands implementado e testado. `/mcp` lista servidores declarados e `/voice` informa a versão de entrega até as Sprints correspondentes.
+- [x] `pytest tests/unit/test_stream_renderer.py tests/unit/test_diff_viewer.py tests/unit/test_slash_commands.py` passando com 100% de sucesso.
+- [x] Cobertura de testes dos módulos $\ge 90\%$ (exceto `modal.py`, 83%: o laço de teclado exige TTY e foi validado em PTY).
+- [x] Documentação de progresso atualizada em `.claudex/progress.md`.
+- [ ] Turno real validado contra OpenRouter e Ollama (protocolo de ferramentas e `reasoning` só foram exercitados com provedor roteirizado).
+
+### Desvios Registrados
+- **Ponte Gateway → Engine:** `src/orion/tui/session.py` passou a ligar o gateway ao ReAct, com protocolo textual `<tool_call>`, pois o engine ainda não tinha LLM real.
+- **`/undo`:** restaura fotografias da sessão em vez de checkpoints git, para não tocar no histórico do repositório.
+- **`/recall`:** busca lexical na timeline e substring nos fatos; a busca RRF (`HybridRetriever`) segue fora da CLI para não carregar embeddings no boot.
+- **Ligação pendente:** failover automático entre provedores (circuit breaker) e o Cognitive Manifest ainda não estão ligados à sessão.

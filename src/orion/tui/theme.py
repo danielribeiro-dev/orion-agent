@@ -7,6 +7,17 @@ com contraste WCAG AAA superior a 13:1 e fidelidade harmônica com a temática c
 
 from __future__ import annotations
 
+from pygments.token import (
+    Comment,
+    Keyword,
+    Name,
+    Number,
+    Operator,
+    String,
+    Token,
+)
+from rich.style import Style
+from rich.syntax import ANSISyntaxTheme
 from rich.theme import Theme
 
 # Paleta oficial Deep Cosmos & Glacial Platinum
@@ -25,10 +36,30 @@ ORION_COLORS: dict[str, str] = {
     # Acentos Semânticos Funcionais
     "diff_add": "#3FB950",  # Verde Aurora Suave (Linhas adicionadas)
     "diff_del": "#F85149",  # Vermelho Alerta Suave (Linhas removidas)
+    "diff_add_tint": "#12261C",  # diff_add a 14% sobre bg_canvas (fundo de linha adicionada)
+    "diff_del_tint": "#2C171B",  # diff_del a 14% sobre bg_canvas (fundo de linha removida)
     "pep_warn": "#D29922",  # Âmbar de Ignição (Avisos de permissão PEP)
     "status_ok": "#2EA043",  # Verde de Conectividade Online
     "status_offline": "#DA3633",  # Vermelho de Modo Offline / Failover
 }
+
+
+def get_syntax_theme() -> ANSISyntaxTheme:
+    """Tema de realce sintático restrito às cores de ORION_COLORS."""
+    c = ORION_COLORS
+    return ANSISyntaxTheme(
+        {
+            Token: Style(color=c["text_primary"]),
+            Comment: Style(color=c["text_dim"], italic=True),
+            Keyword: Style(color=c["accent_cyan"]),
+            Name.Function: Style(color=c["accent_blue"]),
+            Name.Class: Style(color=c["accent_blue"], bold=True),
+            Name.Decorator: Style(color=c["pep_warn"]),
+            String: Style(color=c["diff_add"]),
+            Number: Style(color=c["pep_warn"]),
+            Operator: Style(color=c["text_dim"]),
+        }
+    )
 
 
 def get_orion_theme() -> Theme:
@@ -58,11 +89,27 @@ def get_orion_theme() -> Theme:
             "text_dim": ORION_COLORS["text_dim"],
             "text_user": f"bold {ORION_COLORS['text_user']}",
             "accent_cyan": f"bold {ORION_COLORS['accent_cyan']}",
+            "accent_cyan bold": f"bold {ORION_COLORS['accent_cyan']}",
             "accent_blue": ORION_COLORS["accent_blue"],
+            "accent_blue bold": f"bold {ORION_COLORS['accent_blue']}",
             "diff_add": f"bold {ORION_COLORS['diff_add']}",
             "diff_del": f"bold {ORION_COLORS['diff_del']}",
             "pep_warn": f"bold {ORION_COLORS['pep_warn']}",
             "status_ok": f"bold {ORION_COLORS['status_ok']}",
             "status_offline": f"bold {ORION_COLORS['status_offline']}",
+            "diff_add_line": f"on {ORION_COLORS['diff_add_tint']}",
+            "diff_del_line": f"on {ORION_COLORS['diff_del_tint']}",
+            # Markdown renderizado no streaming
+            "markdown.h1": f"bold {ORION_COLORS['text_user']}",
+            "markdown.h2": f"bold {ORION_COLORS['text_user']}",
+            "markdown.h3": f"bold {ORION_COLORS['text_primary']}",
+            "markdown.h4": f"bold {ORION_COLORS['text_primary']}",
+            "markdown.code": ORION_COLORS["accent_cyan"],
+            "markdown.link": ORION_COLORS["accent_blue"],
+            "markdown.link_url": ORION_COLORS["accent_blue"],
+            "markdown.item.bullet": ORION_COLORS["accent_cyan"],
+            "markdown.item.number": ORION_COLORS["accent_cyan"],
+            "markdown.block_quote": ORION_COLORS["text_dim"],
+            "markdown.hr": ORION_COLORS["border_subtle"],
         }
     )

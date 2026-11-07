@@ -3,6 +3,7 @@ Unit tests for OrionCompleter, SlashCommandCompleter, PathMentionCompleter,
 and mention parsing/resolution.
 """
 
+import re
 import tempfile
 from pathlib import Path
 
@@ -18,6 +19,17 @@ from orion.tui.completer import (
     SlashCommandInfo,
     parse_mentions,
     resolve_mentions,
+)
+
+# Padrão de detecção de emojis decorativos (CA-01)
+_EMOJI_RE = re.compile(
+    "["
+    "\U0001f300-\U0001f9ff"   # Misc Symbols and Pictographs, Emoticons, etc.
+    "\u2600-\u26ff"            # Misc Symbols (excluindo ✔ ✖ ❯ ● › que são monocromáticos)
+    "\u2700-\u27bf"            # Dingbats
+    "\U0001f1e0-\U0001f1ff"   # Flags
+    "]",
+    re.UNICODE,
 )
 
 
@@ -96,6 +108,50 @@ class TestSlashCommandCompleter:
         doc_space = Document("/plan some arg")
         completions_space = list(completer.get_completions(doc_space, CompleteEvent()))
         assert len(completions_space) == 0
+
+    def test_ca01_zero_emojis_in_slash_catalog(self) -> None:
+        """CA-01: Nenhum ícone de emoji decorativo nos OFFICIAL_SLASH_COMMANDS.
+
+        Todos os ícones devem ser glifos geométricos monospace (❯, ●, ›)
+        e não emojis decorativos de largura variável (ex: 📋, 🎯, 🧠).
+
+        Glifos permitidos: ❯ (U+276F), ● (U+25CF), › (U+203A), ✔ (U+2714), ✖ (U+2716)
+        """
+        # Conjunto de ícones geométricos aprovados pelo CLI_DESIGN_SYSTEM.md
+        ALLOWED_ICONS = {"❯", "●", "›", "✔", "✖", "!", "[PEP]", ""}
+
+        for cmd in OFFICIAL_SLASH_COMMANDS:
+            assert cmd.icon in ALLOWED_ICONS, (
+                f"Ícone não aprovado no catálogo de '{cmd.name}': '{cmd.icon}'. "
+                f"Use apenas glifos geométricos: {sorted(ALLOWED_ICONS)}"
+            )
+
+    def test_ca01_zero_emojis_in_path_completions(self) -> None:
+        """CA-01: Nenhum emoji nas sugestões de caminho (@) do PathMentionCompleter."""
+        import re
+        import tempfile
+        from pathlib import Path
+
+        # Emojis pictográficos com largura variável (wcwidth issues)
+        emoji_re = re.compile(
+            r"[\U0001f300-\U0001f9ff\U0001f1e0-\U0001f1ff]",
+            re.UNICODE,
+        )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            (root / "src").mkdir()
+            (root / "README.md").write_text("readme")
+
+            completer = PathMentionCompleter(workspace_root=root)
+            doc = Document("@")
+            completions = list(completer.get_completions(doc, CompleteEvent()))
+
+            for c in completions:
+                display_str = str(c.display)
+                assert not emoji_re.search(display_str), (
+                    f"Emoji detectado no display de path completion: '{display_str}'. "
+                    f"Use glifos geométricos (● para dir, › para file)"
+                )
 
 
 class TestGitIgnoreMatcher:

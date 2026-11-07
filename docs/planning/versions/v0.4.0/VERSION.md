@@ -16,7 +16,7 @@ Construir a camada de interface e experiência de desenvolvimento do **O.R.I.O.N
 2. **Splash Banner Dinâmico:** Exibição da arte ASCII oficial da **Mão com o Buraco Negro** adaptativa (80, 120 e 200+ colunas), com badges de status (Online/Local), identificação de contas (GitHub/Google) e estado da governança PEP.
 3. **Barra de Entrada Inteligente (`prompt_toolkit`):** Autocomplete flutuante de Slash Commands (`/`), injeção rápida de arquivos via `@` com resolução respeitando `.gitignore`, atalhos de navegação e barra de status inferior dinâmica (Modelo ativo, Esforço de Raciocínio `HIGH/MED/LOW`, e custos acumulados em USD/BRL).
 4. **Streaming Vivo & Diffs Cirúrgicos (`rich`):** Renderização de Markdown em tempo real via `Rich.Live`, indicadores visuais assíncronos não bloqueantes (*spinners*) e painéis de diff coloridos (verde/vermelho) para modificações de código.
-5. **Catálogo Oficial dos 20 Slash Commands (`/`):** Implementação dos comandos cognitivos, de memória, branches, operação e custos.
+5. **Catálogo Oficial dos 23 Slash Commands (`/`):** Implementação dos comandos cognitivos, de memória, branches, operação e custos.
 6. **Cliente Nativo do Model Context Protocol (MCP):** Conexão universal stdio e SSE com servidores externos de ferramentas e dados.
 
 ### 1.2 Por que agora?
@@ -34,7 +34,7 @@ Após as fundações do ReAct Loop (v0.1.0), da Memória Tríplice Contínua (v0
 - **ADR-003:** Presença Ambiente Headless com Interface Sob Demanda.
 - **ADR-014:** Comando Oficial `orion-agent` para o Stream CLI e Reserva de `orion` para Interface Gráfica eDEX/Desktop posterior.
 - **ADR-015:** Stack Tecnológica do Stream CLI: `prompt_toolkit` (Buffer, histórico, autocomplete `/` e `@`) + `Rich` (Streaming `Live`, diffs cirúrgicos e banners adaptativos com zero flicker e rolagem nativa).
-- **ADR-016:** Catálogo Oficial dos 20 Slash Commands (`/`) focado em produtividade e interoperabilidade de mercado.
+- **ADR-016:** Catálogo Oficial dos Slash Commands (`/`) focado em produtividade e interoperabilidade de mercado.
 - **ADR-017:** Desacoplamento do Cockpit Imersivo eDEX para a v0.7.0 (Standalone Desktop App com Figma Tokens) para foco 100% em ergonomia cirúrgica de CLI de terminal na v0.4.0.
 - **ADR-018:** Paleta Oficial "Deep Cosmos & Glacial Platinum" (Contraste WCAG AAA > 13:1 para conforto em 12h+ diárias).
 
@@ -46,8 +46,9 @@ Após as fundações do ReAct Loop (v0.1.0), da Memória Tríplice Contínua (v0
 | :--- | :--- | :--- | :--- | :--- |
 | **Sprint 1** | Stream CLI Foundation, Design System & Status Line | Ponto de entrada `orion-agent`, tema Deep Cosmos, arte ASCII da Mão Cósmica com Buraco Negro adaptativa e barra de status dinâmica | [`sprints/sprint-1.md`](sprints/sprint-1.md) | ✅ Concluída |
 | **Sprint 2** | Terminal Engine, Prompt Interativo & Autocomplete | `prompt_toolkit` com histórico persistente, autocomplete flutuante para `/` e anexo de arquivos com `@` respeitando `.gitignore` | [`sprints/sprint-2.md`](sprints/sprint-2.md) | ✅ Concluída |
-| **Sprint 3** | Streaming Vivo, Diffs Cirúrgicos & 20 Slash Commands | Streaming contínuo via `Rich.Live`, painéis de diff cirúrgico e o catálogo oficial dos 20 Slash Commands | [`sprints/sprint-3.md`](sprints/sprint-3.md) | 📋 Planejado |
-| **Sprint 4** | Native MCP Client & Integração PEP | Cliente nativo do Model Context Protocol (stdio & SSE) com auditoria de segurança PEP | [`sprints/sprint-4.md`](sprints/sprint-4.md) | 📋 Planejado |
+| **Sprint 3** | Refinamento Estético da CLI, Geometria Anti-Emoji & Dynamic Prompt | Banimento total de emojis, correção de bugs visuais no box de input e na barra de status, e especificações mestras de design | [`sprints/sprint-3.md`](sprints/sprint-3.md) | ✅ Concluída |
+| **Sprint 4** | Streaming Vivo, Diffs Cirúrgicos & 20 Slash Commands | Streaming contínuo via `Rich.Live`, painéis de diff cirúrgico e o catálogo oficial dos 23 Slash Commands | [`sprints/sprint-4.md`](sprints/sprint-4.md) | 🔄 Implementada, validação com provedor real pendente |
+| **Sprint 5** | Native MCP Client & Integração PEP | Cliente nativo do Model Context Protocol (stdio & SSE) com auditoria de segurança PEP | [`sprints/sprint-5.md`](sprints/sprint-5.md) | 📋 Planejado |
 
 ---
 
@@ -97,22 +98,22 @@ src/orion/
 
 | ID | Cenário | Comportamento Esperado | Como Validar | Status |
 |:---|:---|:---|:---|:---|
-| CA-01 | Comando `orion-agent` | Inicializa o CLI instantaneamente em $< 100\text{ ms}$ sem travamento | `orion-agent --help` / `orion-agent` | ⏳ Pendente |
-| CA-02 | Banner Adaptativo | Mão Cósmica e Buraco Negro renderizam sem quebra de linha em 80, 120 e 200+ cols | `pytest tests/unit/test_banner.py` | ⏳ Pendente |
-| CA-03 | Barra de Status Dinâmica | Exibe Modelo, Esforço de Raciocínio, Status Online/Local e Custos em USD/BRL | `pytest tests/unit/test_status_bar.py` | ⏳ Pendente |
+| CA-01 | Comando `orion-agent` | Inicializa o CLI instantaneamente em $< 100\text{ ms}$ sem travamento | `orion-agent --help` / `orion-agent` | ⚠️ Não atendido: ~0.4 s |
+| CA-02 | Banner Adaptativo | Mão Cósmica e Buraco Negro renderizam sem quebra de linha em 80, 120 e 200+ cols | `pytest tests/unit/test_banner.py` | ✅ Validado |
+| CA-03 | Barra de Status Dinâmica | Exibe Modelo, Esforço de Raciocínio, Status Online/Local e Custos em USD/BRL | `pytest tests/unit/test_status_bar.py` | ✅ Validado |
 | CA-04 | Autocomplete de Comandos e Arquivos | Menu flutuante filtra comandos ao digitar `/` e arquivos locais ao digitar `@` | `pytest tests/unit/test_completer.py` | ✅ Validado |
-| CA-05 | Streaming Vivo em Markdown | Respostas do modelo surgem em Markdown formatado sem quebrar o scroll nativo | `pytest tests/unit/test_stream_renderer.py` | ⏳ Pendente |
-| CA-06 | Diffs Cirúrgicos | Edições em arquivos exibem blocos de diff syntax-highlighted | `pytest tests/unit/test_diff_viewer.py` | ⏳ Pendente |
-| CA-07 | Catálogo de Slash Commands | Todos os comandos disparam suas rotinas e obedecem às políticas do PEP | `pytest tests/unit/test_slash_commands.py` | ⏳ Pendente |
-| CA-08 | Cliente MCP Nativo | Conecta a servidores stdio/SSE, descobre ferramentas e executa tool calls com timeout | `pytest tests/unit/test_mcp_client.py` | ⏳ Pendente |
-| CA-09 | Cobertura de Testes | Suíte completa da v0.4.0 passando com cobertura $\ge 85\%$ | `pytest --cov=src/orion` | ⏳ Pendente |
+| CA-05 | Streaming Vivo em Markdown | Respostas do modelo surgem em Markdown formatado sem quebrar o scroll nativo | `pytest tests/unit/test_stream_renderer.py` | ✅ Validado |
+| CA-06 | Diffs Cirúrgicos | Edições em arquivos exibem blocos de diff syntax-highlighted | `pytest tests/unit/test_diff_viewer.py` | ✅ Validado |
+| CA-07 | Catálogo de Slash Commands | Todos os 23 comandos disparam suas rotinas e obedecem às políticas do PEP | `pytest tests/unit/test_slash_commands.py` | ✅ Validado |
+| CA-08 | Cliente MCP Nativo | Conecta a servidores stdio/SSE, descobre ferramentas e executa tool calls com timeout | `pytest tests/unit/test_mcp_client.py tests/unit/test_mcp_stdio_integration.py` | ✅ Validado (stdio e SSE reais + mocks) |
+| CA-09 | Cobertura de Testes | Suíte completa da v0.4.0 passando com cobertura $\ge 85\%$ | `pytest --cov=src/orion` | ✅ 94% (versão ainda sem MCP) |
 
 ---
 
 ## 6. Checklist de Conclusão da Spec (Congelamento)
 
 - [x] Especificação técnica e arquitetural da v0.4.0 alinhada e aprovada pelo usuário.
-- [x] As 4 sprints da v0.4.0 detalhadas e congeladas em `docs/planning/versions/v0.4.0/sprints/`.
-- [ ] Implementação das 4 sprints concluída com testes automatizados.
+- [x] As 5 sprints da v0.4.0 detalhadas e congeladas em `docs/planning/versions/v0.4.0/sprints/`.
+- [ ] Implementação das 5 sprints concluída com testes automatizados.
 - [ ] Bateria de testes com cobertura $\ge 85\%$.
 - [ ] Tag Git `v0.4.0` criada.

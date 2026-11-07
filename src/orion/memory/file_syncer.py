@@ -36,16 +36,16 @@ _CATEGORY_ORDER = [
 ]
 
 _CATEGORY_LABELS: dict[FactCategory, str] = {
-    FactCategory.USER_PREFERENCE: "👤 User Preferences",
-    FactCategory.PROJECT_ARCHITECTURE: "🏛️ Project Architecture",
-    FactCategory.CODING_STANDARD: "📐 Coding Standards",
-    FactCategory.INFRASTRUCTURE: "⚙️ Infrastructure",
+    FactCategory.USER_PREFERENCE: "● User Preferences",
+    FactCategory.PROJECT_ARCHITECTURE: "● Project Architecture",
+    FactCategory.CODING_STANDARD: "● Coding Standards",
+    FactCategory.INFRASTRUCTURE: "● Infrastructure",
 }
 
 _STATUS_BADGE: dict[FactStatus, str] = {
-    FactStatus.CONFIRMED: "✅ CONFIRMED",
-    FactStatus.INFERRED: "🔵 INFERRED",
-    FactStatus.DEPRECATED: "🚫 DEPRECATED",
+    FactStatus.CONFIRMED: "✔ CONFIRMED",
+    FactStatus.INFERRED: "› INFERRED",
+    FactStatus.DEPRECATED: "✖ DEPRECATED",
 }
 
 
@@ -136,7 +136,7 @@ class MemoryFileSyncer:
         """Build the full MEMORY.md line list from sorted facts."""
         now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
         lines: list[str] = [
-            "# 🧠 O.R.I.O.N — Memory Ledger",
+            "# O.R.I.O.N — Memory Ledger",
             "",
             f"> Last synced: {now_str}",
             "",
