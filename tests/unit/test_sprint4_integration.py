@@ -407,20 +407,18 @@ def test_prompt_input_does_not_stretch_and_rules_are_light() -> None:
 
 def test_empty_submit_erases_the_prompt_block() -> None:
     """Enter vazio não empilha régua/❯/régua no scrollback; com texto, o bloco permanece."""
-    from prompt_toolkit.buffer import Buffer
-    from prompt_toolkit.document import Document
+    from types import SimpleNamespace
 
     from orion.tui.prompt import InteractivePrompt
 
     prompt = InteractivePrompt(history_path=None)
     app = prompt.session.app
     app.exit = lambda *a, **k: None  # type: ignore[method-assign,assignment]
-    buffer: Buffer = prompt.session.default_buffer
+    handler = prompt.session.default_buffer.accept_handler
+    assert handler is not None
 
-    buffer.document = Document("   ")
-    buffer.accept_handler(buffer)  # type: ignore[misc]
+    handler(SimpleNamespace(text="   ", document=SimpleNamespace(text="   ")))  # type: ignore[arg-type]
     assert app.erase_when_done is True
 
-    buffer.document = Document("oi")
-    buffer.accept_handler(buffer)  # type: ignore[misc]
+    handler(SimpleNamespace(text="oi", document=SimpleNamespace(text="oi")))  # type: ignore[arg-type]
     assert app.erase_when_done is False
