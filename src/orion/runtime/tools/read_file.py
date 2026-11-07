@@ -31,6 +31,22 @@ class ReadFileTool(BaseTool):
     """Read a file with optional line-range pagination and byte limits."""
 
     name = "read_file"
+    description = (
+        "Read a UTF-8 text file, optionally a line range. Use before editing a file. "
+        "Returns the content; large files should be read with start_line/end_line."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "File path (absolute or relative to the workspace)."},
+            "start_line": {"type": "integer", "minimum": 1, "description": "First line (1-based)."},
+            "end_line": {"type": "integer", "minimum": 1, "description": "Last line (inclusive)."},
+            "byte_offset": {"type": "integer", "minimum": 0},
+            "max_bytes": {"type": "integer", "minimum": 1},
+        },
+        "required": ["path"],
+    }
+    read_only = True
 
     async def run(
         self,

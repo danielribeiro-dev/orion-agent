@@ -8,11 +8,11 @@ mudanças de arquivo e ramificações de contexto).
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import json
 import logging
 import os
-import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -23,7 +23,7 @@ from typing import Any
 
 from rich.console import Console, RenderableType
 
-from orion.core.engine import LLMResponse, ReActEngine
+from orion.core.engine import ModelTurn, ReActEngine, compose_system
 from orion.core.errors import PromptInjectionSuspected, TurnBudgetExceeded
 from orion.core.event_bus import EventBus
 from orion.core.events import Action, ActionEmitted, Observation
@@ -35,6 +35,7 @@ from orion.gateway.ledger import CostLedger
 from orion.gateway.models import (
     CacheControl,
     ComplexityTier,
+    ContentBlock,
     LLMMessage,
     LLMRequest,
     MessageRole,
@@ -42,6 +43,7 @@ from orion.gateway.models import (
     ProviderName,
     ThinkingConfig,
     TokenUsage,
+    ToolSpec,
 )
 from orion.gateway.providers.base import BaseLLMProvider
 from orion.gateway.registry import ModelRegistry
@@ -66,21 +68,6 @@ logger = logging.getLogger(__name__)
 
 _MAX_MENTION_CHARS = 20_000
 _MUTATING_TOOLS = {"write_file", "edit_file"}
-_TOOL_CALL_OPEN = "<tool_call>"
-_TOOL_CALL_RE = re.compile(r"<tool_call>(.*?)(?:</tool_call>|$)", re.DOTALL)
-
-TOOL_PROTOCOL = """You operate tools through text. To call a tool, end your reply with exactly one block:
-<tool_call>{"tool": "<name>", "params": {...}}</tool_call>
-Tools:
-- read_file(path)
-- search_files(path, pattern, mode="glob"|"grep", regex): glob lists files named like pattern; grep searches the text/regex (regex, or pattern if omitted) inside the files
-- write_file(path, content)
-- edit_file(path, target, replacement): target must appear exactly once
-- run_command(command, cwd)
-- recall(query)
-- memorize(key, value, category)
-Each reply holds at most one tool call. When the task is done, answer in Markdown with no tool_call block, in the language of the user."""
-
 PLAN_MODE_NOTE = "\nPlan mode is active: read only. Every mutation is denied. Finish with a plan for approval."
 
 
@@ -109,58 +96,6 @@ EFFORT_CYCLE = [
 
 PepAsker = Callable[[Action, ActionLevel], Awaitable[Any]]
 ProviderFactory = Callable[[ModelSpec], BaseLLMProvider]
-
-
-class ToolCallFilter:
-    """Separa do fluxo o bloco <tool_call>, que nunca aparece para o desenvolvedor."""
-
-    def __init__(self) -> None:
-        self.text = ""
-        self._pending = ""
-        self._raw = ""
-        self._in_call = False
-
-    def feed(self, delta: str) -> str:
-        """Recebe um delta e devolve o trecho seguro para exibir."""
-        if self._in_call:
-            self._raw += delta
-            return ""
-        self._pending += delta
-        index = self._pending.find(_TOOL_CALL_OPEN)
-        if index >= 0:
-            visible = self._pending[:index]
-            self._raw = self._pending[index:]
-            self._pending = ""
-            self._in_call = True
-            self.text += visible
-            return visible
-        keep = 0
-        for size in range(min(len(_TOOL_CALL_OPEN) - 1, len(self._pending)), 0, -1):
-            if _TOOL_CALL_OPEN.startswith(self._pending[-size:]):
-                keep = size
-                break
-        cut = len(self._pending) - keep
-        visible, self._pending = self._pending[:cut], self._pending[cut:]
-        self.text += visible
-        return visible
-
-    def flush(self) -> str:
-        """Libera o que ficou retido ao fim do stream."""
-        visible, self._pending = self._pending, ""
-        self.text += visible
-        return visible
-
-    def tool_call(self) -> tuple[str, dict[str, Any]] | None:
-        """Interpreta o bloco capturado; None se não houver chamada válida."""
-        match = _TOOL_CALL_RE.search(self._raw)
-        if match is None:
-            return None
-        try:
-            payload = json.loads(match.group(1).strip())
-            return str(payload["tool"]), dict(payload.get("params", {}))
-        except (ValueError, KeyError, TypeError):
-            logger.warning("ToolCallFilter: bloco tool_call inválido: %s", self._raw[:120])
-            return None
 
 
 @dataclass(frozen=True)
@@ -471,13 +406,13 @@ class AgentSession:
 
     # ── Ponte LLM ───────────────────────────────────────────────────
 
+    def system_extra(self) -> str:
+        """Avisos de sessão anexados ao system prompt (modo plano)."""
+        return PLAN_MODE_NOTE.strip() if self.mode == AgentMode.PLAN else ""
+
     def system_prompt(self) -> str:
-        """Instruções de ferramenta enviadas em todo turno."""
-        return (
-            TOOL_PROTOCOL
-            + self._mcp_prompt()
-            + (PLAN_MODE_NOTE if self.mode == AgentMode.PLAN else "")
-        )
+        """System prompt completo da sessão (identidade, regras e avisos)."""
+        return compose_system(self.identity, extra=self.system_extra())
 
     # ── MCP (Sprint 5) ──────────────────────────────────────────────
 
@@ -518,18 +453,10 @@ class AgentSession:
         except Exception:
             logger.exception("AgentSession: falha ao registrar tools MCP")
 
-    def _mcp_prompt(self) -> str:
-        if not self._mcp_adapters:
-            return ""
-        from orion.mcp.adapter import catalog_lines
-
-        lines = "\n".join(f"- {line}" for line in catalog_lines(self._mcp_adapters))
-        return (
-            "\nMCP tools (call like any other tool; use mcp_schema(tool) to get the parameter "
-            "schema before the first call):\n" + lines
-        )
-
-    async def _llm(self, prompt: str) -> LLMResponse:
+    async def _llm(
+        self, *, system: str, messages: list[LLMMessage], tools: list[ToolSpec]
+    ) -> ModelTurn:
+        """Uma volta com o modelo: stream ao vivo no renderer e blocos tipados de volta ao engine."""
         spec, tier, routing = self._resolve_model()
         self.status_bar.model_name = spec.id
         self.budget.check(is_local_model=spec.provider == ProviderName.OLLAMA)
@@ -537,38 +464,40 @@ class AgentSession:
         # externa do modelo de topo ativa SAFE_HOLDING (mutações bloqueadas).
         self.breaker.set_intentional_lite_mode(tier != ComplexityTier.HEAVY)
 
-        messages = [
-            LLMMessage(role=MessageRole.SYSTEM, content=self.system_prompt()),
-            *self.history,
-            LLMMessage(role=MessageRole.USER, content=prompt),
-        ]
+        anthropic = spec.provider == ProviderName.ANTHROPIC
+        wire = [LLMMessage(role=MessageRole.SYSTEM, content=system), *messages]
         request = LLMRequest(
             model=spec.id,
-            messages=messages,
+            messages=wire,
+            tools=tools,
+            max_tokens=16_000 if anthropic else 4096,
             complexity_tier=tier,
             extra_params=self._extra_params(spec),
             thinking=self._thinking(spec),
-            cache_control=CacheControl() if spec.provider == ProviderName.ANTHROPIC else None,
+            cache_control=CacheControl() if anthropic else None,
         )
 
         started = time.monotonic()
         self.renderer.begin_thinking()
-        stream_filter = ToolCallFilter()
         usage: TokenUsage | None = None
+        stop_reason: str | None = None
+        blocks: list[ContentBlock] = []
+        text = ""
         reasoning_chars = 0
         provider = self._provider_factory(spec)
         async for chunk in provider.stream(request):
             if chunk.reasoning_delta:
                 reasoning_chars += len(chunk.reasoning_delta)
                 self.renderer.add_reasoning(chunk.reasoning_delta)
-            visible = stream_filter.feed(chunk.delta)
-            if visible:
-                self.renderer.add_text(visible)
+            if chunk.delta:
+                text += chunk.delta
+                self.renderer.add_text(chunk.delta)
+            if chunk.block is not None:
+                blocks.append(chunk.block)
+            if chunk.stop_reason:
+                stop_reason = chunk.stop_reason
             if chunk.usage is not None:
                 usage = chunk.usage
-        tail = stream_filter.flush()
-        if tail:
-            self.renderer.add_text(tail)
         self.renderer.end_message()
 
         served = getattr(provider, "served", None)
@@ -580,17 +509,17 @@ class AgentSession:
             provider_name = spec.provider
         self._record_cost(
             spec,
-            usage or self._estimate_usage(messages, stream_filter.text, reasoning_chars),
+            usage or self._estimate_usage(wire, text, reasoning_chars),
             tier,
             routing,
             (time.monotonic() - started) * 1000,
             provider_name,
         )
 
-        call = stream_filter.tool_call()
-        if call is not None:
-            return ("tool_call", call[0], call[1])  # type: ignore[return-value]
-        return ("final_answer", stream_filter.text)
+        if not any(b.type == "text" for b in blocks) and text.strip():
+            # Providers legados só emitem deltas: monta o bloco de texto a partir deles.
+            blocks.insert(0, ContentBlock.of_text(text))
+        return ModelTurn(blocks=blocks, stop_reason=stop_reason or "end_turn")
 
     @staticmethod
     def _estimate_usage(messages: list[LLMMessage], text: str, reasoning_chars: int) -> TokenUsage:
@@ -639,7 +568,7 @@ class AgentSession:
         self._running[event.action_id] = event.tool
         if event.tool in _MUTATING_TOOLS:
             self.tracker.begin(event.action_id, self._target_path(event.params))
-        self.renderer.tool_started(event.tool, event.params)
+        self.renderer.tool_started(event.tool, event.params, key=event.action_id)
         self.branches.record_event(f"{event.tool}: {event.params}"[:200])
 
     async def _on_observation(self, event: Observation) -> None:
@@ -649,7 +578,12 @@ class AgentSession:
         if change is not None:
             diff = diff_texts(change.before or "", change.after, str(change.path))
         self.renderer.tool_finished(
-            tool, event.success, event.output or event.error or "", event.metadata, diff
+            tool,
+            event.success,
+            event.output or event.error or "",
+            event.metadata,
+            diff,
+            key=event.action_id,
         )
 
     # ── Governança ──────────────────────────────────────────────────
@@ -708,11 +642,16 @@ class AgentSession:
             session_id=self.session_id,
             runtime=self.runtime,
             identity_manager=self.identity,
+            system_extra=self.system_extra,
         )
         self.status_bar.is_busy = True
         await self._log_timeline("user", "user", text)
         try:
-            answer = await engine.run(content)
+            answer = await engine.run(content, history=self.history)
+        except asyncio.CancelledError:
+            # A conversa permanece válida (tool_use pendentes foram fechados): preserva o contexto.
+            self.history = engine.messages
+            raise
         except PromptInjectionSuspected:
             self.renderer.error("Entrada bloqueada: padrão de injeção de prompt detectado.")
             return None
@@ -730,8 +669,7 @@ class AgentSession:
             self.renderer.close()
             self.status_bar.is_busy = False
 
-        self.history.append(LLMMessage(role=MessageRole.USER, content=content))
-        self.history.append(LLMMessage(role=MessageRole.ASSISTANT, content=answer))
+        self.history = engine.messages
         self.branches.record_event(answer[:200], event_type="observation")
         await self._log_timeline("assistant", "agent", answer)
         return answer
@@ -785,19 +723,32 @@ class AgentSession:
         spec = self.registry.get(self.status_bar.model_name)
         return spec.context_window if spec else 200_000
 
+    def _turn_starts(self) -> list[int]:
+        """Índices das mensagens que abrem um turno (usuário com texto, não tool_result)."""
+        starts: list[int] = []
+        for i, message in enumerate(self.history):
+            if message.role != MessageRole.USER:
+                continue
+            if isinstance(message.content, str) or any(b.type != "tool_result" for b in message.blocks):
+                starts.append(i)
+        return starts
+
     def compact(self, focus: str | None = None) -> str:
         """Substitui a conversa antiga por um resumo, preservando a cauda vital."""
+        starts = self._turn_starts()
+        bounds = [*starts, len(self.history)]
         pairs = [
             TurnData(
-                turn_index=i // 2,
-                user_input=self.history[i].text,
-                tool_output=self.history[i + 1].text,
+                turn_index=n,
+                user_input=self.history[bounds[n]].text,
+                tool_output=self._answer_text(self.history[bounds[n] + 1 : bounds[n + 1]]),
             )
-            for i in range(0, len(self.history) - 1, 2)
+            for n in range(len(starts))
         ]
         result = self.compactor.compact(pairs, focus=focus)
-        tail = self.history[-2 * result.preserved_tail_turns :] if result.preserved_tail_turns else []
-        if result.original_turns > result.preserved_tail_turns:
+        keep = result.preserved_tail_turns
+        tail = self.history[starts[-keep] :] if keep and starts else []
+        if result.original_turns > keep:
             summary = LLMMessage(
                 role=MessageRole.USER,
                 content=f"Resumo da conversa anterior:\n{result.compacted_summary}",
@@ -805,6 +756,14 @@ class AgentSession:
             ack = LLMMessage(role=MessageRole.ASSISTANT, content="Entendido.")
             self.history = [summary, ack, *tail]
         return self.compactor.format_notification(result)
+
+    @staticmethod
+    def _answer_text(messages: list[LLMMessage]) -> str:
+        """Texto final do assistente num turno (ignora tool_use/tool_result intermediários)."""
+        for message in reversed(messages):
+            if message.role == MessageRole.ASSISTANT:
+                return "".join(b.text or "" for b in message.blocks if b.type == "text")
+        return ""
 
     def create_branch(self, name: str) -> None:
         """Abre uma ramificação de contexto isolada."""

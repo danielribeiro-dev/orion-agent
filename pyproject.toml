@@ -33,6 +33,7 @@ dependencies = [
     "prompt-toolkit>=3.0.40",
     "pygments>=2.17",
     "mcp>=1.0.0",
+    "jsonschema>=4.0",
 ]
 
 [project.scripts]

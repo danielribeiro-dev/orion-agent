@@ -17,9 +17,19 @@ import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
+from jsonschema import Draft202012Validator
+from jsonschema.exceptions import best_match
+
 from orion.core.events import Action, RiskLevel
+from orion.gateway.models import ToolSpec
 from orion.governance.pep import ActionDenied, PolicyEnforcementPoint
-from orion.governance.permissions import WorkspaceScope
+from orion.governance.permissions import (
+    WorkspaceScope,
+    is_read_only_tool,
+    register_tool_level,
+    risk_to_action_level,
+    tool_risk_level,
+)
 from orion.runtime.provider import BaseRuntimeProvider, RuntimeResult
 from orion.runtime.tools.edit_file import EditFileTool
 from orion.runtime.tools.read_file import ReadFileTool
@@ -34,21 +44,6 @@ if TYPE_CHECKING:
     from orion.skills.engine import SkillsEngine
 
 logger = logging.getLogger(__name__)
-
-_RISK_MAP: dict[str, RiskLevel] = {
-    "read_file": RiskLevel.SAFE,
-    "search_files": RiskLevel.SAFE,
-    "write_file": RiskLevel.CONTROLLED,
-    "edit_file": RiskLevel.CONTROLLED,
-    "run_command": RiskLevel.CRITICAL,
-    # Cognitive & Skills Tools (v0.2.0)
-    "inspect_environment": RiskLevel.SAFE,
-    "recall": RiskLevel.SAFE,
-    "use_skill": RiskLevel.SAFE,
-    "memorize": RiskLevel.CONTROLLED,
-    "deprecate_fact": RiskLevel.CONTROLLED,
-}
-
 
 class LocalRuntimeProvider(BaseRuntimeProvider):
     """Concrete runtime that executes native primitive and cognitive tools on the host.
@@ -125,7 +120,7 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
 
         self._tools[tool_name] = tool_inst
         if risk is not None:
-            _RISK_MAP[tool_name] = risk
+            register_tool_level(tool_name, risk_to_action_level(risk))
 
     # ------------------------------------------------------------------
     # BaseRuntimeProvider contract
@@ -133,6 +128,32 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
 
     def supports(self, tool: str) -> bool:
         return tool in self._tools
+
+    def is_read_only(self, tool: str) -> bool:
+        return self.supports(tool) and is_read_only_tool(tool)
+
+    def tool_specs(self) -> list[ToolSpec]:
+        """Tool definitions exposed to the model, in a stable order (cache-friendly)."""
+        specs: list[ToolSpec] = []
+        for name in sorted(self._tools):
+            impl = self._tools[name]
+            schema = getattr(impl, "input_schema", None)
+            description = getattr(impl, "description", "")
+            if not isinstance(schema, dict) or not description:
+                continue  # sem contrato de schema: não é exposta ao modelo
+            specs.append(ToolSpec(name=name, description=description, input_schema=schema))
+        return specs
+
+    def validate_params(self, tool: str, params: dict[str, Any]) -> str | None:
+        """Validate *params* against the tool's JSON schema; None when valid."""
+        schema = getattr(self._tools.get(tool), "input_schema", None)
+        if not isinstance(schema, dict):
+            return None
+        error = best_match(Draft202012Validator(schema).iter_errors(params))
+        if error is None:
+            return None
+        where = ".".join(str(p) for p in error.absolute_path)
+        return f"Invalid parameters for '{tool}'" + (f" at '{where}'" if where else "") + f": {error.message}"
 
     async def execute(self, tool: str, params: dict[str, Any]) -> RuntimeResult:
         """PEP-gate then dispatch *tool* with *params*.
@@ -147,8 +168,11 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
                 f"Available: {sorted(self._tools)}"
             )
 
-        risk = _RISK_MAP.get(tool, RiskLevel.CRITICAL)
-        action = Action(tool=tool, params=params, risk_level=risk)
+        invalid = self.validate_params(tool, params)
+        if invalid is not None:
+            return RuntimeResult.fail(invalid, invalid_params=True)
+
+        action = Action(tool=tool, params=params, risk_level=tool_risk_level(tool))
 
         # ── Governance gate ──────────────────────────────────────────────
         try:

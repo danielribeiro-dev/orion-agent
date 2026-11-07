@@ -85,8 +85,10 @@ async def test_session_registers_lazy_tools_and_prompt(ctx):
     s = ctx.session
     s.refresh_mcp()
     assert "mcp__srv__look" in s.runtime.available_tools and "mcp_schema" in s.runtime.available_tools
-    prompt = s.system_prompt()
-    assert "mcp__srv__look: Look around" in prompt and '"type"' not in prompt.split("MCP tools")[1]
+    # ADR-021: o schema completo viaja como tool estruturada, sem catálogo textual no prompt.
+    spec = {t.name: t for t in s.runtime.tool_specs()}["mcp__srv__look"]
+    assert "Look around" in spec.description and spec.input_schema["type"] == "object"
+    assert "mcp__srv__look" not in s.system_prompt()
     res = await s.runtime.execute_direct("mcp_schema", {"tool": "mcp__srv__look"})
     assert res.success and "object" in res.output
     ok = await s.runtime.execute("mcp__srv__look", {})

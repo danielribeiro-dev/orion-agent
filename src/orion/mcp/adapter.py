@@ -39,7 +39,10 @@ class MCPToolAdapter(BaseTool):
         self._client = client
         self.definition = defn
         self.level = level
-        self.name = defn.qualified_name
+        self.name = defn.qualified_name  # type: ignore[misc]  # por-instância (schema vem do servidor MCP)
+        self.description = defn.description or defn.name  # type: ignore[misc]  # por-instância (schema vem do servidor MCP)
+        self.input_schema = defn.input_schema or {"type": "object", "properties": {}}  # type: ignore[misc]  # por-instância (schema vem do servidor MCP)
+        self.read_only = level <= ActionLevel.LEVEL_1  # type: ignore[misc]  # por-instância (schema vem do servidor MCP)
 
     def summary(self, max_len: int = 80) -> str:
         desc = " ".join(self.definition.description.split())
@@ -65,6 +68,13 @@ class MCPSchemaTool(BaseTool):
     """
 
     name = "mcp_schema"
+    description = "Return the full JSON schema of one MCP tool."
+    input_schema = {
+        "type": "object",
+        "properties": {"tool": {"type": "string", "description": "Qualified MCP tool name."}},
+        "required": ["tool"],
+    }
+    read_only = True
 
     def __init__(self, adapters: dict[str, MCPToolAdapter]) -> None:
         self._adapters = adapters

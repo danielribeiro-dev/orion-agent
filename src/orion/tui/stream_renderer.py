@@ -36,6 +36,8 @@ _TOOL_LABELS: dict[str, tuple[str, str]] = {
     "search_files": ("Search", "pattern"),
     "recall": ("Recall", "query"),
     "memorize": ("Memorize", "key"),
+    "deprecate_fact": ("Deprecate", "key"),
+    "use_skill": ("Skill", "skill_name"),
 }
 
 
@@ -124,8 +126,7 @@ class StreamRenderer:
         self._buffer = ""
         self._reasoning = ""
         self._thinking_started: float | None = None
-        self._tool_started = 0.0
-        self._tool_label = ""
+        self._tools: dict[str, tuple[str, float]] = {}
         self._last_block = "user"
         self.last_reasoning = ""
         self.last_output = ""
@@ -242,13 +243,20 @@ class StreamRenderer:
 
     # ── Ferramentas ─────────────────────────────────────────────────
 
-    def tool_started(self, tool: str, params: dict[str, Any]) -> None:
-        """Mostra o card em execução com spinner Braille."""
+    def tool_started(self, tool: str, params: dict[str, Any], key: str = "") -> None:
+        """Mostra o card em execução com spinner Braille.
+
+        *key* identifica a chamada (action_id); tools paralelas coexistem, cada uma
+        com o seu rótulo e cronômetro.
+        """
         self.end_message()
-        self._tool_label = format_tool_label(tool, params)
-        self._tool_started = time.monotonic()
-        label = Text(self._tool_label, style="text_primary", no_wrap=True, overflow="ellipsis")
-        self._activity = lambda: label
+        self._tools[key] = (format_tool_label(tool, params), time.monotonic())
+
+        def running() -> Text:
+            labels = " · ".join(label for label, _ in self._tools.values())
+            return Text(labels, style="text_primary", no_wrap=True, overflow="ellipsis")
+
+        self._activity = running
         self._ensure_live()
 
     def tool_finished(
@@ -258,15 +266,18 @@ class StreamRenderer:
         output: str = "",
         metadata: dict[str, Any] | None = None,
         diff: FileDiff | None = None,
+        key: str = "",
     ) -> None:
         """Substitui o spinner pelo card concluído, seguido de saída e diff."""
-        self._activity = None
+        label, started = self._tools.pop(key, (tool, time.monotonic()))
+        if not self._tools:
+            self._activity = None
         metadata = metadata or {}
         self._start_block("tool")
         line = Text(no_wrap=True, overflow="ellipsis")
         line.append("✔ " if success else "✖ ", style="status_ok" if success else "diff_del")
-        line.append(self._tool_label, style="text_primary")
-        meta = f" · {time.monotonic() - self._tool_started:.1f}s"
+        line.append(label, style="text_primary")
+        meta = f" · {time.monotonic() - started:.1f}s"
         if "exit_code" in metadata:
             meta += f" · exit {metadata['exit_code']}"
         if diff is not None:

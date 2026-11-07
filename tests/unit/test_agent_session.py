@@ -10,20 +10,22 @@ from typing import Any
 import pytest
 from rich.console import Console
 
+from orion.core.engine import ModelTurn
 from orion.core.events import Action
 from orion.gateway.models import LLMRequest, LLMResponse, LLMResponseChunk, TokenUsage
 from orion.gateway.providers.base import BaseLLMProvider
 from orion.governance.pep import AutonomyMode
 from orion.governance.permissions import ActionLevel
-from orion.tui.session import AgentMode, AgentSession, ChangeTracker, ToolCallFilter
+from orion.tui.session import AgentMode, AgentSession, ChangeTracker
 from orion.tui.status_bar import ReasoningEffort, SessionStatusBar
 from orion.tui.theme import get_orion_theme
+from tests.llm_script import say, use, uses
 
 
 class ScriptedProvider(BaseLLMProvider):
-    """Provedor que devolve respostas pré-definidas em pedaços."""
+    """Provedor que devolve respostas pré-definidas: texto em pedaços ou turnos com tool_use."""
 
-    def __init__(self, replies: list[str], error: Exception | None = None) -> None:
+    def __init__(self, replies: list[str | ModelTurn], error: Exception | None = None) -> None:
         self.replies = replies
         self.error = error
         self.requests: list[LLMRequest] = []
@@ -36,10 +38,16 @@ class ScriptedProvider(BaseLLMProvider):
         if self.error is not None:
             raise self.error
         reply = self.replies.pop(0)
-        for start in range(0, len(reply), 5):
-            yield LLMResponseChunk(delta=reply[start : start + 5])
+        turn = say(reply) if isinstance(reply, str) else reply
+        for block in turn.blocks:
+            if block.type == "text":
+                text = block.text or ""
+                for start in range(0, len(text), 5):
+                    yield LLMResponseChunk(delta=text[start : start + 5])
+            yield LLMResponseChunk(block=block)
         yield LLMResponseChunk(
             is_final=True,
+            stop_reason=turn.stop_reason,
             usage=TokenUsage(prompt_tokens=1000, completion_tokens=100, total_tokens=1100),
         )
 
@@ -77,33 +85,8 @@ def output(session: AgentSession) -> str:
     return session.console.file.getvalue()  # type: ignore[attr-defined]
 
 
-def call(tool: str, **params: Any) -> str:
-    import json
-
-    return f"<tool_call>{json.dumps({'tool': tool, 'params': params})}</tool_call>"
-
-
-class TestToolCallFilter:
-    def test_plain_text_passes(self) -> None:
-        f = ToolCallFilter()
-        assert f.feed("olá") + f.flush() == "olá"
-        assert f.tool_call() is None
-
-    def test_call_split_across_chunks_is_hidden(self) -> None:
-        f = ToolCallFilter()
-        seen = "".join(f.feed(p) for p in ["antes <to", 'ol_call>{"tool":"x",', '"params":{}}</tool_', "call>"])
-        seen += f.flush()
-        assert seen == "antes "
-        assert f.tool_call() == ("x", {})
-
-    def test_lookalike_tag_is_released(self) -> None:
-        f = ToolCallFilter()
-        assert f.feed("a <to") + f.feed("do>") + f.flush() == "a <todo>"
-
-    def test_invalid_json_is_not_a_call(self) -> None:
-        f = ToolCallFilter()
-        f.feed("<tool_call>{nope</tool_call>")
-        assert f.tool_call() is None
+def call(tool: str, **params: Any) -> ModelTurn:
+    return use(tool, params)
 
 
 class TestChangeTracker:
@@ -189,7 +172,7 @@ class TestTurns:
         session = make_session(provider)
         await session.run_turn("primeira")
         await session.run_turn("segunda")
-        contents = [m.content for m in provider.requests[1].messages]
+        contents = [m.text for m in provider.requests[1].messages]
         assert "primeira" in contents
         assert "um" in contents
 
@@ -214,7 +197,7 @@ class TestTurns:
         await session.run_turn("edite")
         assert target.read_text() == "x = 1\n"
         assert "✖" in output(session)
-        assert "Plan mode" in provider.requests[0].messages[0].content
+        assert "Plan mode" in provider.requests[0].messages[0].text
 
     async def test_bash_needs_approval_in_accept_edits(self, make_session, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
         marker = tmp_path / "m"
@@ -275,7 +258,7 @@ class TestTurns:
         provider = ScriptedProvider(["ok"])
         session = make_session(provider)
         await session.run_turn("veja @n.txt")
-        assert "conteudo-unico" in provider.requests[0].messages[-1].content
+        assert "conteudo-unico" in provider.requests[0].messages[-1].text
 
 
 class TestOffline:
@@ -300,7 +283,7 @@ class TestContext:
         before = len(session.history)
         session.compact()
         assert len(session.history) < before
-        assert session.history[-1].content == "r5"
+        assert session.history[-1].text == "r5"
 
     async def test_branch_merge_keeps_only_checkpoint(self, make_session) -> None:  # type: ignore[no-untyped-def]
         session = make_session(ScriptedProvider(["base", "experimento"]))
@@ -308,7 +291,89 @@ class TestContext:
         session.create_branch("teste")
         await session.run_turn("ruido-da-branch")
         await session.merge_branch("deu certo")
-        contents = " ".join(m.content for m in session.history)
+        contents = " ".join(m.text for m in session.history)
         assert "ruido-da-branch" not in contents
         assert "Checkpoint" in contents
         assert session.branches.active_branch == "main"
+
+
+class TestStructuredLoop:
+    async def test_tools_and_system_are_sent_structured(self, make_session) -> None:  # type: ignore[no-untyped-def]
+        provider = ScriptedProvider(["oi"])
+        session = make_session(provider)
+        await session.run_turn("x")
+        request = provider.requests[0]
+        assert {"read_file", "edit_file", "run_command", "search_files"} <= {t.name for t in request.tools}
+        assert request.messages[0].role.value == "system"
+        assert "<tool_call>" not in request.messages[0].text
+
+    async def test_tool_use_and_result_stay_in_history(self, make_session, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+        (tmp_path / "a.txt").write_text("conteudo")
+        provider = ScriptedProvider([call("read_file", path=str(tmp_path / "a.txt")), "lido"])
+        session = make_session(provider)
+        await session.run_turn("leia")
+        kinds = [[b.type for b in m.blocks] for m in session.history]
+        assert kinds == [["text"], ["tool_use"], ["tool_result"], ["text"]]
+        # a volta seguinte ao modelo leva tool_use/tool_result reais, não texto
+        sent = provider.requests[1].messages
+        assert sent[-1].blocks[0].type == "tool_result"
+        assert sent[-1].blocks[0].tool_use_id == sent[-2].blocks[0].id
+
+    async def test_parallel_reads_render_one_card_each(self, make_session, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+        (tmp_path / "a.txt").write_text("1")
+        (tmp_path / "b.txt").write_text("2")
+        two = uses(
+            ("read_file", {"path": str(tmp_path / "a.txt")}),
+            ("read_file", {"path": str(tmp_path / "b.txt")}),
+        )
+        session = make_session(ScriptedProvider([two, "ok"]))
+        await session.run_turn("leia")
+        out = output(session)
+        assert out.count("✔ Read:") == 2
+        assert "a.txt" in out
+        assert "b.txt" in out
+
+    async def test_max_tokens_continues(self, make_session) -> None:  # type: ignore[no-untyped-def]
+        provider = ScriptedProvider([say("meio ", stop_reason="max_tokens"), "fim"])
+        session = make_session(provider)
+        assert await session.run_turn("x") == "meio fim"
+
+    async def test_cancel_keeps_a_valid_conversation(self, make_session, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+        import asyncio
+
+        from orion.runtime.provider import RuntimeResult
+
+        provider = ScriptedProvider([call("read_file", path="x"), "depois"])
+        session = make_session(provider)
+        started = asyncio.Event()
+
+        async def hang(tool: str, params: dict[str, Any]) -> RuntimeResult:
+            started.set()
+            await asyncio.sleep(60)
+            return RuntimeResult.ok("never")
+
+        session.runtime.execute = hang  # type: ignore[method-assign]
+        task = asyncio.create_task(session.run_turn("leia"))
+        await started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert session.status_bar.is_busy is False
+        last = session.history[-1]
+        assert last.blocks[0].type == "tool_result"
+        assert last.blocks[0].is_error
+
+    async def test_compact_handles_tool_turns(self, make_session, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+        (tmp_path / "a.txt").write_text("x")
+        replies: list[str | ModelTurn] = []
+        for i in range(6):
+            replies += [call("read_file", path=str(tmp_path / "a.txt")), f"r{i}"]
+        session = make_session(ScriptedProvider(replies))
+        for i in range(6):
+            await session.run_turn(f"p{i}")
+        session.compact()
+        assert session.history[-1].text == "r5"
+        # a cauda preservada começa num turno inteiro (sem tool_result órfão)
+        tail_first = session.history[2]
+        assert tail_first.role.value == "user"
+        assert tail_first.blocks[0].type != "tool_result"

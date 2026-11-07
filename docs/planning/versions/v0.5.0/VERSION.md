@@ -1,6 +1,6 @@
 # Spec — v0.5.0 Claude-Grade Agent (Paridade Claude Code)
 
-> **Status:** 🔄 Em Execução (Sprints 0–1 concluídas)  
+> **Status:** 🔄 Em Execução (Sprints 0–2 concluídas)  
 > **Criada em:** 2026-11-06  
 > **Concluída em:** —  
 > **Autor(es):** Daniel Dev & Claude (Pair Programming)  
@@ -51,7 +51,7 @@ A v0.4.0 entregou TUI, PEP, memória e MCP, mas **nunca validou um turno com pro
 | :--- | :--- | :--- | :--- | :--- |
 | **Sprint 0** | Higiene & Fundação | Fechar v0.4.0, corrigir docs, ADRs, baseline com provedor real | [`sprint-0.md`](sprints/sprint-0.md) | ✅ Concluída |
 | **Sprint 1** | Provider Anthropic Nativo | Messages API, content blocks, caching, retry em stream, failover | [`sprint-1.md`](sprints/sprint-1.md) | ✅ Implementada (live pendente) |
-| **Sprint 2** | Loop Agêntico Nativo | `tool_use` estruturado, schemas, tools paralelas, cancelamento | [`sprint-2.md`](sprints/sprint-2.md) | 📋 Planejando |
+| **Sprint 2** | Loop Agêntico Nativo | `tool_use` estruturado, schemas, tools paralelas, cancelamento | [`sprint-2.md`](sprints/sprint-2.md) | ✅ Implementada |
 | **Sprint 3** | Contexto, Sessões & Memória | Auto-compactação, resume/rewind, wiring de memória/skills, decision log | [`sprint-3.md`](sprints/sprint-3.md) | 📋 Planejando |
 | **Sprint 4** | Paridade de Ferramentas | Web, glob/grep, todo, ask_user, plan mode, bash em background; **portão de dogfooding** | [`sprint-4.md`](sprints/sprint-4.md) | 📋 Planejando |
 | **Sprint 5** | Extensibilidade & MCP Completo | Settings, regras, hooks, comandos custom, MCP HTTP/OAuth/resources/prompts | [`sprint-5.md`](sprints/sprint-5.md) | 📋 Planejando |
@@ -86,7 +86,7 @@ src/orion/
 | ID | Cenário | Comportamento Esperado | Como Validar | Status |
 |:---|:---|:---|:---|:---|
 | CA-01 | Turno real com Claude | Resposta em streaming, uso e cache contabilizados | `ORION_LIVE=1 pytest -m live` | ⏳ Pendente |
-| CA-02 | Tool use paralelo | Tools read-only executam em paralelo; mutantes em série e via PEP | `pytest tests/unit/test_engine_toolcalls.py` | ⏳ Pendente |
+| CA-02 | Tool use paralelo | Tools read-only executam em paralelo; mutantes em série e via PEP | `pytest tests/unit/test_engine_toolcalls.py` | ✅ |
 | CA-03 | Contexto longo | Auto-compactação a ~80% sem perder tarefa ativa | `pytest tests/unit/test_autocompact.py` | ⏳ Pendente |
 | CA-04 | Resume/Rewind | `--resume` restaura conversa; `/rewind` restaura conversa e arquivos | `pytest tests/unit/test_sessions.py` | ⏳ Pendente |
 | CA-05 | Portão de dogfooding | ORION corrige um bug real do repo, com teste e commit via PEP | roteiro manual documentado | ⏳ Pendente |

@@ -10,6 +10,8 @@ from __future__ import annotations
 from enum import IntEnum
 from pathlib import Path
 
+from orion.core.events import RiskLevel
+
 
 class ActionLevel(IntEnum):
     """Static risk classification for every registered tool.
@@ -39,6 +41,26 @@ TOOL_LEVELS: dict[str, ActionLevel] = {
     "edit_file": ActionLevel.LEVEL_2,
     "run_command": ActionLevel.LEVEL_3,
     "mcp_schema": ActionLevel.LEVEL_0,
+    # Cognitive & skills tools (v0.2.0)
+    "inspect_environment": ActionLevel.LEVEL_1,
+    "recall": ActionLevel.LEVEL_1,
+    "use_skill": ActionLevel.LEVEL_1,
+    "memorize": ActionLevel.LEVEL_2,
+    "deprecate_fact": ActionLevel.LEVEL_2,
+}
+
+# ActionLevel -> RiskLevel carried by Action events (single source of truth).
+_RISK_BY_LEVEL: dict[ActionLevel, RiskLevel] = {
+    ActionLevel.LEVEL_0: RiskLevel.SAFE,
+    ActionLevel.LEVEL_1: RiskLevel.SAFE,
+    ActionLevel.LEVEL_2: RiskLevel.CONTROLLED,
+    ActionLevel.LEVEL_3: RiskLevel.CRITICAL,
+}
+_LEVEL_BY_RISK: dict[RiskLevel, ActionLevel] = {
+    RiskLevel.SAFE: ActionLevel.LEVEL_1,
+    RiskLevel.CONTROLLED: ActionLevel.LEVEL_2,
+    RiskLevel.ELEVATED: ActionLevel.LEVEL_3,
+    RiskLevel.CRITICAL: ActionLevel.LEVEL_3,
 }
 
 
@@ -73,6 +95,21 @@ def tool_action_level(tool_name: str) -> ActionLevel:
     if tool_name in TOOL_LEVELS:
         return TOOL_LEVELS[tool_name]
     return _DYNAMIC_LEVELS.get(tool_name, ActionLevel.LEVEL_3)
+
+
+def tool_risk_level(tool_name: str) -> RiskLevel:
+    """RiskLevel of *tool_name*, derived from its ActionLevel (unknown => CRITICAL)."""
+    return _RISK_BY_LEVEL[tool_action_level(tool_name)]
+
+
+def risk_to_action_level(risk: RiskLevel) -> ActionLevel:
+    """Map an explicit RiskLevel (tool registration hint) to an ActionLevel."""
+    return _LEVEL_BY_RISK[risk]
+
+
+def is_read_only_tool(tool_name: str) -> bool:
+    """True if *tool_name* has no side effects (LEVEL_0/1) and may run in parallel."""
+    return tool_action_level(tool_name) <= ActionLevel.LEVEL_1
 
 
 class WorkspaceScope:

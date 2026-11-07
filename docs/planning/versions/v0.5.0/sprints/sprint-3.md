@@ -42,6 +42,8 @@
 - [ ] Ligar `HybridRetriever`, `skills_engine`, `ManifestGenerator`, `EnvironmentMonitor`, `FileSyncer`.
 - [ ] Sessões persistentes + `/resume`, `/rewind` (conversa e arquivos).
 - [ ] Decision log (`record_decision`) com fato CONFIRMED e arquivo em `.orion/decisions/`.
+- [ ] **Tool calling nativo nos providers legados (herdado da Sprint 2):** `OpenRouter` e `Ollama` passam a enviar `tools`/`tool_choice` (formato OpenAI), a montar `tool_use` a partir de `delta.tool_calls` e a converter `tool_use`/`tool_result` do histórico; o failover Anthropic -> OpenRouter -> Ollama preserva tools e histórico estruturado em vez de achatar para texto. Modelos locais sem suporte a tools degradam para texto com aviso explícito.
+- [ ] Remover `mcp_schema` (redundante desde a Sprint 2: tools MCP já levam o schema completo).
 
 ### 🚫 Fora de Escopo
 - Daemon e sessão compartilhada entre clientes (Sprint 7).
@@ -52,10 +54,12 @@
 
 ```
 src/orion/timeline/compactor.py          [mod]
+src/orion/gateway/providers/{openrouter,local_ollama}.py [mod]  tool calling nativo
+src/orion/gateway/failover.py            [mod]  preservar tools no failover
 src/orion/sessions/{store,transcript}.py [novo]
 src/orion/memory/{tools,hybrid_retriever}.py [mod]
 src/orion/tui/{session.py,commands/*}    [mod]
-tests/unit/test_autocompact.py, test_sessions.py, test_decisions.py
+tests/unit/test_autocompact.py, test_sessions.py, test_decisions.py, test_legacy_tool_calling.py
 ```
 
 ---
@@ -87,6 +91,7 @@ class SessionStore(Protocol):
 - Compactação sob carga preserva tarefa ativa e arquivos relevantes.
 - Resume reproduz fielmente; rewind restaura conversa e arquivos.
 - Recall vetorial entra no turno dentro do orçamento de 1500 tokens.
+- Roteiro com `tool_use` paralelo funciona via OpenRouter e Ollama falsos (servidor HTTP simulado) e atravessa um failover sem perder `tool_result`.
 - [ ] mypy/ruff limpos; cobertura ≥ 85%; `.claudex/progress.md` atualizado.
 
 ---

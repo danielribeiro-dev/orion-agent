@@ -61,6 +61,22 @@ class SearchFilesTool(BaseTool):
     """Glob files and grep content with automatic noise exclusion."""
 
     name = "search_files"
+    description = (
+        "Find files by glob pattern (mode=glob) or search file contents with a regex (mode=grep)."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Root directory (default: current)."},
+            "pattern": {"type": "string", "description": "Glob for file names, e.g. '*.py'."},
+            "mode": {"type": "string", "enum": ["glob", "grep"]},
+            "regex": {"type": "string", "description": "Regex searched inside files (grep mode)."},
+            "case_sensitive": {"type": "boolean"},
+            "max_results": {"type": "integer", "minimum": 1},
+            "include_hidden": {"type": "boolean"},
+        },
+    }
+    read_only = True
 
     async def run(
         self,

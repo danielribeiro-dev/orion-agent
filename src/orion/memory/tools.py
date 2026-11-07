@@ -55,6 +55,26 @@ class MemorizeTool:
     """
 
     TOOL_NAME = "memorize"
+    name = TOOL_NAME
+    description = (
+        "Persist a durable fact (user preference, project architecture, coding standard, "
+        "infrastructure) to long-term memory. Facts must be stable and worth remembering."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "key": {"type": "string", "description": "Unique snake_case identifier."},
+            "value": {"type": "string"},
+            "category": {
+                "type": "string",
+                "enum": ["USER_PREFERENCE", "PROJECT_ARCHITECTURE", "CODING_STANDARD", "INFRASTRUCTURE"],
+            },
+            "status": {"type": "string", "enum": ["CONFIRMED", "INFERRED"]},
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            "source": {"type": "string"},
+        },
+        "required": ["key", "value", "category"],
+    }
 
     def __init__(self, facts_store: FactsStore) -> None:
         self._store = facts_store
@@ -136,6 +156,17 @@ class RecallTool:
     """
 
     TOOL_NAME = "recall"
+    name = TOOL_NAME
+    description = "Search long-term memory (facts and past events) for information relevant to a query."
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "What to look for."},
+            "limit": {"type": "integer", "minimum": 1},
+        },
+        "required": ["query"],
+    }
+    read_only = True
 
     def __init__(
         self,
@@ -233,6 +264,13 @@ class DeprecateFactTool:
     """
 
     TOOL_NAME = "deprecate_fact"
+    name = TOOL_NAME
+    description = "Mark an obsolete fact as DEPRECATED so it is no longer used."
+    input_schema = {
+        "type": "object",
+        "properties": {"key": {"type": "string", "description": "Fact key to deprecate."}},
+        "required": ["key"],
+    }
 
     def __init__(self, facts_store: FactsStore) -> None:
         self._store = facts_store
@@ -278,6 +316,10 @@ class InspectEnvironmentTool:
     """
 
     TOOL_NAME = "inspect_environment"
+    name = TOOL_NAME
+    description = "Snapshot the machine's RAM, CPU load, display and GPU."
+    input_schema = {"type": "object", "properties": {}}
+    read_only = True
 
     def __init__(self, monitor: Any | None = None) -> None:
         if monitor is None:

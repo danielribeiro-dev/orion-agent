@@ -31,6 +31,20 @@ class WriteFileTool(BaseTool):
     """Write content to a file atomically (tempfile + os.replace)."""
 
     name = "write_file"
+    description = (
+        "Create a file, or replace/append to it, with the given UTF-8 content. "
+        "Existing files require overwrite=true. Prefer edit_file for small changes."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Target file path."},
+            "content": {"type": "string", "description": "Full content to write."},
+            "overwrite": {"type": "boolean", "description": "Allow replacing an existing file."},
+            "append": {"type": "boolean", "description": "Append instead of replacing."},
+        },
+        "required": ["path", "content"],
+    }
 
     async def run(
         self,

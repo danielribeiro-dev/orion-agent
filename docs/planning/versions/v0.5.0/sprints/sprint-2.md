@@ -1,10 +1,10 @@
 # Sprint — v0.5.0 Sprint 2: Loop Agêntico Nativo
 
-> **Status:** 📋 Planejando  
+> **Status:** ✅ Implementada  
 > **Versão Relacionada:** v0.5.0  
 > **Responsável / Agente:** Daniel Dev & Claude  
-> **Data de Início:** —  
-> **Data de Conclusão:** —  
+> **Data de Início:** 2026-11-06  
+> **Data de Conclusão:** 2026-11-06  
 
 ---
 
@@ -37,12 +37,12 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo
-- [ ] `BaseTool.input_schema` + validação antes de executar; erro de validação volta como `tool_result` com `is_error`.
-- [ ] Engine reescrito (FSM mantida): `stop_reason` (`end_turn`, `tool_use`, `max_tokens` com continuação, `refusal`).
-- [ ] Execução paralela de tools somente leitura.
-- [ ] Cancelamento (Esc/Ctrl+C) com `tool_result` sintético "cancelado".
-- [ ] Remoção de `TOOL_PROTOCOL`/`ToolCallFilter`; renderer consome eventos tipados.
-- [ ] Manter limite de turnos, anti-injection, auditoria, `ChangeTracker`/`/undo`.
+- [x] `BaseTool.input_schema` + validação antes de executar; erro de validação volta como `tool_result` com `is_error`.
+- [x] Engine reescrito (FSM mantida): `stop_reason` (`end_turn`, `tool_use`, `max_tokens` com continuação, `refusal`).
+- [x] Execução paralela de tools somente leitura.
+- [x] Cancelamento (Esc/Ctrl+C) com `tool_result` sintético "cancelado".
+- [x] Remoção de `TOOL_PROTOCOL`/`ToolCallFilter`; renderer consome eventos tipados.
+- [x] Manter limite de turnos, anti-injection, auditoria, `ChangeTracker`/`/undo`.
 
 ### 🚫 Fora de Escopo
 - Novas tools (Sprint 4), subagents (Sprint 6).
@@ -88,7 +88,7 @@ class BaseTool(ABC):
 
 - Roteiros: múltiplas tools, tool inválida, params inválidos, cancelamento, `max_tokens`.
 - Toda a suíte de segurança e2e passa; nenhuma tool executa fora do PEP.
-- [ ] mypy/ruff limpos; cobertura ≥ 85%; `.claudex/progress.md` atualizado.
+- [x] mypy/ruff limpos; cobertura ≥ 85%; `.claudex/progress.md` atualizado.
 
 ---
 

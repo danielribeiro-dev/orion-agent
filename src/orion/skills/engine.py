@@ -57,6 +57,14 @@ class UseSkillTool:
     """
 
     TOOL_NAME = "use_skill"
+    name = TOOL_NAME
+    description = "Load the full instructions of a listed skill before applying it."
+    input_schema = {
+        "type": "object",
+        "properties": {"skill_name": {"type": "string", "description": "Name of the skill to load."}},
+        "required": ["skill_name"],
+    }
+    read_only = True
 
     def __init__(self, skills: dict[str, SkillBundle]) -> None:
         self._skills = skills

@@ -36,6 +36,7 @@ from orion.governance.audit import AuditLogger
 from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint
 from orion.governance.permissions import WorkspaceScope
 from orion.runtime.local_provider import LocalRuntimeProvider
+from tests.llm_script import legacy
 
 # ---------------------------------------------------------------------------
 # Fixtures compartilhados
@@ -96,22 +97,12 @@ def artifact_store(tmp_path: Path) -> ArtifactStore:
 
 def _llm_final(answer: str):
     """Stub LLM que responde imediatamente com uma FinalAnswer."""
-    async def _llm(_prompt: str):
-        return ("final_answer", answer)
-    return _llm
+    return legacy(("final_answer", answer))
 
 
 def _llm_sequence(*responses):
     """Stub LLM que emite respostas em sequência (tool_calls + final)."""
-    call_count = 0
-
-    async def _llm(_prompt: str):
-        nonlocal call_count
-        resp = responses[min(call_count, len(responses) - 1)]
-        call_count += 1
-        return resp
-
-    return _llm
+    return legacy(*responses)
 
 
 # ---------------------------------------------------------------------------
@@ -358,8 +349,7 @@ async def test_e2e_turn_budget_exceeded(bus: EventBus, runtime: LocalRuntimeProv
 
     bus.subscribe_handler(TurnCompleted, _on_turn_completed)
 
-    async def _llm_infinite(_prompt: str):
-        return ("tool_call", "run_command", {"command": "echo loop"}, RiskLevel.CRITICAL, None)
+    _llm_infinite = legacy(("tool_call", "run_command", {"command": "echo loop"}, RiskLevel.CRITICAL, None))
 
     engine = ReActEngine(
         event_bus=bus,
@@ -541,49 +531,35 @@ async def test_e2e_search_files(
 
 
 # ---------------------------------------------------------------------------
-# TC-E2E-10: Token accounting — Prompt assembly contém delimitadores corretos
+# TC-E2E-10: Conversa estruturada — system delimitado e saída de tool delimitada
 # ---------------------------------------------------------------------------
 
 
-def test_e2e_prompt_assembly_delimiters():
-    """Verifica que o prompt montado contém todos os delimitadores formais."""
+@pytest.mark.asyncio
+async def test_e2e_structured_conversation_delimiters(
+    bus: EventBus, runtime: LocalRuntimeProvider, workspace: Path
+):
+    """System leva delimitadores; tool_result volta delimitado e o pedido do usuário fica intacto."""
     from orion.core.engine import (
-        DELIM_CONTEXT_END,
-        DELIM_CONTEXT_START,
         DELIM_SYSTEM_END,
         DELIM_SYSTEM_START,
         DELIM_TOOL_END,
         DELIM_TOOL_START,
-        DELIM_USER_END,
-        DELIM_USER_START,
     )
+    from tests.llm_script import ScriptedLLM, say, tool_results, use
 
-    bus = EventBus()
-    engine = ReActEngine(
-        event_bus=bus,
-        llm=_llm_final("ok"),
-        max_turns=5,
-    )
+    target = workspace / "x.txt"
+    target.write_text("resultado da ferramenta", encoding="utf-8")
+    llm = ScriptedLLM(use("read_file", {"path": str(target)}), say("ok"))
+    engine = ReActEngine(event_bus=bus, llm=llm, max_turns=5, runtime=runtime)
 
-    # Turno 0 sem observações
-    prompt_0 = engine._assemble_prompt("Qual o status?", 0)
-    assert DELIM_SYSTEM_START in prompt_0
-    assert DELIM_SYSTEM_END in prompt_0
-    assert DELIM_USER_START in prompt_0
-    assert DELIM_USER_END in prompt_0
-    assert "Qual o status?" in prompt_0
-    # Sem observações — bloco de contexto não deve aparecer
-    assert DELIM_CONTEXT_START not in prompt_0
+    await engine.run("Qual o status?")
 
-    # Injeta uma observação manualmente para testar o bloco de contexto
-    engine._observations.append(
-        Observation(action_id="test-id-001", success=True, output="resultado da ferramenta")
-    )
-
-    prompt_1 = engine._assemble_prompt("Qual o status?", 1)
-    assert DELIM_CONTEXT_START in prompt_1
-    assert DELIM_CONTEXT_END in prompt_1
-    assert DELIM_TOOL_START in prompt_1
-    assert DELIM_TOOL_END in prompt_1
-    assert "resultado da ferramenta" in prompt_1
-    assert "4 turns remaining" in prompt_1  # max_turns(5) - turn_index(1)
+    assert DELIM_SYSTEM_START in llm.systems[0]
+    assert DELIM_SYSTEM_END in llm.systems[0]
+    assert llm.requests[0][-1].content == "Qual o status?"
+    result = tool_results(llm.requests[1][-1])[0]
+    assert isinstance(result.content, str)
+    assert DELIM_TOOL_START in result.content
+    assert DELIM_TOOL_END in result.content
+    assert "resultado da ferramenta" in result.content

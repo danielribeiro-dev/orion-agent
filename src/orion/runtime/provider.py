@@ -14,6 +14,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from orion.gateway.models import ToolSpec
+
 
 @dataclass(frozen=True)
 class RuntimeResult:
@@ -66,3 +68,11 @@ class BaseRuntimeProvider(ABC):
     def supports(self, tool: str) -> bool:
         """Return True if this provider knows how to handle *tool*."""
         ...
+
+    def is_read_only(self, tool: str) -> bool:
+        """True if *tool* has no side effects (safe to run in parallel)."""
+        return False
+
+    def tool_specs(self) -> list[ToolSpec]:
+        """Tool definitions (name, description, JSON schema) exposed to the model."""
+        return []

@@ -35,6 +35,20 @@ class RunCommandTool(BaseTool):
     """Execute an arbitrary shell command asynchronously."""
 
     name = "run_command"
+    description = (
+        "Run a shell command and return stdout/stderr and the exit code. "
+        "Requires user approval. Prefer dedicated tools for reading and editing files."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "command": {"type": "string", "description": "Shell command to execute."},
+            "timeout": {"type": "number", "exclusiveMinimum": 0, "description": "Seconds before the process is killed."},
+            "cwd": {"type": "string", "description": "Working directory."},
+            "env": {"type": "object", "additionalProperties": {"type": "string"}},
+        },
+        "required": ["command"],
+    }
 
     async def run(
         self,

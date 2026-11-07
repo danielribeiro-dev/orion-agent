@@ -162,8 +162,15 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
   - [x] `gateway/failover.py` (Anthropic -> OpenRouter -> Ollama; downgrade só com `ORION_ALLOW_DOWNGRADE=1`), breaker ligado à `AgentSession` e ao PEP, `gateway/credentials.py` + `/doctor`
   - [x] Testes: `test_anthropic_provider.py`, `test_failover.py`; live opt-in `test_anthropic_live.py` (`ORION_LIVE=1 pytest -m live`) — NÃO executado (sem chave)
   - Decisões: erro no meio do stream não reinicia (vira `StreamInterruptedError`); `temperature` nunca enviada; `tool_choice` forçado vira `auto` em Fable 5.1/Opus 5.5/Sonnet 5.5; slug OpenRouter `anthropic/<id>` NÃO verificado
-- [ ] Sprint 2: Loop Agêntico Nativo (tool_use estruturado)
-- [ ] Sprint 3: Contexto, Sessões & Memória
+- [x] **Sprint 2: Loop Agêntico Nativo** ✅ IMPLEMENTADA (2026-11-06; commit pendente)
+  - [x] `BaseTool` com `name/description/input_schema/read_only`; schemas nas 5 tools primitivas, `memorize/recall/deprecate_fact/inspect_environment`, `use_skill`, `mcp_schema` e adaptadores MCP (schema do servidor); `jsonschema` declarado em `pyproject.toml`
+  - [x] `LocalRuntimeProvider.validate_params/tool_specs/is_read_only`: params inválidos voltam como `tool_result` com `is_error`, antes do PEP e sem executar
+  - [x] Fonte única de risco em `governance/permissions.py` (`tool_risk_level`, `is_read_only_tool`, `risk_to_action_level`); `_RISK_MAP` removido. Tools cognitivas ganharam nível PEP explícito (recall/inspect/use_skill = LEVEL_1; memorize/deprecate_fact = LEVEL_2) — antes caíam no default LEVEL_3
+  - [x] `core/engine.py` reescrito: `ModelTurn`, `stop_reason` (`tool_use`, `max_tokens` com até 3 continuações, `refusal`, `end_turn`), tools read-only consecutivas em paralelo e mutantes em série (mutante é barreira), cancelamento fecha `tool_use` pendente com `tool_result` sintético, saída de tool delimitada e delimitadores forjados desarmados; system prompt estável (sem contador de turnos) para cache
+  - [x] `AgentSession`: `TOOL_PROTOCOL`/`ToolCallFilter` removidos; `_llm` devolve `ModelTurn` a partir dos chunks tipados; histórico guarda `tool_use`/`tool_result` reais (preservado no cancelamento); `compact()` agrupa por turno; `max_tokens` 16k no Anthropic; renderer com cards paralelos (chave = action_id)
+  - [x] Testes: `test_engine_toolcalls.py`, `test_tool_schemas.py`, helper `tests/llm_script.py`; suítes antigas migradas para o novo contrato do LLM (stub `(prompt)->tuple` virou `ScriptedLLM`)
+  - Limitação conhecida: OpenRouter/Ollama (e o destino de failover) ainda não recebem `tools`: respondem só texto até serem portados para tool calling nativo (movido para o escopo da Sprint 3). `mcp_schema` segue registrada, mas redundante (as tools MCP agora levam o schema completo)
+- [ ] Sprint 3: Contexto, Sessões & Memória (+ tool calling nativo em OpenRouter/Ollama)
 - [ ] Sprint 4: Paridade de Ferramentas (portão de dogfooding)
 - [ ] Sprint 5: Extensibilidade & MCP Completo
 - [ ] Sprint 6: Subagents & Tasks

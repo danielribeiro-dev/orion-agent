@@ -67,6 +67,7 @@ from orion.runtime.tools.read_file import ReadFileTool
 from orion.runtime.tools.run_command import RunCommandTool
 from orion.runtime.tools.search_files import SearchFilesTool
 from orion.runtime.tools.write_file import WriteFileTool
+from tests.llm_script import ScriptedLLM, say, tool_results, use
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -537,22 +538,14 @@ class TestEngineWithRuntime:
     async def test_engine_dispatches_tool_call_to_runtime(
         self, runtime: LocalRuntimeProvider
     ) -> None:
-        """Engine should route tool_call response through the real runtime."""
-        call_count = 0
-
-        async def llm(prompt: str):
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return ("tool_call", "run_command", {"command": "echo engine_test"}, 3, None)
-            return ("final_answer", "done")
-
-        bus = EventBus()
-        engine = ReActEngine(event_bus=bus, llm=llm, runtime=runtime)
+        """Engine should route tool_use blocks through the real runtime."""
+        llm = ScriptedLLM(use("run_command", {"command": "echo engine_test"}), say("done"))
+        engine = ReActEngine(event_bus=EventBus(), llm=llm, runtime=runtime)
         answer = await engine.run("run echo please")
         assert answer == "done"
-        # Verify we went through 2 turns (tool_call + final_answer)
-        assert call_count == 2
+        # 2 chamadas ao modelo (tool_use + resposta final)
+        assert len(llm.requests) == 2
+        assert "engine_test" in str(tool_results(llm.requests[1][-1])[0].content)
 
     @pytest.mark.asyncio
     async def test_engine_observation_reflects_real_output(
@@ -560,19 +553,16 @@ class TestEngineWithRuntime:
     ) -> None:
         """The Observation output should contain actual shell output."""
         observations: list[Observation] = []
-
-        async def llm(prompt: str):
-            # Turn 1: emit tool_call
-            if not observations:
-                return ("tool_call", "run_command", {"command": "echo REAL_OUTPUT"}, 3, None)
-            return ("final_answer", observations[-1].output)
-
         bus = EventBus()
 
         @bus.subscribe(Observation)
         async def capture_obs(event) -> None:
             observations.append(event)
 
+        llm = ScriptedLLM(
+            use("run_command", {"command": "echo REAL_OUTPUT"}),
+            lambda _messages: say(observations[-1].output),
+        )
         engine = ReActEngine(event_bus=bus, llm=llm, runtime=runtime)
         answer = await engine.run("test")
         assert "REAL_OUTPUT" in answer
@@ -580,11 +570,7 @@ class TestEngineWithRuntime:
     @pytest.mark.asyncio
     async def test_engine_without_runtime_uses_stub(self) -> None:
         """When runtime=None, the engine should still work using the stub."""
-        async def llm(prompt: str):
-            return ("final_answer", "stub_answer")
-
-        bus = EventBus()
-        engine = ReActEngine(event_bus=bus, llm=llm)
+        engine = ReActEngine(event_bus=EventBus(), llm=ScriptedLLM(say("stub_answer")))
         answer = await engine.run("hello")
         assert answer == "stub_answer"
 

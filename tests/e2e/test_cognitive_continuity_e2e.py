@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from orion.core.engine import LLMResponse, ReActEngine
+from orion.core.engine import ReActEngine
 from orion.core.event_bus import EventBus
 from orion.core.identity import IdentityManager
 from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint
@@ -31,6 +31,7 @@ from orion.runtime.local_provider import LocalRuntimeProvider
 from orion.skills.engine import SkillsEngine
 from orion.skills.loader import SkillsLoader
 from orion.timeline.compactor import ContextCompactor, TurnData
+from tests.llm_script import ScriptedLLM, say, use
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -123,12 +124,9 @@ class TestCognitiveContinuityE2E:
         )
 
         # Sequência planejada de respostas do LLM stub
-        scripted_responses: list[LLMResponse] = [
-            # Turno 0: Inspecionar ambiente
-            ("tool_call", "inspect_environment", {}),
-            # Turno 1: Memorizar decisão arquitetural confirmada
-            (
-                "tool_call",
+        scripted_llm = ScriptedLLM(
+            use("inspect_environment", {}),
+            use(
                 "memorize",
                 {
                     "key": "primary_database",
@@ -138,29 +136,10 @@ class TestCognitiveContinuityE2E:
                     "source": "user",
                 },
             ),
-            # Turno 2: Ativar skill de diagnóstico
-            ("tool_call", "use_skill", {"skill_name": "system-doctor"}),
-            # Turno 3: Fazer recall da regra
-            ("tool_call", "recall", {"query": "primary_database"}),
-            # Turno 4: Finalizar resposta
-            ("final_answer", "Ambiente auditado, regra gravada e skill carregada com sucesso, Senhor."),
-        ]
-
-        turn_counter = 0
-
-        async def scripted_llm(prompt: str) -> LLMResponse:
-            nonlocal turn_counter
-            # Validação no prompt do Turno 0
-            if turn_counter == 0:
-                assert "Daniel Ribeiro" in prompt
-                assert "Jarvis" in prompt
-                assert "<COGNITIVE_MANIFEST>" in prompt
-                assert "<AVAILABLE_SKILLS>" in prompt
-                assert "system-doctor" in prompt
-
-            resp = scripted_responses[turn_counter]
-            turn_counter += 1
-            return resp
+            use("use_skill", {"skill_name": "system-doctor"}),
+            use("recall", {"query": "primary_database"}),
+            say("Ambiente auditado, regra gravada e skill carregada com sucesso, Senhor."),
+        )
 
         engine = ReActEngine(
             event_bus=bus,
@@ -176,7 +155,16 @@ class TestCognitiveContinuityE2E:
 
         assert "Senhor" in final_result
         assert "sucesso" in final_result
-        assert turn_counter == 5
+        assert len(scripted_llm.requests) == 5
+        system = scripted_llm.systems[0]
+        assert "Daniel Ribeiro" in system
+        assert "Jarvis" in system
+        assert "<COGNITIVE_MANIFEST>" in system
+        assert "<AVAILABLE_SKILLS>" in system
+        assert "system-doctor" in system
+        assert {"memorize", "recall", "use_skill", "inspect_environment"} <= {
+            t.name for t in scripted_llm.tools[0]
+        }
 
         # Verificação do estado persistido no FactsStore
         saved_fact = facts_store.get("primary_database")
@@ -225,10 +213,9 @@ class TestCognitiveContinuityE2E:
             environment_monitor=env_monitor,
         )
 
-        scripted_responses: list[LLMResponse] = [
+        scripted_llm = ScriptedLLM(
             # O modelo tenta inferir e sobrescrever uma regra confirmada
-            (
-                "tool_call",
+            use(
                 "memorize",
                 {
                     "key": "security_rule",
@@ -237,15 +224,8 @@ class TestCognitiveContinuityE2E:
                     "status": "INFERRED",
                 },
             ),
-            ("final_answer", "Tentativa concluída."),
-        ]
-        turn_counter = 0
-
-        async def scripted_llm(_prompt: str) -> LLMResponse:
-            nonlocal turn_counter
-            resp = scripted_responses[turn_counter]
-            turn_counter += 1
-            return resp
+            say("Tentativa concluída."),
+        )
 
         engine = ReActEngine(
             event_bus=EventBus(),

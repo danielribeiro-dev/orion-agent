@@ -38,6 +38,19 @@ class EditFileTool(BaseTool):
     """Surgical exact-block replacement in a file."""
 
     name = "edit_file"
+    description = (
+        "Replace an exact string in a file. `target` must appear exactly once; "
+        "include enough surrounding context to make it unique."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string", "description": "Target file path."},
+            "target": {"type": "string", "description": "Exact text to replace (must be unique)."},
+            "replacement": {"type": "string", "description": "Replacement text."},
+        },
+        "required": ["path", "target"],
+    }
 
     async def run(
         self,
