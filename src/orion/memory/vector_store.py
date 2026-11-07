@@ -17,7 +17,7 @@ import json
 import struct
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import aiosqlite
 import numpy as np
@@ -92,8 +92,8 @@ class VectorStore:
 
     def __init__(self, db_path: Path = _DEFAULT_DB_PATH) -> None:
         self._db_path = db_path
-        self._conn: Optional[aiosqlite.Connection] = None
-        self._model: Optional[Any] = None  # fastembed.TextEmbedding (lazy loaded)
+        self._conn: aiosqlite.Connection | None = None
+        self._model: Any | None = None  # fastembed.TextEmbedding (lazy loaded)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -128,7 +128,7 @@ class VectorStore:
     async def add(
         self,
         text: str,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> VectorRecord:
         """
         Add a text chunk to the vector store.
@@ -249,7 +249,7 @@ class VectorStore:
         embeddings = list(model.embed([text]))
         return np.array(embeddings[0], dtype=np.float32)
 
-    async def _find_duplicate(self, embedding: np.ndarray) -> Optional[VectorRecord]:
+    async def _find_duplicate(self, embedding: np.ndarray) -> VectorRecord | None:
         """
         Check if any existing vector has cosine_sim >= 0.92 with *embedding*.
         Returns the most similar existing VectorRecord, or None.

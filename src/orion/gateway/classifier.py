@@ -17,7 +17,6 @@ from dataclasses import dataclass, field
 
 from orion.gateway.models import ComplexityTier, LLMMessage
 
-
 # ---------------------------------------------------------------------------
 # Sinais de Complexidade
 # ---------------------------------------------------------------------------

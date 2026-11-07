@@ -9,7 +9,7 @@ with ORION-specific fields for dual-storage routing and lifecycle tracking.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
@@ -39,7 +39,7 @@ class ArtifactMetadata(BaseModel):
     artifact_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     session_id: str = Field(description="ID of the engine session that created this artifact.")
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
 
     # Content descriptors

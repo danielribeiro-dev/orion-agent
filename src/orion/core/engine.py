@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from collections.abc import AsyncIterator, Callable, Coroutine
+from collections.abc import Callable, Coroutine
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:

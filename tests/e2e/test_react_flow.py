@@ -14,7 +14,6 @@ Todos os testes rodam com:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -24,7 +23,6 @@ from orion.core.engine import ReActEngine
 from orion.core.errors import TurnBudgetExceeded
 from orion.core.event_bus import EventBus
 from orion.core.events import (
-    Action,
     ActionEmitted,
     FinalAnswer,
     Observation,
@@ -38,7 +36,6 @@ from orion.governance.audit import AuditLogger
 from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint
 from orion.governance.permissions import WorkspaceScope
 from orion.runtime.local_provider import LocalRuntimeProvider
-
 
 # ---------------------------------------------------------------------------
 # Fixtures compartilhados

@@ -19,11 +19,8 @@ Coverage:
 
 from __future__ import annotations
 
-import asyncio
 import json
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -35,7 +32,6 @@ from orion.governance.permissions import (
     WorkspaceScope,
     tool_action_level,
 )
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures
@@ -542,8 +538,9 @@ async def test_pep_nuclear_gate_blocks_destructive_in_fully_auto(
 ) -> None:
     """Even in FULLY_AUTO mode, a NUCLEAR_DESTRUCTIVE command triggers OS authentication.
     If auth is denied, PEP raises ActionDenied."""
-    from orion.governance.nuclear import BlastRadius, NuclearChallengeResult, NuclearSafetyGate
     from unittest.mock import patch
+
+    from orion.governance.nuclear import BlastRadius, NuclearChallengeResult, NuclearSafetyGate
 
     workspace = WorkspaceScope(roots=[tmp_path])
     nuclear_gate = NuclearSafetyGate()
@@ -574,8 +571,9 @@ async def test_pep_nuclear_gate_allows_destructive_when_authenticated(
     tmp_path: Path, audit: AuditLogger
 ) -> None:
     """If user authenticates in OS challenge, nuclear command proceeds."""
-    from orion.governance.nuclear import BlastRadius, NuclearChallengeResult, NuclearSafetyGate
     from unittest.mock import patch
+
+    from orion.governance.nuclear import BlastRadius, NuclearChallengeResult, NuclearSafetyGate
 
     workspace = WorkspaceScope(roots=[tmp_path])
     nuclear_gate = NuclearSafetyGate()

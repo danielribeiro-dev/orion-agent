@@ -12,8 +12,8 @@ Covers:
 
 from __future__ import annotations
 
-import json
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 from orion.gateway.models import (
@@ -28,7 +28,6 @@ from orion.gateway.providers.local_ollama import (
     OllamaModelNotFoundError,
     OllamaUnavailableError,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

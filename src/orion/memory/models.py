@@ -14,10 +14,9 @@ import re
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
-
 
 # ---------------------------------------------------------------------------
 # Sprint 1 — Lexical / Episodic Layer
@@ -33,7 +32,7 @@ class TimelineRecord(BaseModel):
     event_type: str  # "action" | "observation" | "thinking" | "system" | "day_marker"
     source: str  # "agent" | "user" | "tool" | "system"
     content: str
-    bm25_rank: Optional[float] = None
+    bm25_rank: float | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -42,7 +41,7 @@ class DayMarkerRecord(BaseModel):
 
     date_str: str  # "YYYY-MM-DD"
     created_at: datetime
-    summary: Optional[str] = None
+    summary: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -56,7 +55,7 @@ class VectorRecord(BaseModel):
     id: int
     text: str
     embedding_dim: int
-    cosine_score: Optional[float] = None  # populated during search
+    cosine_score: float | None = None  # populated during search
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_seen_at: datetime = Field(default_factory=datetime.utcnow)
@@ -109,7 +108,7 @@ class UserProfile(BaseModel):
     name: str = "Daniel"
     call_sign: str = "Senhor"  # Preferred form of address
     tool_mastery: dict[str, ToolMasteryLevel] = Field(default_factory=dict)
-    telegram_chat_id: Optional[int] = None
+    telegram_chat_id: int | None = None
     inactivity_timeout_seconds: int = 180  # Trigger for remote HITL escalation
 
 
@@ -138,14 +137,14 @@ class EnvironmentTelemetry(BaseModel):
     ram_total_gb: float
     cpu_load_percent: float
     display_mode: str  # "wayland" | "x11" | "headless"
-    gpu_name: Optional[str] = None
+    gpu_name: str | None = None
     headroom_safe: bool  # True when ram_free_gb >= 1.5
 
 
 class FactEntry(BaseModel):
     """Sphere 4 — project_decisions: a typed, anti-poisoned structured fact / ADR."""
 
-    id: Optional[int] = None
+    id: int | None = None
     key: str  # Unique identifier for the fact (e.g., "python_version", "db_engine")
     value: str
     category: FactCategory
@@ -164,10 +163,10 @@ class CognitiveManifest(BaseModel):
 
     user_name: str
     call_sign: str
-    active_project: Optional[str]
+    active_project: str | None
     top_facts_count: int
     timeline_event_count: int
-    last_session_date: Optional[str]  # "YYYY-MM-DD"
+    last_session_date: str | None  # "YYYY-MM-DD"
     available_skills_count: int
 
     def to_xml_block(self) -> str:
@@ -195,9 +194,9 @@ class SkillMetadata(BaseModel):
 
     name: str = Field(..., max_length=64)
     description: str = Field(..., max_length=1024)
-    license: Optional[str] = None
-    compatibility: Optional[str] = None
-    allowed_tools: Optional[list[str]] = None
+    license: str | None = None
+    compatibility: str | None = None
+    allowed_tools: list[str] | None = None
 
     @field_validator("name")
     @classmethod
@@ -215,7 +214,7 @@ class SkillBundle(BaseModel):
     metadata: SkillMetadata
     skill_path: Path
     source: str  # "workspace" | "global" | "builtin"
-    full_content: Optional[str] = None  # None until explicitly loaded via use_skill
+    full_content: str | None = None  # None until explicitly loaded via use_skill
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -233,4 +232,4 @@ class CompactionResult(BaseModel):
     preserved_tail_turns: int
     active_files: list[str]
     tokens_saved: int
-    focus: Optional[str] = None  # Directional focus passed to /compact <focus>
+    focus: str | None = None  # Directional focus passed to /compact <focus>

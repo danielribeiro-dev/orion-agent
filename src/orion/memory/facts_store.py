@@ -24,7 +24,6 @@ import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from orion.memory.models import FactCategory, FactEntry, FactStatus
 
@@ -229,7 +228,7 @@ class FactsStore:
     # Read operations
     # ------------------------------------------------------------------
 
-    def get(self, key: str) -> Optional[FactEntry]:
+    def get(self, key: str) -> FactEntry | None:
         """
         Retrieve a single fact by key.
 
@@ -245,8 +244,8 @@ class FactsStore:
 
     def search(
         self,
-        category: Optional[FactCategory] = None,
-        status: Optional[FactStatus] = None,
+        category: FactCategory | None = None,
+        status: FactStatus | None = None,
         limit: int = 50,
     ) -> list[FactEntry]:
         """

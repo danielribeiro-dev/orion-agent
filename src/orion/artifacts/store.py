@@ -10,8 +10,8 @@ import logging
 from pathlib import Path
 
 from orion.artifacts.models import Artifact, ArtifactMetadata, StorageScope
-from orion.core.errors import ArtifactNotFoundError, ArtifactWriteError
 from orion.config import PathsConfig
+from orion.core.errors import ArtifactNotFoundError, ArtifactWriteError
 
 logger = logging.getLogger(__name__)
 

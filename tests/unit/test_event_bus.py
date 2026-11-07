@@ -4,13 +4,8 @@ Unit tests for src/orion/core/event_bus.py
 
 from __future__ import annotations
 
-import asyncio
-
-import pytest
-
 from orion.core.event_bus import EventBus
-from orion.core.events import Action, FinalAnswer, Observation, RiskLevel, TurnStarted
-
+from orion.core.events import Action, Observation
 
 # ---------------------------------------------------------------------------
 # Helpers

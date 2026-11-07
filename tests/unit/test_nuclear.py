@@ -24,7 +24,6 @@ from orion.governance.nuclear import (
     NuclearSafetyGate,
 )
 
-
 # ---------------------------------------------------------------------------
 # BlastRadiusClassifier
 # ---------------------------------------------------------------------------
@@ -283,7 +282,6 @@ class TestAuthMethodSelection:
                     os.environ["WAYLAND_DISPLAY"] = old_wayland
 
     def test_zenity_used_when_available(self):
-        import subprocess
         with patch("orion.governance.nuclear.shutil.which", return_value="/usr/bin/zenity"), \
              patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="password\n", stderr="")
@@ -292,7 +290,6 @@ class TestAuthMethodSelection:
             assert success is True
 
     def test_zenity_denied_on_cancel(self):
-        import subprocess
         with patch("orion.governance.nuclear.shutil.which", return_value="/usr/bin/zenity"), \
              patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
@@ -301,7 +298,6 @@ class TestAuthMethodSelection:
             assert success is False
 
     def test_kdialog_tried_if_no_zenity(self):
-        import subprocess
         with patch(
             "orion.governance.nuclear.shutil.which",
             side_effect=lambda x: "/usr/bin/kdialog" if x == "kdialog" else None,

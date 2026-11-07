@@ -16,17 +16,15 @@ Cobre:
 
 from __future__ import annotations
 
-import asyncio
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
 
-from orion.gateway.ledger import CostCalculator, CostLedger, CostRecord, DailySummary
+from orion.gateway.ledger import CostCalculator, CostLedger, CostRecord
 from orion.gateway.models import ComplexityTier, ProviderName, TokenUsage
 from orion.gateway.registry import ModelRegistry
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -237,13 +235,13 @@ class TestRecordTurnCost:
         self, tmp_ledger: CostLedger, usage_standard: TokenUsage
     ) -> None:
         """Timestamp deve estar em UTC."""
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         record = tmp_ledger.record_turn_cost(
             provider=ProviderName.OPENROUTER,
             model="google/gemini-2.0-flash",
             usage=usage_standard,
         )
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
         assert before <= record.timestamp <= after
 
     def test_record_routing_and_complexity(
@@ -463,7 +461,7 @@ class TestDailySummary:
             model="google/gemini-2.0-flash",
             usage=usage_standard,
         )
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(UTC).date()
         yesterday = date(today.year, today.month, max(1, today.day - 1))
 
         summary_today = tmp_ledger.daily_summary(day=today)

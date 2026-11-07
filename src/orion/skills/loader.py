@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -79,8 +79,8 @@ class SkillsLoader:
 
     def __init__(
         self,
-        workspace_dir: Optional[Path] = None,
-        global_dir: Optional[Path] = None,
+        workspace_dir: Path | None = None,
+        global_dir: Path | None = None,
         builtin_dir: Any = _UNSET,
     ) -> None:
         self.workspace_dir = (
@@ -118,14 +118,12 @@ class SkillsLoader:
     ) -> None:
         """Scan a directory for SKILL.md files and add them to target dict."""
         for entry in root.iterdir():
-            skill_file: Optional[Path] = None
+            skill_file: Path | None = None
             if entry.is_dir():
                 candidate = entry / "SKILL.md"
                 if candidate.is_file():
                     skill_file = candidate
-            elif entry.is_file() and entry.name == "SKILL.md":
-                skill_file = entry
-            elif entry.is_file() and entry.suffix == ".md":
+            elif entry.is_file() and entry.name == "SKILL.md" or entry.is_file() and entry.suffix == ".md":
                 skill_file = entry
 
             if skill_file is not None:

@@ -13,7 +13,7 @@ ADR-010: Universal Agent Skills Standard
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from orion.runtime.provider import RuntimeResult
 from orion.skills.loader import SkillsLoader
@@ -99,7 +99,7 @@ class SkillsEngine:
     and runtime activation.
     """
 
-    def __init__(self, loader: Optional[SkillsLoader] = None) -> None:
+    def __init__(self, loader: SkillsLoader | None = None) -> None:
         self.loader = loader or SkillsLoader()
         self.discovered_skills: dict[str, SkillBundle] = {}
         self.tool = UseSkillTool(self.discovered_skills)
@@ -116,6 +116,6 @@ class SkillsEngine:
             self.reload()
         return render_available_skills(self.discovered_skills)
 
-    def get_skill(self, name: str) -> Optional[SkillBundle]:
+    def get_skill(self, name: str) -> SkillBundle | None:
         """Retrieve a specific discovered skill bundle by name."""
         return self.discovered_skills.get(name)

@@ -16,19 +16,15 @@ no total do payload retornado.
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import pytest_asyncio
 
 from orion.memory.hybrid_retriever import HybridRetriever, _estimate_tokens, _rrf_score
 from orion.memory.models import HybridSearchResult, TimelineRecord, VectorRecord
 from orion.memory.timeline import TimelineManager
 from orion.memory.vector_store import VectorStore
-
-from datetime import datetime, timezone
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -41,7 +37,7 @@ def _make_timeline_record(
     return TimelineRecord(
         id=record_id,
         session_id=session_id,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
         event_type="action",
         source="agent",
         content=content,
@@ -55,8 +51,8 @@ def _make_vector_record(record_id: int, text: str) -> VectorRecord:
         text=text,
         embedding_dim=384,
         cosine_score=0.85,
-        created_at=datetime.now(timezone.utc),
-        last_seen_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        last_seen_at=datetime.now(UTC),
     )
 
 

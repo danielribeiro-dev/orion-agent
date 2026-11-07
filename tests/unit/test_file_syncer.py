@@ -10,12 +10,7 @@ Validates:
 
 from __future__ import annotations
 
-from datetime import datetime
-from pathlib import Path
-
-import pytest
-
-from orion.memory.file_syncer import MemoryFileSyncer, _MAX_LINES
+from orion.memory.file_syncer import _MAX_LINES, MemoryFileSyncer
 from orion.memory.models import FactCategory, FactEntry, FactStatus
 
 

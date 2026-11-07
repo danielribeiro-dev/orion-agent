@@ -19,7 +19,7 @@ import logging
 import re
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from orion.memory.timeline import TimelineManager
 from orion.timeline.checkpoint_synthesis import synthesize_checkpoint
@@ -49,8 +49,8 @@ class ContextBranch:
         content: str,
         event_type: str = "action",
         source: str = "agent",
-        files: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        files: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Record an event within this branch."""
         event_entry = {
@@ -90,8 +90,8 @@ class BranchManager:
 
     def __init__(
         self,
-        timeline: Optional[TimelineManager] = None,
-        archive_dir: Optional[Path] = None,
+        timeline: TimelineManager | None = None,
+        archive_dir: Path | None = None,
     ) -> None:
         self.timeline = timeline
         self.archive_dir = archive_dir or _DEFAULT_ARCHIVE_DIR
@@ -142,8 +142,8 @@ class BranchManager:
         content: str,
         event_type: str = "action",
         source: str = "agent",
-        files: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
+        files: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Record an event in the currently active branch."""
         branch = self._branches[self._active_branch_name]
@@ -157,7 +157,7 @@ class BranchManager:
 
     async def merge_branch(
         self,
-        branch_name: Optional[str] = None,
+        branch_name: str | None = None,
         outcome: str = "Merged successfully",
     ) -> str:
         """

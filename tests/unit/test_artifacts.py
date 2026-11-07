@@ -10,9 +10,8 @@ import pytest
 
 from orion.artifacts.models import Artifact, ArtifactMetadata, StorageScope
 from orion.artifacts.store import ArtifactStore
-from orion.core.errors import ArtifactNotFoundError
 from orion.config import PathsConfig
-
+from orion.core.errors import ArtifactNotFoundError
 
 # ---------------------------------------------------------------------------
 # Fixtures

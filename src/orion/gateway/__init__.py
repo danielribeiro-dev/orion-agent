@@ -6,13 +6,13 @@ Agnóstico de provedor: OpenRouter (primário), Ollama local (failover).
 from orion.gateway.models import (
     LLMMessage,
     LLMRequest,
-    LLMResponseChunk,
     LLMResponse,
+    LLMResponseChunk,
     ModelSpec,
     TokenUsage,
 )
-from orion.gateway.registry import ModelRegistry
 from orion.gateway.providers.base import BaseLLMProvider
+from orion.gateway.registry import ModelRegistry
 
 __all__ = [
     "LLMMessage",

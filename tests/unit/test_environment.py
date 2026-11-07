@@ -12,7 +12,6 @@ Validates:
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,7 +23,6 @@ from orion.runtime.environment import (
     _read_proc_loadavg,
     _read_proc_meminfo,
 )
-
 
 # ---------------------------------------------------------------------------
 # Display mode detection

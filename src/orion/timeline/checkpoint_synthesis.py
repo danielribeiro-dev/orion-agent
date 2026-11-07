@@ -10,7 +10,7 @@ ADR-011: Context Branches & Checkpoint Synthesis
 from __future__ import annotations
 
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 
 logger = logging.getLogger(__name__)
 

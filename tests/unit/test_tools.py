@@ -51,26 +51,22 @@ Coverage:
 
 from __future__ import annotations
 
-import asyncio
-import textwrap
 from pathlib import Path
 
 import pytest
 
-from orion.core.event_bus import EventBus
 from orion.core.engine import ReActEngine
+from orion.core.event_bus import EventBus
 from orion.core.events import Observation
 from orion.governance.audit import AuditLogger
 from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint
 from orion.governance.permissions import WorkspaceScope
 from orion.runtime.local_provider import LocalRuntimeProvider
-from orion.runtime.provider import RuntimeResult
 from orion.runtime.tools.edit_file import EditFileTool
 from orion.runtime.tools.read_file import ReadFileTool
 from orion.runtime.tools.run_command import RunCommandTool
 from orion.runtime.tools.search_files import SearchFilesTool
 from orion.runtime.tools.write_file import WriteFileTool
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers

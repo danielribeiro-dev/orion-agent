@@ -9,14 +9,13 @@ import pytest
 
 from orion.core.engine import (
     DELIM_SYSTEM_START,
-    DELIM_USER_START,
     DELIM_TOOL_START,
+    DELIM_USER_START,
     ReActEngine,
 )
 from orion.core.errors import PromptInjectionSuspected, TurnBudgetExceeded
 from orion.core.event_bus import EventBus
 from orion.core.events import (
-    Action,
     ActionEmitted,
     FinalAnswer,
     Observation,
@@ -25,7 +24,6 @@ from orion.core.events import (
     TurnStarted,
 )
 from orion.core.state import AgentState
-
 
 # ---------------------------------------------------------------------------
 # LLM Stubs

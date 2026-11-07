@@ -23,9 +23,7 @@ from orion.governance.trust_ledger import (
     CommandCanonicalizer,
     CommandSignature,
     CommandTrustLedger,
-    TrustLookupResult,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

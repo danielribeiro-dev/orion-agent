@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -32,7 +32,6 @@ from orion.gateway.circuit_breaker import (
     classify_failure,
 )
 from orion.gateway.models import ComplexityTier
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

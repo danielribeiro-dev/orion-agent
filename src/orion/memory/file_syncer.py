@@ -18,7 +18,6 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from orion.memory.models import FactCategory, FactEntry, FactStatus
 
@@ -111,7 +110,7 @@ class MemoryFileSyncer:
         logger.info("MEMORY.md written: %d lines at %s", len(lines), self._memory_path)
         return self._memory_path
 
-    def read(self) -> Optional[str]:
+    def read(self) -> str | None:
         """
         Read the current MEMORY.md contents.
 

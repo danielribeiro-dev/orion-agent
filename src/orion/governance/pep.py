@@ -31,14 +31,13 @@ import inspect
 import logging
 from collections.abc import Callable
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from orion.core.events import Action
 from orion.governance.audit import AuditLogger
 from orion.governance.nuclear import (
     BlastRadius,
     BlastRadiusClassifier,
-    NuclearAuthDenied,
     NuclearSafetyGate,
 )
 from orion.governance.permissions import (
@@ -126,14 +125,14 @@ class PolicyEnforcementPoint:
 
     def __init__(
         self,
-        scope: Optional[WorkspaceScope] = None,
+        scope: WorkspaceScope | None = None,
         mode: AutonomyMode = AutonomyMode.SUPERVISED,
-        audit_logger: Optional[AuditLogger] = None,
-        confirm: Optional[ConfirmCallback] = None,
-        action_confirm: Optional[Callable[[Action, ActionLevel], Any]] = None,
-        trust_ledger: Optional[CommandTrustLedger] = None,
-        nuclear_gate: Optional[NuclearSafetyGate] = None,
-        circuit_breaker: Optional[Any] = None,  # CircuitBreaker (avoid circular import)
+        audit_logger: AuditLogger | None = None,
+        confirm: ConfirmCallback | None = None,
+        action_confirm: Callable[[Action, ActionLevel], Any] | None = None,
+        trust_ledger: CommandTrustLedger | None = None,
+        nuclear_gate: NuclearSafetyGate | None = None,
+        circuit_breaker: Any | None = None,  # CircuitBreaker (avoid circular import)
     ) -> None:
         self._scope = scope or WorkspaceScope.default()
         self._mode = mode
@@ -260,7 +259,7 @@ class PolicyEnforcementPoint:
         )
         return True
 
-    def take_edited_params(self, action_id: str) -> Optional[dict[str, Any]]:
+    def take_edited_params(self, action_id: str) -> dict[str, Any] | None:
         """Return (and clear) params the human edited while approving *action_id*."""
         return self._edited_params.pop(action_id, None)
 

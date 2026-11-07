@@ -32,12 +32,12 @@ class RuntimeResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def ok(cls, output: str, **metadata: Any) -> "RuntimeResult":
+    def ok(cls, output: str, **metadata: Any) -> RuntimeResult:
         """Convenience constructor for a successful result."""
         return cls(success=True, output=output, metadata=metadata)
 
     @classmethod
-    def fail(cls, error: str, **metadata: Any) -> "RuntimeResult":
+    def fail(cls, error: str, **metadata: Any) -> RuntimeResult:
         """Convenience constructor for a failed result."""
         return cls(success=False, output="", error=error, metadata=metadata)
 

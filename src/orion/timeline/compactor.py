@@ -18,8 +18,9 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Optional, Sequence
+from typing import Any
 
 from orion.memory.models import CompactionResult
 
@@ -105,8 +106,8 @@ class ContextCompactor:
     def compact(
         self,
         turns: Sequence[TurnData | dict[str, Any] | str],
-        focus: Optional[str] = None,
-        vital_tail_count: Optional[int] = None,
+        focus: str | None = None,
+        vital_tail_count: int | None = None,
     ) -> CompactionResult:
         """
         Execute context compaction over the provided turns.

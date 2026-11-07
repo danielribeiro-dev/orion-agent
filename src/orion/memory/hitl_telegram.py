@@ -33,7 +33,6 @@ import logging
 import os
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +62,7 @@ class HITLDecision:
     approved: bool
     responded_at: float = field(default_factory=time.monotonic)
     timed_out: bool = False
-    responder_chat_id: Optional[int] = None
+    responder_chat_id: int | None = None
 
 
 class HITLTimeoutError(Exception):
@@ -105,7 +104,7 @@ class TelegramHITLConnector:
     def __init__(
         self,
         *,
-        bot_token: Optional[str] = None,
+        bot_token: str | None = None,
         authorized_chat_id: int,
         ttl_seconds: int = _DEFAULT_TTL_SECONDS,
     ) -> None:
@@ -244,7 +243,7 @@ class TelegramHITLConnector:
         ttl = self._ttl_seconds
         try:
             await asyncio.wait_for(event.wait(), timeout=float(ttl))
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise HITLTimeoutError(request.request_id, ttl)
 
         return self._decisions.get(request.request_id, False)

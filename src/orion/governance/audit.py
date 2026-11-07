@@ -19,8 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -72,7 +71,7 @@ class AuditLogger:
             result_status   : One of "pending", "success", "denied", "error".
         """
         record = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "action_id": action_id,
             "tool": tool,
             "params": _safe_json(params),
@@ -93,7 +92,7 @@ class AuditLogger:
     ) -> None:
         """Convenience helper for recording a PEP denial."""
         record = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "action_id": action_id,
             "tool": tool,
             "params": _safe_json(params),

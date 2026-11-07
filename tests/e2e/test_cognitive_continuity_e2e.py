@@ -14,9 +14,7 @@ Valida o ciclo cognitivo completo com o subsistema de memória integrado:
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -33,7 +31,6 @@ from orion.runtime.local_provider import LocalRuntimeProvider
 from orion.skills.engine import SkillsEngine
 from orion.skills.loader import SkillsLoader
 from orion.timeline.compactor import ContextCompactor, TurnData
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

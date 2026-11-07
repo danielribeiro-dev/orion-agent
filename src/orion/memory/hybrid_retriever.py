@@ -13,8 +13,6 @@ ADR-012: FastEmbed bge-small-en-v1.5 & RRF Hybrid Fusion
 
 from __future__ import annotations
 
-from typing import Optional, Union
-
 from orion.memory.models import HybridSearchResult, TimelineRecord, VectorRecord
 from orion.memory.timeline import TimelineManager
 from orion.memory.vector_store import VectorStore
@@ -61,7 +59,7 @@ class HybridRetriever:
         self,
         query: str,
         limit: int = 20,
-        token_budget: Optional[int] = None,
+        token_budget: int | None = None,
     ) -> HybridSearchResult:
         """
         Execute parallel BM25 + semantic search and fuse results via RRF.
@@ -141,4 +139,3 @@ class HybridRetriever:
 # ---------------------------------------------------------------------------
 # Type alias fix — Optional not in scope at module level in Python 3.11 style
 # ---------------------------------------------------------------------------
-from typing import Optional  # noqa: E402 — needed after forward reference above

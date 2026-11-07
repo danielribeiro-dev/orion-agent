@@ -14,13 +14,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 from orion.core.events import Action, RiskLevel
 from orion.governance.pep import ActionDenied, PolicyEnforcementPoint
 from orion.governance.permissions import WorkspaceScope
 from orion.runtime.provider import BaseRuntimeProvider, RuntimeResult
-from orion.runtime.tools.base import BaseTool
 from orion.runtime.tools.edit_file import EditFileTool
 from orion.runtime.tools.read_file import ReadFileTool
 from orion.runtime.tools.run_command import RunCommandTool

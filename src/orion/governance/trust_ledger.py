@@ -32,10 +32,10 @@ import re
 import shlex
 import sqlite3
 import threading
+from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Generator, Optional
 
 from pydantic import BaseModel, Field
 
@@ -87,7 +87,7 @@ class TrustLookupResult(BaseModel):
     model_config = {"frozen": True}
 
     is_trusted: bool
-    signature: Optional[CommandSignature]
+    signature: CommandSignature | None
     reason: str
 
 
@@ -253,7 +253,7 @@ class CommandTrustLedger:
         True  # mesma assinatura canônica
     """
 
-    def __init__(self, db_path: Optional[Path] = None) -> None:
+    def __init__(self, db_path: Path | None = None) -> None:
         """Inicializa o ledger e cria o banco SQLite se necessário.
 
         Args:
@@ -344,7 +344,7 @@ class CommandTrustLedger:
         """
         canonical = CommandCanonicalizer.canonicalize(command)
         cmd_hash = CommandCanonicalizer.compute_hash(canonical)
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         sudo_required = command.strip().startswith("sudo ")
 
         with self._connect() as conn:

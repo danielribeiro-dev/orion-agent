@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from orion.memory.models import CognitiveManifest
 
@@ -74,10 +73,10 @@ class CognitiveManifestGenerator:
         *,
         user_name: str = "Daniel",
         call_sign: str = "Senhor",
-        active_project: Optional[str] = None,
+        active_project: str | None = None,
         confirmed_facts_count: int = 0,
         timeline_event_count: int = 0,
-        last_session_date: Optional[str] = None,
+        last_session_date: str | None = None,
         available_skills_count: int = 0,
     ) -> None:
         self._user_name = user_name
@@ -145,17 +144,17 @@ class CognitiveManifestGenerator:
         *,
         user_name: str = "Daniel",
         call_sign: str = "Senhor",
-        project_root: Optional[Path] = None,
+        project_root: Path | None = None,
         confirmed_facts_count: int = 0,
         timeline_event_count: int = 0,
-        last_session_date: Optional[str] = None,
+        last_session_date: str | None = None,
         available_skills_count: int = 0,
-    ) -> "CognitiveManifestGenerator":
+    ) -> CognitiveManifestGenerator:
         """
         Factory method that auto-detects the active project name from the
         project root directory (uses the folder basename).
         """
-        active_project: Optional[str] = None
+        active_project: str | None = None
         if project_root is not None and project_root.is_dir():
             active_project = project_root.resolve().name
 

@@ -23,8 +23,7 @@ from orion.skills.engine import (
     render_available_skills,
 )
 from orion.skills.loader import SkillsLoader, parse_skill_file
-from orion.skills.models import SkillBundle, SkillMetadata
-
+from orion.skills.models import SkillMetadata
 
 # ---------------------------------------------------------------------------
 # Helpers & Fixtures

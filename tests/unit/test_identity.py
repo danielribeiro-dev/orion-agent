@@ -12,11 +12,8 @@ Validates:
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
-import pytest
-
-from orion.core.identity import IdentityManager, _IMMUTABLE_ORIGIN
+from orion.core.identity import _IMMUTABLE_ORIGIN, IdentityManager
 from orion.memory.models import SystemIdentity
 
 

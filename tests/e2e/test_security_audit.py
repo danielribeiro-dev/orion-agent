@@ -28,7 +28,6 @@ from orion.governance.pep import ActionDenied, AutonomyMode, PolicyEnforcementPo
 from orion.governance.permissions import ActionLevel, WorkspaceScope, tool_action_level
 from orion.runtime.local_provider import LocalRuntimeProvider
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

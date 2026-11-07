@@ -26,7 +26,6 @@ from orion.memory.hitl_telegram import (
     TelegramHITLConnector,
 )
 
-
 # ---------------------------------------------------------------------------
 # HITLRequest & HITLDecision contracts
 # ---------------------------------------------------------------------------

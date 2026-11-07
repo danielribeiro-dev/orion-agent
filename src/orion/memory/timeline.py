@@ -16,7 +16,7 @@ import json
 import time
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import aiosqlite
 
@@ -92,7 +92,7 @@ class TimelineManager:
 
     def __init__(self, db_path: Path = _DEFAULT_DB_PATH) -> None:
         self._db_path = db_path
-        self._conn: Optional[aiosqlite.Connection] = None
+        self._conn: aiosqlite.Connection | None = None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -125,8 +125,8 @@ class TimelineManager:
         event_type: str,
         source: str,
         content: str,
-        metadata: Optional[dict[str, Any]] = None,
-        timestamp: Optional[datetime] = None,
+        metadata: dict[str, Any] | None = None,
+        timestamp: datetime | None = None,
     ) -> int:
         """
         Persist a new event atomically to the timeline.

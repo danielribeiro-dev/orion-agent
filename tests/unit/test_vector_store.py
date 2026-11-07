@@ -25,15 +25,14 @@ import pytest_asyncio
 
 from orion.memory.models import VectorRecord
 from orion.memory.vector_store import (
-    VectorStore,
     _DEDUP_THRESHOLD,
     _EMBED_DIM,
+    VectorStore,
     _cosine_similarity,
     _cosine_similarity_batch,
     _pack_embedding,
     _unpack_embedding,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

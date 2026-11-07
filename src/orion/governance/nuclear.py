@@ -44,9 +44,8 @@ import shutil
 import subprocess
 import time
 from enum import Enum
-from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +237,7 @@ class NuclearSafetyGate:
 
     def __init__(
         self,
-        classifier: Optional[BlastRadiusClassifier] = None,
+        classifier: BlastRadiusClassifier | None = None,
         prompt_prefix: str = "🔐 O.R.I.O.N Nuclear Safety Gate",
     ) -> None:
         """Inicializa o Nuclear Safety Gate.

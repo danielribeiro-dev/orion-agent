@@ -13,11 +13,9 @@ Referência de design: ADR-009 (Ledger de Custos no CLI).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from orion.gateway.ledger import CostLedger
-
 
 # ---------------------------------------------------------------------------
 # Exceções Tipadas
@@ -162,10 +160,10 @@ class BudgetGuard:
     ledger: CostLedger
     daily_budget_usd: float = 2.0
     warning_threshold_pct: float = 85.0
-    on_warning: Optional[object] = field(default=None, repr=False)
+    on_warning: object | None = field(default=None, repr=False)
 
     # Estado interno — não fazer parte do hash/eq do dataclass
-    _last_warning_date: Optional[str] = field(default=None, init=False, repr=False)
+    _last_warning_date: str | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.daily_budget_usd < 0:
@@ -233,7 +231,7 @@ class BudgetGuard:
 
         # Emitir aviso se limiar atingido (uma vez por dia)
         if bs.warning_triggered:
-            today = datetime.now(timezone.utc).date().isoformat()
+            today = datetime.now(UTC).date().isoformat()
             if self._last_warning_date != today:
                 self._last_warning_date = today
                 event = BudgetWarningEvent(

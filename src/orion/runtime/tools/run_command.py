@@ -72,7 +72,7 @@ class RunCommandTool(BaseTool):
 
             try:
                 raw, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 timed_out = True
                 _kill_process_group(proc)
                 await proc.wait()

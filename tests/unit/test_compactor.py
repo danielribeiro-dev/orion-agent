@@ -13,11 +13,8 @@ Validates:
 
 from __future__ import annotations
 
-import pytest
-
 from orion.memory.models import CompactionResult
 from orion.timeline.compactor import ContextCompactor, TurnData, estimate_tokens
-
 
 # ---------------------------------------------------------------------------
 # Test 3 (spec): 40 turns compaction >= 60% reduction & vital tail preserved

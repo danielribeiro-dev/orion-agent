@@ -14,11 +14,11 @@ Cobre:
 from __future__ import annotations
 
 import json
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 import httpx
+import pytest
 
 from orion.gateway.models import (
     ComplexityTier,
@@ -31,17 +31,16 @@ from orion.gateway.models import (
     ProviderName,
     TokenUsage,
 )
-from orion.gateway.registry import ModelRegistry, _CATALOG
 from orion.gateway.providers.base import BaseLLMProvider
 from orion.gateway.providers.openrouter import (
-    OpenRouterProvider,
     GatewayError,
+    OpenRouterProvider,
     ProviderAPIError,
     ProviderConnectionError,
     ProviderTimeoutError,
     RateLimitError,
 )
-
+from orion.gateway.registry import ModelRegistry
 
 # ---------------------------------------------------------------------------
 # Fixtures compartilhadas
