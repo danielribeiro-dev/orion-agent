@@ -166,11 +166,14 @@ class FailoverProvider(BaseLLMProvider):
     def _request_for(self, request: LLMRequest, cand: FailoverCandidate) -> LLMRequest:
         updates: dict[str, Any] = {"model": cand.wire_model}
         if cand is not self._candidates[0]:
-            # extra_params do primário são específicos do provider; thinking/tools não
-            # existem nos destinos legados (a Sprint 2 cuida do tool use ali).
+            # extra_params, thinking e cache_control do primário são específicos da Anthropic;
+            # tools, tool_choice e o histórico estruturado atravessam o failover intactos
+            # (os destinos legados os traduzem para o formato OpenAI/Ollama).
             updates["extra_params"] = (
                 {"usage": {"include": True}} if cand.provider_name == ProviderName.OPENROUTER else {}
             )
+            updates["thinking"] = None
+            updates["cache_control"] = None
         return request.model_copy(update=updates)
 
     async def stream(self, request: LLMRequest) -> AsyncIterator[LLMResponseChunk]:

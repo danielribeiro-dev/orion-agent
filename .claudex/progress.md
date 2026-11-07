@@ -170,7 +170,15 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
   - [x] `AgentSession`: `TOOL_PROTOCOL`/`ToolCallFilter` removidos; `_llm` devolve `ModelTurn` a partir dos chunks tipados; histórico guarda `tool_use`/`tool_result` reais (preservado no cancelamento); `compact()` agrupa por turno; `max_tokens` 16k no Anthropic; renderer com cards paralelos (chave = action_id)
   - [x] Testes: `test_engine_toolcalls.py`, `test_tool_schemas.py`, helper `tests/llm_script.py`; suítes antigas migradas para o novo contrato do LLM (stub `(prompt)->tuple` virou `ScriptedLLM`)
   - Limitação conhecida: OpenRouter/Ollama (e o destino de failover) ainda não recebem `tools`: respondem só texto até serem portados para tool calling nativo (movido para o escopo da Sprint 3). `mcp_schema` segue registrada, mas redundante (as tools MCP agora levam o schema completo)
-- [ ] Sprint 3: Contexto, Sessões & Memória (+ tool calling nativo em OpenRouter/Ollama)
+- [x] **Sprint 3: Contexto, Sessões & Memória** ✅ IMPLEMENTADA (2026-11-07; commit pendente)
+  - [x] Prompt em camadas (`compose_system` + `LAYER_BREAK`: identidade/regras · manifest+skills · `CLAUDE.md`/`ORION.md` · avisos), breakpoint de cache Anthropic no fim das camadas estáveis, `cache_hit_ratio()` no `/context`
+  - [x] `timeline/autocompact.py`: poda a 60%, compactação a 80% (LLM FAST com fallback determinístico, intra-turno, pedido ativo verificado), calibração pelo `prompt_tokens` real; gancho `prepare_messages` no engine; teto de saída por tool (`truncate_output`)
+  - [x] Wiring na `AgentSession`: `SkillsEngine`, `CognitiveManifestGenerator`, `EnvironmentMonitor`, `MemoryFileSyncer` (MEMORY.md), `AutoRecall` (HybridRetriever, 1500 tokens, BM25 de fallback) também como retriever do tool `recall`
+  - [x] `sessions/` (JSONL por workspace, blobs 0600, `replay`, `rewind` atômico, restauração de arquivos sem clobber), `/resume`, `/rewind`, `--continue`/`--resume`
+  - [x] `record_decision` (PEP LEVEL_3; fato CONFIRMED + `.orion/decisions/NNNN-slug.md`); `/plan` e `/grill-me` instruem o registro
+  - [x] OpenRouter/Ollama com tool calling nativo (`openai_wire.py`), degradação a texto com aviso, failover preservando tools e `tool_result`; `mcp_schema` removida
+  - [x] Testes: `test_autocompact.py`, `test_sessions.py`, `test_decisions.py`, `test_legacy_tool_calling.py` (servidor HTTP simulado); suíte 1293 verdes, cobertura global 94%
+  - Pendente: validar compactação/caching com provedor real (`ORION_LIVE=1`); ruff/mypy têm backlog pré-existente (74/31 → sem novos erros)
 - [ ] Sprint 4: Paridade de Ferramentas (portão de dogfooding)
 - [ ] Sprint 5: Extensibilidade & MCP Completo
 - [ ] Sprint 6: Subagents & Tasks

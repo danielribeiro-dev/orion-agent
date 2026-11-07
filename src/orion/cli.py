@@ -77,6 +77,18 @@ def create_session(status_bar: SessionStatusBar) -> AgentSession:
     return session
 
 
+def _resume_session(session: AgentSession, continue_session: bool, ref: str) -> str:
+    """Aplica ``--continue``/``--resume``; devolve a mensagem a exibir (vazia se nenhuma flag)."""
+    if not (continue_session or ref):
+        return ""
+    from orion.sessions import SessionNotFoundError
+
+    try:
+        return session.resume(ref or None)
+    except SessionNotFoundError as exc:
+        return f"! {exc} Iniciando sessão nova."
+
+
 def create_prompt(status_bar: SessionStatusBar, session: AgentSession) -> InteractivePrompt:
     """Cria o prompt com os atalhos ligados à sessão."""
     bindings = create_key_bindings(
@@ -152,6 +164,12 @@ def cli_root(
         help="Show ORION version and exit.",
         is_eager=True,
     ),
+    continue_session: bool = typer.Option(
+        False, "--continue", "-c", help="Retoma a sessão mais recente deste diretório."
+    ),
+    resume: str = typer.Option(
+        "", "--resume", "-r", help="Retoma uma sessão pelo id (ou prefixo)."
+    ),
 ) -> None:
     """O.R.I.O.N — Operational Reasoning & Intelligence Orchestration Network.
 
@@ -165,7 +183,10 @@ def cli_root(
     if ctx.invoked_subcommand is None:
         status_bar = SessionStatusBar.from_environment()
         session = create_session(status_bar)
+        resume_message = _resume_session(session, continue_session, resume)
         banner_lines = print_banner(status_bar)
+        if resume_message:
+            console.print(Text(resume_message, style="text_dim"))
         prompt = create_prompt(status_bar, session)
         prompt.dock_to_bottom(banner_lines)
         run_interactive_repl(prompt, session)

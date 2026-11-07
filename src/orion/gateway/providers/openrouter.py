@@ -29,6 +29,7 @@ from orion.gateway.errors import (  # noqa: F401  (reexport)
     RateLimitError,
 )
 from orion.gateway.models import (
+    ContentBlock,
     LLMMessage,
     LLMRequest,
     LLMResponse,
@@ -41,6 +42,14 @@ from orion.gateway.providers.base import (
     RetryPolicy,
     retry_call,
     stream_with_retry,
+)
+from orion.gateway.providers.openai_wire import (
+    ToolCallAssembler,
+    map_finish_reason,
+    parse_arguments,
+    serialize_messages,
+    tool_choice_to_openai,
+    tools_to_openai,
 )
 
 logger = logging.getLogger(__name__)
@@ -111,14 +120,8 @@ class OpenRouterProvider(BaseLLMProvider):
     # ── Serialização ─────────────────────────────────────────────────────────
 
     def _serialize_messages(self, messages: list[LLMMessage]) -> list[dict[str, Any]]:
-        """Converte ``LLMMessage`` para o formato dict da API OpenAI-compatible."""
-        serialized = []
-        for msg in messages:
-            d: dict[str, Any] = {"role": msg.role.value, "content": msg.text}
-            if msg.name is not None:
-                d["name"] = msg.name
-            serialized.append(d)
-        return serialized
+        """Converte o histórico estruturado para o formato da API OpenAI-compatible."""
+        return serialize_messages(messages)
 
     def _build_payload(self, request: LLMRequest, stream: bool) -> dict[str, Any]:
         """Monta o payload JSON para a API do OpenRouter."""
@@ -129,6 +132,11 @@ class OpenRouterProvider(BaseLLMProvider):
             "max_tokens": request.max_tokens,
             "stream": stream,
         }
+        if request.tools:
+            payload["tools"] = tools_to_openai(request.tools)
+            choice = tool_choice_to_openai(request.tool_choice)
+            if choice is not None:
+                payload["tool_choice"] = choice
         # Inclui parâmetros extras passados pelo caller (ex: top_p, seed)
         if request.extra_params:
             payload.update(request.extra_params)
@@ -235,10 +243,26 @@ class OpenRouterProvider(BaseLLMProvider):
         latency_ms = (time.monotonic() - t0) * 1000.0
 
         data = response.json()
-        message = data["choices"][0].get("message", {})
+        choice = data["choices"][0]
+        message = choice.get("message", {})
+        blocks: list[ContentBlock] = []
+        if message.get("content"):
+            blocks.append(ContentBlock.of_text(message["content"]))
+        for call in message.get("tool_calls") or []:
+            function = call.get("function") or {}
+            if function.get("name"):
+                blocks.append(
+                    ContentBlock.of_tool_use(
+                        str(call.get("id") or ""), function["name"], parse_arguments(function.get("arguments"))
+                    )
+                )
         return LLMResponse(
             content=message.get("content") or "",
             reasoning_content=message.get("reasoning_content"),
+            blocks=blocks,
+            stop_reason=map_finish_reason(
+                choice.get("finish_reason"), any(b.type == "tool_use" for b in blocks)
+            ),
             model=data.get("model", request.model),
             provider=ProviderName.OPENROUTER,
             usage=self._parse_usage(data.get("usage")),
@@ -266,6 +290,8 @@ class OpenRouterProvider(BaseLLMProvider):
         headers = self._build_headers()
         payload = self._build_payload(request, stream=True)
 
+        assembler = ToolCallAssembler()
+        flushed = False
         try:
             async with httpx.AsyncClient(timeout=self._timeout_s) as client:
                 async with client.stream("POST", url, headers=headers, json=payload) as response:
@@ -317,6 +343,7 @@ class OpenRouterProvider(BaseLLMProvider):
                         text_delta: str = delta.get("content") or ""
                         reasoning_delta: str | None = delta.get("reasoning_content") or delta.get("reasoning")
                         finish_reason: str | None = choice.get("finish_reason")
+                        assembler.feed(delta.get("tool_calls"))
 
                         is_final = finish_reason is not None
 
@@ -324,12 +351,26 @@ class OpenRouterProvider(BaseLLMProvider):
                         usage_dict = chunk_data.get("usage")
                         usage = self._parse_usage(usage_dict) if (is_final and usage_dict) else None
 
-                        yield LLMResponseChunk(
-                            delta=text_delta,
-                            reasoning_delta=reasoning_delta,
-                            is_final=is_final,
-                            usage=usage,
-                        )
+                        if is_final:
+                            tool_blocks = assembler.finish()
+                            flushed = True
+                            for block in tool_blocks:
+                                yield LLMResponseChunk(block=block)
+                            yield LLMResponseChunk(
+                                delta=text_delta,
+                                reasoning_delta=reasoning_delta,
+                                is_final=True,
+                                usage=usage,
+                                stop_reason=map_finish_reason(finish_reason, bool(tool_blocks)),
+                            )
+                        else:
+                            yield LLMResponseChunk(delta=text_delta, reasoning_delta=reasoning_delta)
+
+                    if not flushed and assembler:
+                        # Stream encerrado sem finish_reason: não perde as tool calls já recebidas.
+                        for block in assembler.finish():
+                            yield LLMResponseChunk(block=block)
+                        yield LLMResponseChunk(is_final=True, stop_reason="tool_use")
 
         except httpx.TimeoutException as exc:
             raise ProviderTimeoutError(

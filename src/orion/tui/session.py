@@ -23,7 +23,7 @@ from typing import Any
 
 from rich.console import Console, RenderableType
 
-from orion.core.engine import ModelTurn, ReActEngine, compose_system
+from orion.core.engine import LAYER_BREAK, ModelTurn, ReActEngine, compose_system, split_layers
 from orion.core.errors import PromptInjectionSuspected, TurnBudgetExceeded
 from orion.core.event_bus import EventBus
 from orion.core.events import Action, ActionEmitted, Observation
@@ -55,10 +55,28 @@ from orion.gateway.router import (
 from orion.governance.audit import AuditLogger
 from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint
 from orion.governance.permissions import ActionLevel, WorkspaceScope
+from orion.memory.auto_recall import AutoRecall
 from orion.memory.timeline import TimelineManager
 from orion.runtime.local_provider import LocalRuntimeProvider
+from orion.sessions import (
+    FileSnapshot,
+    JsonlSessionStore,
+    SessionMeta,
+    SessionNotFoundError,
+    TranscriptEntry,
+    file_changes_from,
+    replay,
+    restore_files,
+    user_turns,
+)
+from orion.timeline.autocompact import (
+    SUMMARY_PROMPT,
+    AutoCompactor,
+    CompactionOutcome,
+    compact_messages,
+)
 from orion.timeline.branch_manager import BranchManager
-from orion.timeline.compactor import ContextCompactor, TurnData, estimate_tokens
+from orion.timeline.compactor import ContextCompactor, estimate_tokens
 from orion.tui.completer import resolve_mentions
 from orion.tui.diff_viewer import FileDiff, diff_texts
 from orion.tui.status_bar import ReasoningEffort, SessionStatusBar
@@ -68,6 +86,9 @@ logger = logging.getLogger(__name__)
 
 _MAX_MENTION_CHARS = 20_000
 _MUTATING_TOOLS = {"write_file", "edit_file"}
+_MEMORY_TOOLS = {"memorize", "deprecate_fact", "record_decision"}
+_PROJECT_FILES = ("CLAUDE.md", "ORION.md")
+_MAX_PROJECT_CONTEXT_CHARS = 16_000
 PLAN_MODE_NOTE = "\nPlan mode is active: read only. Every mutation is denied. Finish with a plan for approval."
 
 
@@ -174,6 +195,7 @@ class AgentSession:
         provider_factory: ProviderFactory | None = None,
         ask_pep: PepAsker | None = None,
         max_turns: int = 20,
+        recall: AutoRecall | None = None,
     ) -> None:
         self.status_bar = status_bar
         self.console = console
@@ -228,8 +250,27 @@ class AgentSession:
             audit_logger=AuditLogger(self.home / "audit.log"),
         )
         self.facts = self._open_facts()
-        self.runtime = LocalRuntimeProvider(pep=self.pep, scope=scope, facts_store=self.facts)
+        self.recall = recall or AutoRecall(
+            self.home / "timeline.db",
+            self.facts,
+            enabled=os.environ.get("ORION_RECALL", "1") != "0",
+        )
+        self.skills = self._open_skills()
+        self.memory_syncer = self._open_syncer()
+        self.runtime = self._build_runtime(scope)
         self.identity = self._open_identity()
+        self.manifest = self._build_manifest()
+        self.sessions = JsonlSessionStore(self.home / "sessions", self.workspace)
+        self.last_recall_tokens = 0
+        self._project_cache: tuple[tuple[float, ...], str] = ((), "")
+        self.autocompact = AutoCompactor(
+            compactor=self.compactor,
+            window=lambda: self.context_window(),
+            overhead=lambda: self._fixed_overhead(),
+            summarizer=lambda transcript, focus: self._summarize(transcript, focus),
+            on_compact=lambda outcome: self._on_autocompact(outcome),
+            on_replace=lambda messages: self._persist(TranscriptEntry.of_compact(messages)),
+        )
         self.mcp: Any = None
         self._mcp_adapters: dict[str, Any] = {}
 
@@ -256,6 +297,67 @@ class AgentSession:
             return store
         except Exception as exc:
             logger.warning("AgentSession: FactsStore indisponível: %s", exc)
+            return None
+
+    def _open_skills(self) -> Any:
+        try:
+            from orion.skills.engine import SkillsEngine
+            from orion.skills.loader import SkillsLoader
+
+            engine = SkillsEngine(SkillsLoader(workspace_dir=self.workspace, global_dir=self.home / "skills"))
+            engine.reload()
+            return engine
+        except Exception as exc:
+            logger.warning("AgentSession: skills indisponíveis: %s", exc)
+            return None
+
+    def _open_syncer(self) -> Any:
+        try:
+            from orion.memory.file_syncer import MemoryFileSyncer
+
+            return MemoryFileSyncer(self.home / "memory")
+        except Exception as exc:  # pragma: no cover - construtor trivial
+            logger.warning("AgentSession: MEMORY.md indisponível: %s", exc)
+            return None
+
+    def _build_runtime(self, scope: WorkspaceScope) -> LocalRuntimeProvider:
+        monitor: Any = None
+        try:
+            from orion.runtime.environment import EnvironmentMonitor
+
+            monitor = EnvironmentMonitor()
+        except Exception as exc:
+            logger.warning("AgentSession: monitor de ambiente indisponível: %s", exc)
+        extra: list[Any] = []
+        if self.facts is not None:
+            from orion.memory.decisions import RecordDecisionTool
+
+            extra.append(RecordDecisionTool(self.facts, self.workspace / ".orion" / "decisions"))
+        return LocalRuntimeProvider(
+            pep=self.pep,
+            scope=scope,
+            facts_store=self.facts,
+            retriever=self.recall if self.recall.enabled else None,  # type: ignore[arg-type]
+            environment_monitor=monitor,
+            skills_engine=self.skills,
+            extra_tools=extra,
+        )
+
+    def _build_manifest(self) -> Any:
+        try:
+            from orion.memory.manifest import CognitiveManifestGenerator
+            from orion.memory.models import FactStatus
+
+            confirmed = (
+                len(self.facts.search(status=FactStatus.CONFIRMED, limit=10_000)) if self.facts else 0
+            )
+            return CognitiveManifestGenerator.from_live_data(
+                project_root=self.workspace,
+                confirmed_facts_count=confirmed,
+                available_skills_count=len(self.skills.discovered_skills) if self.skills else 0,
+            )
+        except Exception as exc:
+            logger.warning("AgentSession: manifest indisponível: %s", exc)
             return None
 
     @staticmethod
@@ -410,9 +512,42 @@ class AgentSession:
         """Avisos de sessão anexados ao system prompt (modo plano)."""
         return PLAN_MODE_NOTE.strip() if self.mode == AgentMode.PLAN else ""
 
+    def project_context(self) -> str:
+        """``CLAUDE.md``/``ORION.md`` do workspace (relido só quando o arquivo muda)."""
+        paths = [self.workspace / name for name in _PROJECT_FILES]
+        stamp = tuple(p.stat().st_mtime if p.is_file() else 0.0 for p in paths)
+        if stamp == self._project_cache[0]:
+            return self._project_cache[1]
+        parts: list[str] = []
+        for path in paths:
+            if not path.is_file():
+                continue
+            try:
+                parts.append(f"# {path.name}\n{path.read_text(encoding='utf-8')}")
+            except (OSError, UnicodeDecodeError):
+                continue
+        text = "\n\n".join(parts)[:_MAX_PROJECT_CONTEXT_CHARS]
+        self._project_cache = (stamp, text)
+        return text
+
     def system_prompt(self) -> str:
-        """System prompt completo da sessão (identidade, regras e avisos)."""
-        return compose_system(self.identity, extra=self.system_extra())
+        """System prompt completo, em camadas (identidade, manifest/skills, projeto, avisos)."""
+        return compose_system(
+            self.identity,
+            self.manifest,
+            self.skills,
+            extra=self.system_extra(),
+            project_context=self.project_context(),
+        )
+
+    def _fixed_overhead(self) -> int:
+        """Tokens fixos de toda requisição: system + schemas de tools."""
+        tools = json.dumps([t.model_dump(mode="json") for t in self.runtime.tool_specs()])
+        return estimate_tokens(self.system_prompt()) + estimate_tokens(tools)
+
+    def cache_hit_ratio(self) -> float:
+        """Fração dos tokens de entrada da sessão servida pelo cache de prompt."""
+        return self.tokens_cached / self.tokens_in if self.tokens_in else 0.0
 
     # ── MCP (Sprint 5) ──────────────────────────────────────────────
 
@@ -437,7 +572,7 @@ class AgentSession:
         if self.mcp is None:
             return
         try:
-            from orion.mcp.adapter import MCPSchemaTool, build_adapters
+            from orion.mcp.adapter import build_adapters
 
             connected = sum(1 for s in self.mcp.servers.values() if s.status == "connected")
             if connected == getattr(self, "_mcp_connected", -1):
@@ -448,8 +583,6 @@ class AgentSession:
             self._mcp_adapters = build_adapters(self.mcp)
             for name, adapter in self._mcp_adapters.items():
                 self.runtime.register_tool(adapter, name=name)
-            if self._mcp_adapters:
-                self.runtime.register_tool(MCPSchemaTool(self._mcp_adapters), name="mcp_schema")
         except Exception:
             logger.exception("AgentSession: falha ao registrar tools MCP")
 
@@ -465,10 +598,26 @@ class AgentSession:
         self.breaker.set_intentional_lite_mode(tier != ComplexityTier.HEAVY)
 
         anthropic = spec.provider == ProviderName.ANTHROPIC
-        wire = [LLMMessage(role=MessageRole.SYSTEM, content=system), *messages]
+        if anthropic:
+            # Breakpoint de cache no fim das camadas estáveis; avisos de sessão (modo plano) ficam fora.
+            layers = split_layers(system)
+            volatile = 1 if self.system_extra() and len(layers) > 1 else 0
+            stable = len(layers) - 1 - volatile
+            system_blocks = [
+                ContentBlock.of_text(layer, CacheControl() if i == stable else None)
+                for i, layer in enumerate(layers)
+            ]
+            wire = list(messages)
+        else:
+            system_blocks = None
+            wire = [
+                LLMMessage(role=MessageRole.SYSTEM, content=system.replace(LAYER_BREAK, "\n\n")),
+                *messages,
+            ]
         request = LLMRequest(
             model=spec.id,
             messages=wire,
+            system=system_blocks,
             tools=tools,
             max_tokens=16_000 if anthropic else 4096,
             complexity_tier=tier,
@@ -494,11 +643,15 @@ class AgentSession:
                 self.renderer.add_text(chunk.delta)
             if chunk.block is not None:
                 blocks.append(chunk.block)
+            if chunk.notice:
+                self.renderer.warn(chunk.notice)
             if chunk.stop_reason:
                 stop_reason = chunk.stop_reason
             if chunk.usage is not None:
                 usage = chunk.usage
         self.renderer.end_message()
+        if usage is not None:
+            self.autocompact.observe(usage.prompt_tokens)
 
         served = getattr(provider, "served", None)
         if served is not None:
@@ -509,7 +662,12 @@ class AgentSession:
             provider_name = spec.provider
         self._record_cost(
             spec,
-            usage or self._estimate_usage(wire, text, reasoning_chars),
+            usage
+            or self._estimate_usage(
+                wire if not anthropic else [LLMMessage(role=MessageRole.SYSTEM, content=system), *wire],
+                text,
+                reasoning_chars,
+            ),
             tier,
             routing,
             (time.monotonic() - started) * 1000,
@@ -577,6 +735,9 @@ class AgentSession:
         diff = None
         if change is not None:
             diff = diff_texts(change.before or "", change.after, str(change.path))
+            self._record_file_change(change)
+        if tool in _MEMORY_TOOLS and event.success:
+            self._sync_memory()
         self.renderer.tool_finished(
             tool,
             event.success,
@@ -635,6 +796,8 @@ class AgentSession:
         self._active_user_text = text
         self.refresh_mcp()
         content = self._with_mentions(text)
+        recalled = await self.recall.recall(text, self.session_id)
+        self.last_recall_tokens = estimate_tokens(recalled) if recalled else 0
         engine = ReActEngine(
             event_bus=self.bus,
             llm=self._llm,
@@ -642,12 +805,17 @@ class AgentSession:
             session_id=self.session_id,
             runtime=self.runtime,
             identity_manager=self.identity,
+            manifest_generator=self.manifest,
+            skills_engine=self.skills,
             system_extra=self.system_extra,
+            project_context=self.project_context,
+            prepare_messages=self.autocompact,
+            on_message=lambda message: self._persist(TranscriptEntry.of_message(message)),
         )
         self.status_bar.is_busy = True
         await self._log_timeline("user", "user", text)
         try:
-            answer = await engine.run(content, history=self.history)
+            answer = await engine.run(content, history=self.history, context=recalled)
         except asyncio.CancelledError:
             # A conversa permanece válida (tool_use pendentes foram fechados): preserva o contexto.
             self.history = engine.messages
@@ -656,13 +824,16 @@ class AgentSession:
             self.renderer.error("Entrada bloqueada: padrão de injeção de prompt detectado.")
             return None
         except TurnBudgetExceeded:
+            self._discard_turn()
             self.renderer.error(f"Limite de {self.max_turns} passos atingido sem resposta final.")
             return None
         except BudgetExceededError as exc:
+            self._discard_turn()
             self.renderer.error(f"Orçamento diário atingido: {exc}")
             return None
         except Exception as exc:
             logger.exception("AgentSession: falha no turno")
+            self._discard_turn()
             self.renderer.error(f"Falha no turno: {exc}")
             return None
         finally:
@@ -672,7 +843,85 @@ class AgentSession:
         self.history = engine.messages
         self.branches.record_event(answer[:200], event_type="observation")
         await self._log_timeline("assistant", "agent", answer)
+        await self.recall.remember(f"Pedido: {text}\nResposta: {answer[:800]}", self.session_id)
         return answer
+
+    # ── Persistência da sessão (JSONL) ──────────────────────────────
+
+    def _persist(self, entry: TranscriptEntry) -> None:
+        """Grava no transcript; falha de disco nunca derruba o turno."""
+        try:
+            self.sessions.append(self.session_id, entry)
+        except Exception:
+            logger.exception("AgentSession: falha ao gravar o transcript")
+
+    def _discard_turn(self) -> None:
+        """Turno abortado: a conversa volta ao estado anterior e o transcript acompanha."""
+        self._persist(TranscriptEntry.of_compact(self.history))
+
+    def _record_file_change(self, change: FileChange) -> None:
+        try:
+            before = self.sessions.put_blob(self.session_id, change.before) if change.before is not None else None
+            after = self.sessions.put_blob(self.session_id, change.after)
+        except Exception:
+            logger.exception("AgentSession: falha ao guardar o arquivo para /rewind")
+            return
+        self._persist(TranscriptEntry.of_file(FileSnapshot(path=str(change.path), before_sha=before, after_sha=after)))
+
+    def _sync_memory(self) -> None:
+        """Mantém ``~/.orion/memory/MEMORY.md`` espelhando o FactsStore."""
+        if self.facts is None or self.memory_syncer is None:
+            return
+        try:
+            self.memory_syncer.write(self.facts.search(limit=10_000))
+        except Exception:
+            logger.exception("AgentSession: falha ao sincronizar MEMORY.md")
+
+    def list_sessions(self) -> list[SessionMeta]:
+        """Sessões gravadas para este workspace, da mais recente à mais antiga."""
+        return self.sessions.list(self.workspace)
+
+    def resume(self, ref: str | None = None) -> str:
+        """Retoma uma sessão (id, prefixo ou, sem ``ref``, a mais recente do workspace)."""
+        if ref:
+            session_id = self.sessions.resolve_id(ref)
+        else:
+            sessions = self.list_sessions()
+            if not sessions:
+                raise SessionNotFoundError("Nenhuma sessão anterior neste workspace.")
+            session_id = sessions[0].session_id
+        entries = self.sessions.load(session_id)
+        self.session_id = session_id
+        self.history = replay(entries)
+        self.tracker.changes.clear()
+        return f"Sessão {session_id[:8]} retomada: {len(user_turns(entries))} pedido(s), {len(self.history)} mensagem(ns)."
+
+    def rewind_targets(self) -> list[Any]:
+        """Pedidos do usuário da sessão atual (pontos de retorno do ``/rewind``)."""
+        try:
+            return user_turns(self.sessions.load(self.session_id))
+        except SessionNotFoundError:
+            return []
+
+    def rewind(self, number: int, files: bool = True) -> str:
+        """Volta ao instante ANTES do pedido ``number``: conversa e, opcionalmente, arquivos."""
+        targets = {t.number: t for t in self.rewind_targets()}
+        target = targets.get(number)
+        if target is None:
+            raise ValueError(f"Pedido {number} inexistente; há {len(targets)} nesta sessão.")
+        entries = self.sessions.load(self.session_id)
+        report = None
+        if files:
+            report = restore_files(
+                self.sessions, self.session_id, file_changes_from(entries, target.entry_index)
+            )
+        self.sessions.rewind(self.session_id, target.entry_index)
+        self.history = replay(self.sessions.load(self.session_id))
+        self.tracker.changes.clear()
+        text = f"Conversa revertida para antes do pedido {number}."
+        if report is not None:
+            text += f" {report.summary()}."
+        return text
 
     async def run_tool(self, tool: str, params: dict[str, Any]) -> bool:
         """Executa uma ferramenta direta (/run) pelo PEP, com o mesmo card de um turno."""
@@ -713,7 +962,7 @@ class AgentSession:
         return {
             "sistema": estimate_tokens(self.identity.render_system_preamble()) if self.identity else 0,
             "ferramentas": estimate_tokens(self.system_prompt()),
-            "memória": 0,
+            "memória": self.last_recall_tokens,
             "arquivos": min(self.mention_tokens, conversation),
             "conversa": max(conversation - self.mention_tokens, 0),
         }
@@ -723,47 +972,65 @@ class AgentSession:
         spec = self.registry.get(self.status_bar.model_name)
         return spec.context_window if spec else 200_000
 
-    def _turn_starts(self) -> list[int]:
-        """Índices das mensagens que abrem um turno (usuário com texto, não tool_result)."""
-        starts: list[int] = []
-        for i, message in enumerate(self.history):
-            if message.role != MessageRole.USER:
-                continue
-            if isinstance(message.content, str) or any(b.type != "tool_result" for b in message.blocks):
-                starts.append(i)
-        return starts
-
-    def compact(self, focus: str | None = None) -> str:
-        """Substitui a conversa antiga por um resumo, preservando a cauda vital."""
-        starts = self._turn_starts()
-        bounds = [*starts, len(self.history)]
-        pairs = [
-            TurnData(
-                turn_index=n,
-                user_input=self.history[bounds[n]].text,
-                tool_output=self._answer_text(self.history[bounds[n] + 1 : bounds[n + 1]]),
-            )
-            for n in range(len(starts))
-        ]
-        result = self.compactor.compact(pairs, focus=focus)
-        keep = result.preserved_tail_turns
-        tail = self.history[starts[-keep] :] if keep and starts else []
-        if result.original_turns > keep:
-            summary = LLMMessage(
-                role=MessageRole.USER,
-                content=f"Resumo da conversa anterior:\n{result.compacted_summary}",
-            )
-            ack = LLMMessage(role=MessageRole.ASSISTANT, content="Entendido.")
-            self.history = [summary, ack, *tail]
-        return self.compactor.format_notification(result)
+    async def compact(self, focus: str | None = None) -> str:
+        """``/compact``: condensa os turnos antigos, preservando a cauda vital e o pedido ativo."""
+        outcome = await compact_messages(
+            self.history,
+            compactor=self.compactor,
+            summarizer=self._summarize,
+            focus=focus,
+            keep_turns=self.compactor.vital_tail_count,
+            allow_intra=False,
+        )
+        if outcome is None:
+            return "Nada a compactar: a conversa cabe na cauda vital."
+        self.history = outcome.messages
+        self._persist(TranscriptEntry.of_compact(self.history))
+        return self._compaction_message(outcome)
 
     @staticmethod
-    def _answer_text(messages: list[LLMMessage]) -> str:
-        """Texto final do assistente num turno (ignora tool_use/tool_result intermediários)."""
-        for message in reversed(messages):
-            if message.role == MessageRole.ASSISTANT:
-                return "".join(b.text or "" for b in message.blocks if b.type == "text")
-        return ""
+    def _compaction_message(outcome: CompactionOutcome) -> str:
+        how = "resumo por modelo" if outcome.used_llm else "resumo determinístico"
+        return (
+            f"Contexto compactado ({how}): {outcome.condensed_messages} mensagens condensadas, "
+            f"~{outcome.tokens_saved} tokens poupados."
+        )
+
+    def _on_autocompact(self, outcome: CompactionOutcome) -> None:
+        self.renderer.warn(self._compaction_message(outcome))
+
+    async def _summarize(self, transcript: str, focus: str | None) -> str:
+        """Resumo por um modelo barato (tier FAST); vazio quando offline (usa o determinístico)."""
+        if not self.online:
+            return ""
+        spec = self.registry.require(self.router.tier_model(ComplexityTier.FAST))
+        self.budget.check(is_local_model=spec.provider == ProviderName.OLLAMA)
+        prompt = SUMMARY_PROMPT + (f"\nDê ênfase a: {focus}" if focus else "")
+        request = LLMRequest(
+            model=spec.id,
+            messages=[
+                LLMMessage(role=MessageRole.SYSTEM, content=prompt),
+                LLMMessage(role=MessageRole.USER, content=transcript),
+            ],
+            max_tokens=2000,
+            complexity_tier=ComplexityTier.FAST,
+            extra_params=self._extra_params(spec),
+        )
+        started = time.monotonic()
+        text = ""
+        usage: TokenUsage | None = None
+        async for chunk in self._provider_factory(spec).stream(request):
+            text += chunk.delta
+            if chunk.usage is not None:
+                usage = chunk.usage
+        self._record_cost(
+            spec,
+            usage or self._estimate_usage(request.messages, text, 0),
+            ComplexityTier.FAST,
+            "compaction",
+            (time.monotonic() - started) * 1000,
+        )
+        return text
 
     def create_branch(self, name: str) -> None:
         """Abre uma ramificação de contexto isolada."""
@@ -780,6 +1047,7 @@ class AgentSession:
             LLMMessage(role=MessageRole.USER, content=f"Checkpoint da branch {name}:\n{checkpoint}"),
             LLMMessage(role=MessageRole.ASSISTANT, content="Entendido."),
         ]
+        self._persist(TranscriptEntry.of_compact(self.history))
         await self._log_timeline("checkpoint", "system", checkpoint)
         return checkpoint
 

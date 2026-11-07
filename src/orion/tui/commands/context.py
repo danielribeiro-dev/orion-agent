@@ -15,7 +15,7 @@ class CompactCommand(BaseSlashCommand):
     async def execute(self, args: str, context: CommandContext) -> CommandResult:
         if not context.session.history:
             return CommandResult(success=True, output_message="Conversa vazia, nada a compactar.")
-        return CommandResult(success=True, output_message=context.session.compact(args or None))
+        return CommandResult(success=True, output_message=await context.session.compact(args or None))
 
 
 class ContextCommand(BaseSlashCommand):
@@ -28,6 +28,11 @@ class ContextCommand(BaseSlashCommand):
         width = min(context.console.width - 8, 96)
         parts = session.context_breakdown()
         context.console.print(render_context(parts, session.context_window(), bar_width=width))
+        if session.tokens_in:
+            context.console.print(
+                f"cache de prompt: {session.cache_hit_ratio():.0%} dos tokens de entrada da sessão",
+                style="text_dim",
+            )
         return CommandResult(success=True, data=parts)
 
 

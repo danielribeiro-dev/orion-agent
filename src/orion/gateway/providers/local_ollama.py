@@ -23,10 +23,12 @@ import json
 import logging
 import time
 from collections.abc import AsyncIterator
+from typing import Any
 
 import aiohttp
 
 from orion.gateway.models import (
+    ContentBlock,
     LLMRequest,
     LLMResponse,
     LLMResponseChunk,
@@ -34,6 +36,12 @@ from orion.gateway.models import (
     TokenUsage,
 )
 from orion.gateway.providers.base import BaseLLMProvider
+from orion.gateway.providers.openai_wire import (
+    blocks_from_ollama_calls,
+    map_finish_reason,
+    serialize_messages,
+    tools_to_openai,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +51,9 @@ _DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 # Timeout conservador para não travar a máquina em caso de sobrecarga local
 _DEFAULT_TIMEOUT_S = 60.0
 _CHECK_TIMEOUT_S = 3.0  # Timeout rápido para a checagem de disponibilidade
+
+# Modelos que recusaram `tools`: lembrados no processo (o provider é recriado a cada chamada).
+_MODELS_WITHOUT_TOOLS: set[str] = set()
 
 
 class OllamaUnavailableError(Exception):
@@ -210,45 +221,47 @@ class LocalOllamaProvider(BaseLLMProvider):
         """
         await self._assert_available()
 
-        payload = self._build_payload(request, stream=False)
         t0 = time.monotonic()
-
-        try:
-            timeout = aiohttp.ClientTimeout(total=self._timeout_s)
-            async with aiohttp.ClientSession(timeout=timeout) as session, session.post(
-                f"{self._base_url}/api/chat",
-                json=payload,
-            ) as resp:
-                if resp.status == 404:
-                    available = await self.list_available_models()
-                    raise OllamaModelNotFoundError(
-                        model_id=self._model_id,
-                        available_models=available,
-                    )
-                resp.raise_for_status()
-                data = await resp.json()
-        except (OllamaUnavailableError, OllamaModelNotFoundError):
-            raise
-        except aiohttp.ClientConnectorError as exc:
-            raise OllamaUnavailableError(self._base_url, exc) from exc
-        except Exception:
-            logger.exception("LocalOllamaProvider: erro na chamada de complete.")
-            raise
+        data: dict[str, Any] = {}
+        for _attempt in range(2):
+            payload = self._build_payload(request, stream=False)
+            try:
+                timeout = aiohttp.ClientTimeout(total=self._timeout_s)
+                async with aiohttp.ClientSession(timeout=timeout) as session, session.post(
+                    f"{self._base_url}/api/chat",
+                    json=payload,
+                ) as resp:
+                    if resp.status == 404:
+                        available = await self.list_available_models()
+                        raise OllamaModelNotFoundError(
+                            model_id=self._model_id,
+                            available_models=available,
+                        )
+                    if await self._tools_rejected(resp, payload):
+                        continue
+                    resp.raise_for_status()
+                    data = await resp.json()
+                    break
+            except (OllamaUnavailableError, OllamaModelNotFoundError):
+                raise
+            except aiohttp.ClientConnectorError as exc:
+                raise OllamaUnavailableError(self._base_url, exc) from exc
+            except Exception:
+                logger.exception("LocalOllamaProvider: erro na chamada de complete.")
+                raise
 
         latency_ms = (time.monotonic() - t0) * 1000
-        content = data.get("message", {}).get("content", "")
-        usage_data = data.get("usage", {})
-
-        usage = TokenUsage(
-            prompt_tokens=usage_data.get("prompt_tokens", 0),
-            completion_tokens=usage_data.get("completion_tokens", 0),
-            cached_tokens=0,
-            reasoning_tokens=0,
-            total_tokens=usage_data.get("total_tokens", 0),
+        message = data.get("message", {})
+        content = message.get("content", "")
+        blocks = ([ContentBlock.of_text(content)] if content else []) + blocks_from_ollama_calls(
+            message.get("tool_calls") or []
         )
+        usage = self._usage(data)
 
         return LLMResponse(
             content=content,
+            blocks=blocks,
+            stop_reason=self._stop_reason(data, any(b.type == "tool_use" for b in blocks)),
             model=self._model_id,
             provider=ProviderName.OLLAMA,
             usage=usage,
@@ -271,67 +284,64 @@ class LocalOllamaProvider(BaseLLMProvider):
         """
         await self._assert_available()
 
-        payload = self._build_payload(request, stream=True)
-
-        try:
-            timeout = aiohttp.ClientTimeout(total=self._timeout_s)
-            async with aiohttp.ClientSession(timeout=timeout) as session, session.post(
-                f"{self._base_url}/api/chat",
-                json=payload,
-            ) as resp:
-                if resp.status == 404:
-                    available = await self.list_available_models()
-                    raise OllamaModelNotFoundError(
-                        model_id=self._model_id,
-                        available_models=available,
-                    )
-                resp.raise_for_status()
-
-                prompt_tokens = 0
-                completion_tokens = 0
-
-                async for raw_line in resp.content:
-                    line = raw_line.decode("utf-8").strip()
-                    if not line:
+        notice: str | None = None
+        for _attempt in range(2):
+            payload = self._build_payload(request, stream=True)
+            if notice is not None:
+                yield LLMResponseChunk(notice=notice)
+            try:
+                timeout = aiohttp.ClientTimeout(total=self._timeout_s)
+                async with aiohttp.ClientSession(timeout=timeout) as session, session.post(
+                    f"{self._base_url}/api/chat",
+                    json=payload,
+                ) as resp:
+                    if resp.status == 404:
+                        available = await self.list_available_models()
+                        raise OllamaModelNotFoundError(
+                            model_id=self._model_id,
+                            available_models=available,
+                        )
+                    if await self._tools_rejected(resp, payload):
+                        notice = self._degraded_notice()
                         continue
-                    try:
-                        data = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
+                    resp.raise_for_status()
 
-                    delta = data.get("message", {}).get("content", "")
-                    done = data.get("done", False)
+                    completion_tokens = 0
+                    has_calls = False
+                    async for raw_line in resp.content:
+                        line = raw_line.decode("utf-8").strip()
+                        if not line:
+                            continue
+                        try:
+                            data = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
 
-                    if done:
-                        # Chunk final com métricas de uso
-                        usage_data = data.get("usage", {})
-                        prompt_tokens = usage_data.get("prompt_tokens", prompt_tokens)
-                        completion_tokens = usage_data.get(
-                            "completion_tokens", completion_tokens
-                        )
-                        usage = TokenUsage(
-                            prompt_tokens=prompt_tokens,
-                            completion_tokens=completion_tokens,
-                            cached_tokens=0,
-                            reasoning_tokens=0,
-                            total_tokens=prompt_tokens + completion_tokens,
-                        )
-                        yield LLMResponseChunk(
-                            delta=delta,
-                            is_final=True,
-                            usage=usage,
-                        )
-                    else:
-                        completion_tokens += 1
-                        yield LLMResponseChunk(delta=delta, is_final=False)
+                        message = data.get("message", {})
+                        delta = message.get("content", "")
+                        for block in blocks_from_ollama_calls(message.get("tool_calls") or []):
+                            has_calls = True
+                            yield LLMResponseChunk(block=block)
 
-        except (OllamaUnavailableError, OllamaModelNotFoundError):
-            raise
-        except aiohttp.ClientConnectorError as exc:
-            raise OllamaUnavailableError(self._base_url, exc) from exc
-        except Exception:
-            logger.exception("LocalOllamaProvider: erro durante o streaming.")
-            raise
+                        if data.get("done", False):
+                            yield LLMResponseChunk(
+                                delta=delta,
+                                is_final=True,
+                                usage=self._usage(data, completion_tokens),
+                                stop_reason=self._stop_reason(data, has_calls),
+                            )
+                        else:
+                            completion_tokens += 1
+                            yield LLMResponseChunk(delta=delta, is_final=False)
+                    return
+
+            except (OllamaUnavailableError, OllamaModelNotFoundError):
+                raise
+            except aiohttp.ClientConnectorError as exc:
+                raise OllamaUnavailableError(self._base_url, exc) from exc
+            except Exception:
+                logger.exception("LocalOllamaProvider: erro durante o streaming.")
+                raise
 
     # ── Helpers internos ──────────────────────────────────────────────────────
 
@@ -340,8 +350,11 @@ class LocalOllamaProvider(BaseLLMProvider):
         if not await self.is_available():
             raise OllamaUnavailableError(self._base_url)
 
-    def _build_payload(self, request: LLMRequest, *, stream: bool) -> dict:
+    def _build_payload(self, request: LLMRequest, *, stream: bool) -> dict[str, Any]:
         """Constrói o payload para a API do Ollama (/api/chat).
+
+        Com tools suportadas, envia ``tools`` e o histórico estruturado (``tool_calls``/``tool``);
+        sem suporte (detectado em runtime), degrada para texto puro.
 
         Args:
             request: Requisição normalizada.
@@ -350,16 +363,58 @@ class LocalOllamaProvider(BaseLLMProvider):
         Returns:
             Dicionário com o payload JSON para o Ollama.
         """
-        messages = [
-            {"role": msg.role.value, "content": msg.text}
-            for msg in request.messages
-        ]
-        return {
+        with_tools = bool(request.tools) and not self._tools_unsupported
+        payload: dict[str, Any] = {
             "model": self._model_id,
-            "messages": messages,
+            "messages": serialize_messages(
+                request.messages, ollama=True, with_tools=not self._tools_unsupported
+            ),
             "stream": stream,
             "options": {
                 "temperature": request.temperature,
                 "num_predict": request.max_tokens,
             },
         }
+        if with_tools:
+            payload["tools"] = tools_to_openai(request.tools)
+        return payload
+
+    @property
+    def _tools_unsupported(self) -> bool:
+        return self._model_id in _MODELS_WITHOUT_TOOLS
+
+    def _degraded_notice(self) -> str:
+        return (
+            f"O modelo local '{self._model_id}' não suporta tools: seguindo apenas em texto, "
+            "sem ações no sistema."
+        )
+
+    async def _tools_rejected(self, resp: aiohttp.ClientResponse, payload: dict[str, Any]) -> bool:
+        """True se o Ollama recusou ``tools`` (400); marca o provider para degradar a texto."""
+        if resp.status != 400 or "tools" not in payload:
+            return False
+        body = await resp.text()
+        if "does not support tools" not in body:
+            return False
+        logger.warning("Ollama: %s", self._degraded_notice())
+        _MODELS_WITHOUT_TOOLS.add(self._model_id)
+        return True
+
+    @staticmethod
+    def _usage(data: dict[str, Any], estimated_completion: int = 0) -> TokenUsage:
+        """Uso do chunk final: campos nativos ``*_eval_count`` ou o legado ``usage``."""
+        legacy = data.get("usage") or {}
+        prompt = int(data.get("prompt_eval_count", legacy.get("prompt_tokens", 0)) or 0)
+        completion = int(
+            data.get("eval_count", legacy.get("completion_tokens", estimated_completion)) or 0
+        )
+        return TokenUsage(
+            prompt_tokens=prompt,
+            completion_tokens=completion,
+            total_tokens=prompt + completion,
+        )
+
+    @staticmethod
+    def _stop_reason(data: dict[str, Any], has_tool_calls: bool) -> str:
+        reason = data.get("done_reason")
+        return map_finish_reason(reason, has_tool_calls) or ("tool_use" if has_tool_calls else "end_turn")

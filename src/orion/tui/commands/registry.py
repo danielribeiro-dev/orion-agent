@@ -11,7 +11,7 @@ import importlib
 
 from orion.tui.commands.base import BaseSlashCommand, CommandContext, CommandResult
 
-_MODULES = ("cognitive", "memory", "context", "operation", "mcp")
+_MODULES = ("cognitive", "memory", "context", "operation", "mcp", "session")
 
 
 def _concrete_subclasses(root: type[BaseSlashCommand]) -> list[type[BaseSlashCommand]]:

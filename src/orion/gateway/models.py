@@ -329,6 +329,10 @@ class LLMResponseChunk(BaseModel):
         default=None,
         description="Métricas de uso — presentes apenas no chunk final",
     )
+    notice: str | None = Field(
+        default=None,
+        description="Aviso do provider ao usuário (ex.: modelo local sem suporte a tools)",
+    )
 
 
 # ---------------------------------------------------------------------------

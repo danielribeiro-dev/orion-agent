@@ -175,6 +175,18 @@ OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
         category="operation",
     ),
     SlashCommandInfo(
+        "/resume",
+        "Listar ou retomar sessões anteriores deste workspace",
+        icon="❯",
+        category="operation",
+    ),
+    SlashCommandInfo(
+        "/rewind",
+        "Voltar conversa e arquivos para antes de um pedido",
+        icon="❯",
+        category="operation",
+    ),
+    SlashCommandInfo(
         "/run",
         "Executar comando ou script com governança PEP",
         icon="❯",

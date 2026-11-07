@@ -88,3 +88,9 @@ def tmp_paths(tmp_path: pytest.TempPathFactory) -> PathsConfig:
         global_home=tmp_path / ".orion_global",
         local_home=tmp_path / ".orion_local",
     )
+
+
+@pytest.fixture(autouse=True)
+def _no_live_recall(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Recall por turno baixaria o modelo de embeddings; os testes o ligam explicitamente."""
+    monkeypatch.setenv("ORION_RECALL", "0")

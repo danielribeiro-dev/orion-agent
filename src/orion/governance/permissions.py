@@ -40,13 +40,14 @@ TOOL_LEVELS: dict[str, ActionLevel] = {
     "write_file": ActionLevel.LEVEL_2,
     "edit_file": ActionLevel.LEVEL_2,
     "run_command": ActionLevel.LEVEL_3,
-    "mcp_schema": ActionLevel.LEVEL_0,
     # Cognitive & skills tools (v0.2.0)
     "inspect_environment": ActionLevel.LEVEL_1,
     "recall": ActionLevel.LEVEL_1,
     "use_skill": ActionLevel.LEVEL_1,
     "memorize": ActionLevel.LEVEL_2,
     "deprecate_fact": ActionLevel.LEVEL_2,
+    # Grava fato CONFIRMED (só o usuário deveria promover): sempre confirmado (v0.5.0 Sprint 3).
+    "record_decision": ActionLevel.LEVEL_3,
 }
 
 # ActionLevel -> RiskLevel carried by Action events (single source of truth).

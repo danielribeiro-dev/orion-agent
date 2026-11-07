@@ -61,34 +61,6 @@ class MCPToolAdapter(BaseTool):
         return RuntimeResult.ok(text) if ok else RuntimeResult.fail(text)
 
 
-class MCPSchemaTool(BaseTool):
-    """Native LEVEL_0 tool: returns the full JSON schema of one MCP tool.
-
-    This is the lazy-loading hook — the prompt only lists one line per tool.
-    """
-
-    name = "mcp_schema"
-    description = "Return the full JSON schema of one MCP tool."
-    input_schema = {
-        "type": "object",
-        "properties": {"tool": {"type": "string", "description": "Qualified MCP tool name."}},
-        "required": ["tool"],
-    }
-    read_only = True
-
-    def __init__(self, adapters: dict[str, MCPToolAdapter]) -> None:
-        self._adapters = adapters
-
-    async def run(self, **params: Any) -> RuntimeResult:
-        import json
-
-        tool = str(params.get("tool", ""))
-        adapter = self._adapters.get(tool)
-        if adapter is None:
-            return RuntimeResult.fail(f"Unknown MCP tool '{tool}'. Known: {sorted(self._adapters)}")
-        return RuntimeResult.ok(json.dumps(adapter.schema(), ensure_ascii=False))
-
-
 def build_adapters(client: MCPClient) -> dict[str, MCPToolAdapter]:
     """Create adapters for every connected tool and register PEP levels."""
     adapters: dict[str, MCPToolAdapter] = {}

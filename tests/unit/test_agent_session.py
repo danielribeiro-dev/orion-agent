@@ -281,7 +281,7 @@ class TestContext:
         for i in range(6):
             await session.run_turn(f"p{i}")
         before = len(session.history)
-        session.compact()
+        await session.compact()
         assert len(session.history) < before
         assert session.history[-1].text == "r5"
 
@@ -371,7 +371,7 @@ class TestStructuredLoop:
         session = make_session(ScriptedProvider(replies))
         for i in range(6):
             await session.run_turn(f"p{i}")
-        session.compact()
+        await session.compact()
         assert session.history[-1].text == "r5"
         # a cauda preservada começa num turno inteiro (sem tool_result órfão)
         tail_first = session.history[2]

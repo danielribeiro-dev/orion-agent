@@ -19,7 +19,11 @@ class PlanCommand(BaseSlashCommand):
         from orion.tui.session import AgentMode
 
         context.session.set_mode(AgentMode.PLAN)
-        await context.session.run_turn(f"Pesquise o repositório e proponha um plano para: {args}")
+        await context.session.run_turn(
+            f"Pesquise o repositório e proponha um plano para: {args}\n"
+            "Liste as decisões de design do plano; depois que eu aprovar, registre cada uma com a tool "
+            "record_decision."
+        )
         return CommandResult(success=True)
 
 
@@ -47,7 +51,8 @@ class GrillMeCommand(BaseSlashCommand):
     async def execute(self, args: str, context: CommandContext) -> CommandResult:
         topic = args or "a tarefa atual"
         await context.session.run_turn(
-            f"Entreviste-me sobre {topic}: faça uma pergunta investigativa por vez, sem escrever código."
+            f"Entreviste-me sobre {topic}: faça uma pergunta investigativa por vez, sem escrever código. "
+            "Quando uma decisão for fechada comigo, registre-a com a tool record_decision."
         )
         return CommandResult(success=True)
 
