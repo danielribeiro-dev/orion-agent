@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import os
 import sys
 from pathlib import Path
@@ -23,6 +24,13 @@ def main() -> None:
     os.environ["ANTHROPIC_API_KEY"] = "sk-ant-bridge-dummy-never-sent"
     os.environ["ORION_MCP"] = "1" if args.mcp else "0"
     os.chdir(args.workspace)
+
+    # Modo "aba do Senhor": sem driver, o launcher sinaliza vida/saída para o ctl.py.
+    bridge = Path(args.bridge)
+    bridge.mkdir(parents=True, exist_ok=True)
+    (bridge / "exit.txt").unlink(missing_ok=True)
+    (bridge / "driver.pid").write_text(str(os.getpid()))
+    atexit.register(lambda: (bridge / "exit.txt").write_text("0\n"))
 
     from bridge_provider import BridgeProvider
 

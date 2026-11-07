@@ -2,6 +2,7 @@
 """Controle do harness de dogfooding (usado pelo Claude Code via Bash).
 
   ctl.py start [--workspace P] [--mcp]   sobe o ORION num pty (workspace padrão: cwd)
+  ctl.py attach [--workspace P]          modo aba do Senhor: imprime o comando para ele rodar no próprio terminal
   ctl.py wait [--timeout S]              espera a próxima requisição do ORION ao "modelo" e a imprime
   ctl.py reply [--text T] [--tool NOME JSON]... [--error MSG] [--stop-reason R]
   ctl.py send TEXTO [--no-enter]         digita no prompt do ORION
@@ -75,8 +76,24 @@ def cmd_start(a: argparse.Namespace) -> None:
     cmd_screen(argparse.Namespace(full=False, tail=0))
 
 
+def cmd_attach(a: argparse.Namespace) -> None:
+    """Prepara o diretório e imprime o comando que o Senhor roda na PRÓPRIA aba do terminal."""
+    d = bridge_dir()
+    if alive(d):
+        sys.exit(f"há um ORION ativo em {d}; encerre-o antes.")
+    for f in d.glob("*"):
+        if f.is_file():
+            f.unlink()
+    d.mkdir(parents=True, exist_ok=True)
+    ws = Path(a.workspace).resolve()
+    print("Rode na sua aba do terminal:\n")
+    print(f"  python {HERE / 'launch.py'} --bridge {d} --workspace {ws} --home {d / 'home'} --model {a.model}"
+          + (" --mcp" if a.mcp else ""))
+
+
 def cmd_wait(a: argparse.Namespace) -> None:
     d = bridge_dir()
+    started = False
     end = time.monotonic() + a.timeout
     while time.monotonic() < end:
         n = pending(d)
@@ -84,13 +101,12 @@ def cmd_wait(a: argparse.Namespace) -> None:
             print((d / f"req-{n:04d}.txt").read_text(encoding="utf-8"))
             print(f"(responda com: ctl.py reply  -> res-{n:04d})")
             return
-        if not alive(d):
-            print("ORION encerrou. Tela final:")
-            cmd_screen(argparse.Namespace(full=False, tail=0))
+        started = started or (d / "driver.pid").exists()
+        if started and not alive(d):
+            print("ORION encerrou.")
             return
         time.sleep(0.2)
-    print("timeout: nenhuma requisição nova. Tela atual:")
-    cmd_screen(argparse.Namespace(full=False, tail=0))
+    print("timeout: nenhuma requisição nova.")
 
 
 def cmd_reply(a: argparse.Namespace) -> None:
@@ -172,6 +188,11 @@ def main() -> None:
     p.add_argument("--model", default="claude-sonnet-5-5")
     p.add_argument("--mcp", action="store_true")
     p.set_defaults(fn=cmd_start)
+    p = sub.add_parser("attach")
+    p.add_argument("--workspace", default=os.getcwd())
+    p.add_argument("--model", default="claude-sonnet-5-5")
+    p.add_argument("--mcp", action="store_true")
+    p.set_defaults(fn=cmd_attach)
     p = sub.add_parser("wait")
     p.add_argument("--timeout", type=float, default=120)
     p.set_defaults(fn=cmd_wait)
