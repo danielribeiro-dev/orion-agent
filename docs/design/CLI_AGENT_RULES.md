@@ -18,7 +18,8 @@
    * **O que fazer:** A linha de status deve repousar sobre o fundo nativo do terminal (`default`), com textos atenuados e separadores discretos (`·` ou `│`).
 
 3. **RÉGUAS DO PROMPT: SOMENTE AS DUAS APROVADAS, DENTRO DO `HSplit` (F-07/F-08):**
-   * O container do prompt tem exatamente **duas** réguas `Window(char="─", height=1)` em `border_subtle`, uma acima e outra abaixo do input (estilo Claude Code), inseridas em `InteractivePrompt.__init__`. Por serem filhas do `HSplit`, acompanham a altura do input (quebra de linha e `Alt+Enter`) e permanecem no scrollback após o envio.
+   * O container do prompt tem exatamente **duas** réguas `Window(char="─", height=1)` em `text_primary` (clara; `border_subtle` é escura demais e some no fundo do terminal), uma acima e outra abaixo do input (estilo Claude Code), inseridas em `InteractivePrompt.__init__`. Por serem filhas do `HSplit`, acompanham a altura do input (quebra de linha e `Alt+Enter`) e permanecem no scrollback após o envio.
+   * A janela de input tem `dont_extend_height`: sem isso, com o prompt no rodapé, sobram linhas vazias entre o texto e a régua de baixo ao apagar linhas. As réguas devem seguir sempre o texto digitado.
    * É proibido adicionar outras janelas horizontais estáticas ou caixas laterais ao redor do texto.
    * **Por quê:** janelas adicionais geraram "linhas fantasmas" com o menu de autocompletar e entradas multilinhas. A configuração aprovada foi validada em pty (vazio, quebra, `Alt+Enter`, menu aberto/fechado, envio).
    * O texto digitado fica em negrito na cor nativa do terminal (nunca fixar cor clara: some em fundo claro).

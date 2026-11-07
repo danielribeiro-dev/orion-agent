@@ -385,3 +385,21 @@ def test_prompt_has_rules_above_and_below_the_input() -> None:
     rules = [i for i, c in enumerate(children) if isinstance(c, Window) and c.char == "─"]
     assert len(rules) == 2
     assert rules[1] - rules[0] == 2  # o input fica entre as duas
+
+
+def test_prompt_input_does_not_stretch_and_rules_are_light() -> None:
+    """F-08: o input não absorve altura extra (réguas seguem o texto) e a régua é clara."""
+    from prompt_toolkit.layout.controls import BufferControl
+
+    from orion.tui.prompt import InteractivePrompt, get_prompt_style
+    from orion.tui.theme import ORION_COLORS
+
+    prompt = InteractivePrompt(history_path=None)
+    inputs = [
+        w
+        for w in prompt.session.layout.find_all_windows()
+        if isinstance(w.content, BufferControl) and w.content.buffer is prompt.session.default_buffer
+    ]
+    assert inputs and all(w.dont_extend_height() for w in inputs)
+    rules = dict(get_prompt_style().style_rules)
+    assert ORION_COLORS["text_primary"].lstrip("#").lower() in rules["prompt.border"].lower()

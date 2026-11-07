@@ -18,11 +18,12 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.filters import has_completions, is_done
+from prompt_toolkit.filters import has_completions, is_done, to_filter
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import FileHistory, History, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout.containers import ConditionalContainer, Window
+from prompt_toolkit.layout.controls import BufferControl
 from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.layout.margins import ScrollbarMargin
 from prompt_toolkit.layout.menus import (
@@ -51,7 +52,8 @@ def get_prompt_style() -> Style:
             # F-07: o texto digitado fica em negrito na cor nativa do terminal. Não fixar cor de fundo
             # nem de texto claro: em terminais de fundo claro o input ficaria invisível.
             "": "bold",
-            "prompt.border": f"{ORION_COLORS['border_subtle']}",
+            # Réguas do input: claras (text_primary); border_subtle some em terminais escuros
+            "prompt.border": f"{ORION_COLORS['text_primary']}",
             "prompt.symbol": f"{ORION_COLORS['accent_cyan']} bold",
             "prompt.dim": f"{ORION_COLORS['text_dim']}",
             "prompt.identity": f"{ORION_COLORS['text_primary']} bold",
@@ -152,6 +154,13 @@ class InteractivePrompt:
         children.insert(1, self._make_rule())  # acima do input
         children.insert(3, self._make_rule())  # abaixo do input
 
+        # Com o prompt encostado no rodapé, o HSplit recebe toda a altura disponível e a janela de
+        # input a absorveria, deixando linhas vazias entre o texto e a régua de baixo ao apagar
+        # linhas. Input sem esticar => as réguas seguem exatamente o texto.
+        for window in self.session.layout.find_all_windows():
+            if isinstance(window.content, BufferControl) and window.content.buffer is self.session.default_buffer:
+                window.dont_extend_height = to_filter(True)
+
         # Desativa os menus flutuantes inferiores padrão para evitar menus duplicados ou truncados
         try:
             main_content = children[2]
@@ -194,7 +203,7 @@ class InteractivePrompt:
 
     @staticmethod
     def _make_rule() -> Window:
-        """Régua de largura total em `border_subtle`, uma linha, que acompanha o redimensionamento."""
+        """Régua de largura total em `text_primary`, uma linha, que acompanha o redimensionamento."""
         return Window(height=1, char="─", style="class:prompt.border")
 
     def dock_to_bottom(self, rendered_lines: int = 15) -> None:
