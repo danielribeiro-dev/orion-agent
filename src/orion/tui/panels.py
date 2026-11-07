@@ -11,6 +11,7 @@ from typing import Any
 
 from rich import box
 from rich.console import Group, RenderableType
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
@@ -280,7 +281,10 @@ def describe_action(tool: str, params: dict[str, Any]) -> tuple[str, str, str]:
     """Traduz a ação para os campos do diálogo: ação, alvo e impacto."""
     name = _ACTION_NAMES.get(tool, f"Ferramenta {tool}")
     if tool == "run_command":
-        return name, str(params.get("command", "")), "Executa o comando no workspace atual"
+        impact = "Executa o comando no workspace atual"
+        if params.get("run_in_background"):
+            impact = "Executa o comando em segundo plano; continua rodando após a aprovação"
+        return name, str(params.get("command", "")), impact
     target = str(params.get("path", params))
     return name, target, "Modifica o arquivo no workspace"
 
@@ -350,4 +354,4 @@ def render_plan_approval(plan: str, mode_label: str) -> Group:
     keys.append(f" Aprovar e sair do modo plano ({mode_label})   ", style="text_dim")
     keys.append("[n]", style="diff_del")
     keys.append(" Continuar planejando", style="text_dim")
-    return Group(orion_panel(Text(plan.strip(), style="text_primary"), title, border=ORION_COLORS["pep_warn"]), keys)
+    return Group(orion_panel(Markdown(plan.strip()), title, border=ORION_COLORS["pep_warn"]), keys)

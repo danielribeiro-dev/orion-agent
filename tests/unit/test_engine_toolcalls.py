@@ -20,7 +20,7 @@ from orion.core.event_bus import EventBus
 from orion.core.events import ActionEmitted, Observation, TurnCancelledEvent
 from orion.core.state import AgentState
 from orion.gateway.models import ContentBlock, LLMMessage, MessageRole
-from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint
+from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint, Rejection
 from orion.governance.permissions import WorkspaceScope
 from orion.runtime.local_provider import LocalRuntimeProvider
 from orion.runtime.provider import BaseRuntimeProvider, RuntimeResult
@@ -140,6 +140,33 @@ class TestValidation:
         await engine_for(llm, runtime).run("x")
         assert tool_results(llm.requests[1][-1])[0].is_error
         assert not outside.exists()
+
+    async def test_failed_command_returns_its_output(self, runtime: LocalRuntimeProvider) -> None:
+        """F-06: o modelo precisa ver o traceback quando o comando sai com código != 0."""
+        cmd = "echo TRACEBACK_VISIVEL; exit 3"
+        llm = ScriptedLLM(use("run_command", {"command": cmd}), say("ok"))
+        await engine_for(llm, runtime).run("x")
+        result = tool_results(llm.requests[1][-1])[0]
+        assert result.is_error
+        text = str(result.content)
+        assert "exited with code 3" in text
+        assert "TRACEBACK_VISIVEL" in text
+
+    async def test_plan_mode_rejection_is_not_reported_as_user_rejection(self, workspace: Path) -> None:
+        """F-02: a negação do modo plano deve dizer o motivo real."""
+        scope = WorkspaceScope([workspace])
+        pep = PolicyEnforcementPoint(
+            scope=scope,
+            mode=AutonomyMode.SUPERVISED,
+            action_confirm=lambda action, level: Rejection("plan mode is read-only"),
+        )
+        runtime = LocalRuntimeProvider(pep=pep, scope=scope)
+        llm = ScriptedLLM(use("write_file", {"path": str(workspace / "x.txt"), "content": "x"}), say("ok"))
+        await engine_for(llm, runtime).run("x")
+        text = str(tool_results(llm.requests[1][-1])[0].content)
+        assert "plan mode is read-only" in text
+        assert "user rejected" not in text
+        assert not (workspace / "x.txt").exists()
 
 
 class SlowRuntime(BaseRuntimeProvider):

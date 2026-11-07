@@ -19,6 +19,7 @@ import json
 import os
 import signal
 import subprocess
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -61,6 +62,8 @@ def cmd_start(a: argparse.Namespace) -> None:
         if f.is_file():
             f.unlink()
     d.mkdir(parents=True, exist_ok=True)
+    if not a.keep_home:
+        shutil.rmtree(d / "home", ignore_errors=True)
     home = d / "home"
     cmd = [
         sys.executable, str(HERE / "driver.py"), "--dir", str(d), "--workspace", str(Path(a.workspace).resolve()),
@@ -85,6 +88,8 @@ def cmd_attach(a: argparse.Namespace) -> None:
         if f.is_file():
             f.unlink()
     d.mkdir(parents=True, exist_ok=True)
+    if not a.keep_home:
+        shutil.rmtree(d / "home", ignore_errors=True)  # F-05: memória de rodadas anteriores vazava
     ws = Path(a.workspace).resolve()
     print("Rode na sua aba do terminal:\n")
     print(f"  python {HERE / 'launch.py'} --bridge {d} --workspace {ws} --home {d / 'home'} --model {a.model}"
@@ -187,11 +192,13 @@ def main() -> None:
     p.add_argument("--cols", type=int, default=120)
     p.add_argument("--model", default="claude-sonnet-5-5")
     p.add_argument("--mcp", action="store_true")
+    p.add_argument("--keep-home", action="store_true", help="preserva a memória da rodada anterior")
     p.set_defaults(fn=cmd_start)
     p = sub.add_parser("attach")
     p.add_argument("--workspace", default=os.getcwd())
     p.add_argument("--model", default="claude-sonnet-5-5")
     p.add_argument("--mcp", action="store_true")
+    p.add_argument("--keep-home", action="store_true", help="preserva a memória da rodada anterior")
     p.set_defaults(fn=cmd_attach)
     p = sub.add_parser("wait")
     p.add_argument("--timeout", type=float, default=120)

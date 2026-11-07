@@ -5,7 +5,7 @@ Personal Operating Intelligence Platform
 https://github.com/danielribeiro-dev/orion-agent
 """
 
-__version__ = "0.4.0-alpha"
+__version__ = "0.5.0-alpha"
 __author__ = "Daniel Dev"
 __license__ = "Apache-2.0"
 

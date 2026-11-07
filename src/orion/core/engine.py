@@ -52,7 +52,7 @@ from orion.core.events import (
 )
 from orion.core.state import AgentState, StateMachine
 from orion.governance.permissions import tool_risk_level
-from orion.runtime.provider import BaseRuntimeProvider
+from orion.runtime.provider import BaseRuntimeProvider, RuntimeResult
 
 logger = logging.getLogger(__name__)
 
@@ -519,6 +519,13 @@ class ReActEngine:
         safe = _DELIM_FORGERY.sub("<<", truncate_output(output, limit))
         return f"{DELIM_TOOL_START}\n{safe}\n{DELIM_TOOL_END}"
 
+    @staticmethod
+    def _failure_text(result: RuntimeResult) -> str:
+        """Erro da tool seguido da saída parcial (ex.: traceback de um comando que falhou)."""
+        if result.output and result.error:
+            return f"{result.error}\n{result.output}"
+        return result.error or result.output
+
     async def _execute_action(self, action: Action) -> Observation:
         """Despacha *action* ao runtime (que passa pelo PEP). Nunca levanta por falha de tool."""
         if self._runtime is None:
@@ -542,7 +549,7 @@ class ReActEngine:
         return Observation(
             action_id=action.event_id,
             success=result.success,
-            output=result.output if result.success else result.error,
+            output=result.output if result.success else self._failure_text(result),
             error=result.error or None,
             metadata={k: v for k, v in result.metadata.items() if k != "image"},
             image=result.metadata.get("image"),

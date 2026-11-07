@@ -48,6 +48,9 @@ def get_prompt_style() -> Style:
     """Gera a tabela de estilos do prompt_toolkit alinhada com a paleta Deep Cosmos."""
     return Style.from_dict(
         {
+            # F-07: o texto digitado fica em negrito na cor nativa do terminal. Não fixar cor de fundo
+            # nem de texto claro: em terminais de fundo claro o input ficaria invisível.
+            "": "bold",
             "prompt.border": f"{ORION_COLORS['border_subtle']}",
             "prompt.symbol": f"{ORION_COLORS['accent_cyan']} bold",
             "prompt.dim": f"{ORION_COLORS['text_dim']}",
@@ -144,9 +147,14 @@ class InteractivePrompt:
         children = self.session.layout.container.children  # type: ignore[attr-defined]
         children.insert(0, comp_window)
 
+        # Réguas dinâmicas (estilo Claude Code): fazem parte do HSplit, logo sobem e descem com a
+        # altura do input (multilinha/quebra de linha). `main_input` fica entre as duas.
+        children.insert(1, self._make_rule())  # acima do input
+        children.insert(3, self._make_rule())  # abaixo do input
+
         # Desativa os menus flutuantes inferiores padrão para evitar menus duplicados ou truncados
         try:
-            main_content = children[1]
+            main_content = children[2]
             alt = getattr(main_content, "alternative_content", None)
             if alt and hasattr(alt, "floats"):
                 alt.floats = [
@@ -160,7 +168,7 @@ class InteractivePrompt:
             pass
 
     def get_prompt_prefix(self) -> FormattedText:
-        """Gera o cursor minimalista `❯ `, sem réguas ao redor do campo."""
+        """Gera o cursor minimalista `❯ `; as réguas são Windows do container (ver `__init__`)."""
         return FormattedText([("class:prompt.symbol", "❯ ")])
 
     def get_bottom_toolbar(self) -> FormattedText:
@@ -183,6 +191,11 @@ class InteractivePrompt:
         return FormattedText(
             [(classes[role], text) for role, text in self.status_bar.status_segments(term_cols)]
         )
+
+    @staticmethod
+    def _make_rule() -> Window:
+        """Régua de largura total em `border_subtle`, uma linha, que acompanha o redimensionamento."""
+        return Window(height=1, char="─", style="class:prompt.border")
 
     def dock_to_bottom(self, rendered_lines: int = 15) -> None:
         """Empurra o prompt para o rodapé do terminal (aparência de tela cheia).

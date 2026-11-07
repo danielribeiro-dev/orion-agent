@@ -30,6 +30,7 @@ import asyncio
 import inspect
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
@@ -88,6 +89,13 @@ class ActionDenied(Exception):
 ConfirmCallback = Any  # Callable[[str], bool | Awaitable[bool]]
 
 
+@dataclass(frozen=True)
+class Rejection:
+    """Recusa que não veio do usuário (ex.: modo plano); *reason* chega ao modelo."""
+
+    reason: str
+
+
 def _default_confirm(prompt: str) -> bool:  # pragma: no cover
     """Synchronous stdin confirmation for interactive sessions."""
     answer = input(f"\n{prompt} [Y/n] ").strip().lower()
@@ -140,6 +148,7 @@ class PolicyEnforcementPoint:
         self._confirm = confirm if confirm is not None else _default_confirm
         self._action_confirm = action_confirm
         self._edited_params: dict[str, dict[str, Any]] = {}
+        self._rejection_reasons: dict[str, str] = {}
         self._trust_ledger = trust_ledger
         self._nuclear_gate = nuclear_gate or NuclearSafetyGate()
         self._circuit_breaker = circuit_breaker  # Optional[CircuitBreaker]
@@ -258,6 +267,10 @@ class PolicyEnforcementPoint:
             result_status="pending",
         )
         return True
+
+    def take_rejection_reason(self, action_id: str) -> str | None:
+        """Motivo de uma recusa não-humana (consumido uma vez)."""
+        return self._rejection_reasons.pop(action_id, None)
 
     def take_edited_params(self, action_id: str) -> dict[str, Any] | None:
         """Return (and clear) params the human edited while approving *action_id*."""
@@ -481,6 +494,9 @@ class PolicyEnforcementPoint:
             decision = self._action_confirm(action, level)
             if inspect.isawaitable(decision):
                 decision = await decision
+            if isinstance(decision, Rejection):
+                self._rejection_reasons[action.event_id] = decision.reason
+                return False
             if isinstance(decision, dict):
                 edited = action.model_copy(update={"params": decision})
                 self._assert_no_sudo(edited, level)

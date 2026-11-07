@@ -19,6 +19,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
+from orion import __version__
 from orion.tui.theme import ORION_COLORS
 
 
@@ -176,7 +177,7 @@ class SessionStatusBar(BaseModel):
         if width < 100:
             # 📐 Cenário A: Modo Compacto (< 100 colunas)
             cyber_block = [
-                ("  ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗", "   O.R.I.O.N (ORION)  v0.4.0"),
+                ("  ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗", f"   O.R.I.O.N (ORION)  v{__version__}"),
                 (" ██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║", "   Sovereign Cognitive Agent"),
                 (" ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║", "   Non Ducor, Duco"),
                 (" ╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║", ""),
@@ -225,7 +226,7 @@ class SessionStatusBar(BaseModel):
         # 📐 Cenário B: Modo Standard / Amplo (>= 100 colunas)
         header_text = Text(no_wrap=True)
         header_text.append(
-            "  O.R.I.O.N (ORION)  v0.4.0 │ Operational Reasoning & Intelligence Orchestration Network\n",
+            f"  O.R.I.O.N (ORION)  v{__version__} │ Operational Reasoning & Intelligence Orchestration Network\n",
             style="accent_cyan",
         )
         header_text.append(

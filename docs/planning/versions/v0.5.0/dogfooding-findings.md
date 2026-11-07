@@ -10,10 +10,10 @@ com `tool_result` pareados, startup sem ruído. **Corrigiu o bug do workspace de
 
 | ID | Título | Severidade | Origem | Onde corrigir | Estado |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| F-01 | Modal PEP não mostra que o comando roda em background | baixa | H1 | ORION (`panels.describe_action`) | aberto |
-| F-02 | Negação automática do modo plano reportada como "user rejected" | média | H1 | ORION (`session._confirm`/PEP) | aberto |
-| F-03 | Banner exibe v0.4.0 na branch v0.5.0 | baixa | H1 | ORION (`__version__`/pyproject) | aberto |
-| F-04 | Plano de `exit_plan_mode` renderizado como texto cru (`# Plano`) | baixa | H1 | ORION (`panels.render_plan_approval`) | aberto |
+| F-01 | Modal PEP não mostra que o comando roda em background | baixa | H1 | ORION (`panels.describe_action`) | corrigido |
+| F-02 | Negação automática do modo plano reportada como "user rejected" | média | H1 | ORION (`session._confirm`/PEP) | corrigido |
+| F-03 | Banner exibe v0.4.0 na branch v0.5.0 | baixa | H1 | ORION (`__version__`/pyproject) | corrigido |
+| F-04 | Plano de `exit_plan_mode` renderizado como texto cru (`# Plano`) | baixa | H1 | ORION (`panels.render_plan_approval`) | corrigido |
 
 ## Rodada H2 — harness na aba do Senhor, TUI real (2026-11-07)
 Cenário: o Senhor usou o ORION na própria aba; o Claude Code respondeu como modelo. Bug da soma corrigido de ponta a ponta
@@ -21,11 +21,11 @@ Cenário: o Senhor usou o ORION na própria aba; o Claude Code respondeu como mo
 
 | ID | Título | Severidade | Origem | Onde corrigir | Estado |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| F-05 | `ctl attach` não limpa `home/`: memória de rodadas anteriores vaza (auto-recall) | baixa | H2 | harness (`ctl.py`) | aberto |
-| F-06 | `run_command` com exit != 0 devolve ao modelo só "exited with code N", sem a saída | **alta** | H2 | ORION (`engine._execute_action`) | aberto |
-| F-07 | Prompt do usuário não se destaca das respostas do ORION (sem variação de cor/fundo) | média | H2 | ORION (TUI) | aberto, precisa decisão de design |
-| F-08 | Sem réguas/bordas acima e abaixo do input: não se vê onde a resposta acaba e o input começa | média | H2 | ORION (`prompt.py`) | aberto, precisa decisão de design |
-| F-09 | Raciocínio, execução de tools e diffs mais superficiais que Claude Code/Hermes | média | H2 | ORION (`stream_renderer`) | aberto, precisa spec |
+| F-05 | `ctl attach` não limpa `home/`: memória de rodadas anteriores vaza (auto-recall) | baixa | H2 | harness (`ctl.py`) | corrigido |
+| F-06 | `run_command` com exit != 0 devolve ao modelo só "exited with code N", sem a saída | **alta** | H2 | ORION (`engine._execute_action`) | corrigido |
+| F-07 | Prompt do usuário não se destaca das respostas do ORION (sem variação de cor/fundo) | média | H2 | ORION (TUI) | corrigido (texto digitado em negrito) |
+| F-08 | Sem réguas/bordas acima e abaixo do input: não se vê onde a resposta acaba e o input começa | média | H2 | ORION (`prompt.py`) | corrigido (réguas acima e abaixo no container, dinâmicas) |
+| F-09 | Raciocínio, execução de tools e diffs mais superficiais que Claude Code/Hermes | média | H2 | ORION (`stream_renderer`) | aberto, spec aberta: `spec-f09-tui-detalhe.md` |
 
 ### F-05 — Memória vaza entre rodadas do harness
 - O que fiz: `ctl attach` após a rodada H1. Observado: `recalled_context` com o episódio da H1 já no 1º pedido. Causa verificada: `attach` apaga só arquivos de `bridge/`; `bridge/home/` (timeline, facts) permanece. Corrigir: `attach`/`start` limparem `home/` (opção `--keep-home`).

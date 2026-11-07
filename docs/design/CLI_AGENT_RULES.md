@@ -17,10 +17,11 @@
    * **Por quê:** Cria uma faixa retangular pesada e feia que nenhum agente moderno (Claude Code, Antigravity) possui.
    * **O que fazer:** A linha de status deve repousar sobre o fundo nativo do terminal (`default`), com textos atenuados e separadores discretos (`·` ou `│`).
 
-3. **NUNCA INJETE JANELAS HORIZONTAIS ESTÁTICAS (`char="─"`) NO CONTAINER DO PROMPT:**
-   * É proibido injetar containers do tipo `Window(char="─")` na lista de filhos do `PromptSession` para tentar fazer caixas ao redor do texto.
-   * **Por quê:** Quando o menu de autocompletar ou entradas multilinhas aparecem, essas linhas são empurradas para o scrollback do terminal e viram "linhas fantasmas" que nunca mais somem da tela.
-   * **O que fazer:** Use o cursor dinâmico `❯ ` que cresce verticalmente somente quando o texto quebra de linha ou o usuário insere multilinhas (`Alt+Enter`), retraindo para 1 linha instantaneamente ao apagar.
+3. **RÉGUAS DO PROMPT: SOMENTE AS DUAS APROVADAS, DENTRO DO `HSplit` (F-07/F-08):**
+   * O container do prompt tem exatamente **duas** réguas `Window(char="─", height=1)` em `border_subtle`, uma acima e outra abaixo do input (estilo Claude Code), inseridas em `InteractivePrompt.__init__`. Por serem filhas do `HSplit`, acompanham a altura do input (quebra de linha e `Alt+Enter`) e permanecem no scrollback após o envio.
+   * É proibido adicionar outras janelas horizontais estáticas ou caixas laterais ao redor do texto.
+   * **Por quê:** janelas adicionais geraram "linhas fantasmas" com o menu de autocompletar e entradas multilinhas. A configuração aprovada foi validada em pty (vazio, quebra, `Alt+Enter`, menu aberto/fechado, envio).
+   * O texto digitado fica em negrito na cor nativa do terminal (nunca fixar cor clara: some em fundo claro).
 
 4. **NUNCA DESPEJE RESPOSTAS LONGAS OU RACIOCÍNIO BRUTO SEM COLAPSO:**
    * O raciocínio do modelo (Thinking) deve ser colapsado para 1 linha (`▼ Raciocínio formulado em Xs`) após a conclusão, permitindo expansão opcional.

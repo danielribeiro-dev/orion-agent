@@ -204,8 +204,11 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
             )
 
         if not approved:
+            reason = self._pep.take_rejection_reason(action.event_id)
             return RuntimeResult.fail(
-                f"PEP: user rejected execution of '{tool}'.",
+                f"PEP: '{tool}' not executed: {reason}"
+                if reason
+                else f"PEP: user rejected execution of '{tool}'.",
                 denied=True,
             )
 

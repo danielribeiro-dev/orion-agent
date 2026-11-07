@@ -22,8 +22,7 @@ Merge de `version/v0.4.0` em `main` e tags `v0.3.0`/`v0.4.0`.
 
 ## Próximo Passo (retomar aqui)
 Estado: branch `gate/dogfooding-v0.5.0` (commits locais NÃO enviados ao remoto após `00eaeae`; `version/v0.5.0` = Sprint 4 `a0c42bb`, já no remoto). Harness modelo-ponte em `scripts/dogfood/` (README lá); rodadas H1 (pty) e H2 (aba do Senhor) concluídas — achados em `docs/planning/versions/v0.5.0/dogfooding-findings.md`.
-1. Corrigir **F-06** (alta): `engine._execute_action` descarta `RuntimeResult.output` quando a tool falha; devolver erro + saída; teste de regressão.
-2. Validar **compactação/poda** (nunca disparou: janela 1M): `/compact` e saídas enormes de tool pelo harness; depois live.
-3. Corrigir **F-02** (negação do modo plano dita "user rejected"), F-01, F-03, F-04 e **F-05** (`ctl attach` deve limpar `home/`).
-4. Decidir design de **F-07/F-08** (destaque do prompt, réguas do input; atualizar `CLI_AGENT_RULES.md`) e abrir spec para **F-09** (detalhe de tools/diffs/raciocínio).
-5. Só então a rodada live com `ANTHROPIC_API_KEY` (criar conta de API; o plano Pro não cobre) e decidir push/merge com o Senhor.
+1. **Feito (não commitado):** F-01 a F-08 corrigidos com testes de regressão (F-06 engine devolve erro + saída; F-02 `Rejection` no PEP; F-03 versão 0.5.0-alpha e banner via `__version__`; F-07/F-08 réguas dinâmicas acima/abaixo do input no HSplit (validadas em pty) + texto digitado em negrito, regra 3 de `CLI_AGENT_RULES.md` reescrita).
+2. **Compactação/poda:** coberta por testes de sessão (`test_autocompact.py`); falta validar pela ponte (`/compact` e saídas enormes de tool) e depois no live.
+3. **F-09:** spec em `docs/planning/versions/v0.5.0/spec-f09-tui-detalhe.md`, aguardando aprovação e sprint.
+4. Só então a rodada live com `ANTHROPIC_API_KEY` (criar conta de API; o plano Pro não cobre) e decidir push/merge com o Senhor.

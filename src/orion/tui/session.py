@@ -53,7 +53,7 @@ from orion.gateway.router import (
     RoutingMode,
 )
 from orion.governance.audit import AuditLogger
-from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint
+from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint, Rejection
 from orion.governance.permissions import ActionLevel, WorkspaceScope
 from orion.memory.auto_recall import AutoRecall
 from orion.memory.timeline import TimelineManager
@@ -798,7 +798,10 @@ class AgentSession:
 
     async def _confirm(self, action: Action, level: ActionLevel) -> Any:
         if self.mode == AgentMode.PLAN:
-            return False
+            return Rejection(
+                "plan mode is read-only; this is not a user rejection. "
+                "Call exit_plan_mode with a plan to get approval before mutating."
+            )
         key = (action.tool, str(action.params.get("command", action.params.get("path", ""))))
         if key in self.always_allowed:
             return True

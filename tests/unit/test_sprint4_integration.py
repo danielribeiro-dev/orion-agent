@@ -350,3 +350,38 @@ class TestCleanStartup:
         buf.seek(0)
         prompt.dock_to_bottom(60)  # banner maior que a tela: não imprime
         assert buf.getvalue() == ""
+
+
+def test_describe_action_flags_background_commands() -> None:
+    """F-01: o modal avisa que o comando continua rodando após a aprovação."""
+    from orion.tui.panels import describe_action
+
+    _, _, sync_impact = describe_action("run_command", {"command": "sleep 1"})
+    _, _, bg_impact = describe_action("run_command", {"command": "sleep 1", "run_in_background": True})
+    assert "segundo plano" not in sync_impact
+    assert "segundo plano" in bg_impact
+
+
+def test_plan_approval_renders_markdown_not_raw() -> None:
+    """F-04: '# Plano' não pode aparecer literal."""
+    from io import StringIO
+
+    from rich.console import Console
+
+    buf = StringIO()
+    Console(file=buf, width=80, force_terminal=False).print(render_plan_approval("# Plano\n- passo", "auto"))
+    out = buf.getvalue()
+    assert "# Plano" not in out
+    assert "Plano" in out and "passo" in out
+
+
+def test_prompt_has_rules_above_and_below_the_input() -> None:
+    """F-08: réguas são Windows do HSplit (crescem com o input), uma acima e uma abaixo."""
+    from prompt_toolkit.layout.containers import Window
+
+    from orion.tui.prompt import InteractivePrompt
+
+    children = InteractivePrompt(history_path=None).session.layout.container.children  # type: ignore[attr-defined]
+    rules = [i for i, c in enumerate(children) if isinstance(c, Window) and c.char == "─"]
+    assert len(rules) == 2
+    assert rules[1] - rules[0] == 2  # o input fica entre as duas
