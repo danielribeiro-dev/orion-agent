@@ -403,3 +403,24 @@ def test_prompt_input_does_not_stretch_and_rules_are_light() -> None:
     assert inputs and all(w.dont_extend_height() for w in inputs)
     rules = dict(get_prompt_style().style_rules)
     assert ORION_COLORS["text_primary"].lstrip("#").lower() in rules["prompt.border"].lower()
+
+
+def test_empty_submit_erases_the_prompt_block() -> None:
+    """Enter vazio não empilha régua/❯/régua no scrollback; com texto, o bloco permanece."""
+    from prompt_toolkit.buffer import Buffer
+    from prompt_toolkit.document import Document
+
+    from orion.tui.prompt import InteractivePrompt
+
+    prompt = InteractivePrompt(history_path=None)
+    app = prompt.session.app
+    app.exit = lambda *a, **k: None  # type: ignore[method-assign,assignment]
+    buffer: Buffer = prompt.session.default_buffer
+
+    buffer.document = Document("   ")
+    buffer.accept_handler(buffer)  # type: ignore[misc]
+    assert app.erase_when_done is True
+
+    buffer.document = Document("oi")
+    buffer.accept_handler(buffer)  # type: ignore[misc]
+    assert app.erase_when_done is False

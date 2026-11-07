@@ -154,6 +154,17 @@ class InteractivePrompt:
         children.insert(1, self._make_rule())  # acima do input
         children.insert(3, self._make_rule())  # abaixo do input
 
+        # Enter sem texto: apaga o bloco régua/❯/régua em vez de empilhá-lo no scrollback. Com texto,
+        # o bloco permanece, delimitando o pedido e a resposta.
+        buffer = self.session.default_buffer
+        original_accept = buffer.accept_handler
+
+        def accept(buff: Any) -> bool:
+            self.session.app.erase_when_done = not buff.text.strip()
+            return original_accept(buff) if original_accept is not None else False
+
+        buffer.accept_handler = accept
+
         # Com o prompt encostado no rodapé, o HSplit recebe toda a altura disponível e a janela de
         # input a absorveria, deixando linhas vazias entre o texto e a régua de baixo ao apagar
         # linhas. Input sem esticar => as réguas seguem exatamente o texto.
