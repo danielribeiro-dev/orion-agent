@@ -1,0 +1,45 @@
+{
+  "_comment": "ORION MCP starter pack. Versions are pinned and were probed with a real handshake on 2026-11-06. Only read-only tools are exposed; editing/memory tools are hidden.",
+  "servers": {
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from", "serena-agent==2.1.0", "serena", "start-mcp-server",
+        "--context", "ide", "--mode", "planning", "--agent-interface", "tools",
+        "--project-from-cwd",
+        "--enable-web-dashboard", "false", "--open-web-dashboard", "false",
+        "--enable-gui-log-window", "false", "--log-level", "ERROR"
+      ],
+      "enabled": true,
+      "bundled": true,
+      "description": "Navegação semântica por símbolo (LSP): menos leitura de arquivos inteiros.",
+      "est_tokens": 2800,
+      "read_only_tools": [
+        "find_symbol", "find_referencing_symbols", "get_symbols_overview", "search_for_pattern",
+        "find_implementations", "find_declaration", "get_diagnostics_for_file", "initial_instructions"
+      ],
+      "hidden_tools": [
+        "replace_in_files", "rename_symbol", "safe_delete_symbol", "onboarding",
+        "write_memory", "read_memory", "list_memories", "delete_memory", "rename_memory", "edit_memory"
+      ]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@4.5.1"],
+      "enabled": true,
+      "bundled": true,
+      "description": "Documentação versionada de bibliotecas; reduz APIs alucinadas.",
+      "est_tokens": 1200,
+      "read_only_tools": ["resolve-library-id", "query-docs"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@2.1.1"],
+      "enabled": false,
+      "bundled": true,
+      "description": "Raciocínio estruturado passo a passo (opt-in; requer Node >= 24 e custa tokens extras).",
+      "est_tokens": 600,
+      "read_only_tools": ["sequentialthinking"]
+    }
+  }
+}
