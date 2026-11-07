@@ -44,6 +44,9 @@ orion-agent = "orion.cli:main"
 telegram = [
     "python-telegram-bot>=21.0",
 ]
+dogfood = [
+    "pyte>=0.8",
+]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",

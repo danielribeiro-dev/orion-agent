@@ -8,6 +8,9 @@
 - Nenhum turno com provedor real havia sido validado antes. Espere falhas: tool que não responde, modal que trava, schema rejeitado, saída truncada, custo/caching estranhos.
 - Você roda numa **branch de segurança** (`gate/dogfooding-v0.5.0`), isolada de `version/v0.5.0` e `main`. Se algo der errado, a branch é descartada.
 
+## Modo harness (sem chave)
+Se o modelo atrás de você é o **Claude Code operando via `scripts/dogfood/ctl.py`** (provider-ponte), valem as mesmas regras e o mesmo formato de achados; a diferença é que não há API real (sem cache/thinking/custo reais). Achados do harness têm origem `H`, os do live, `L`.
+
 ## Regras inegociáveis
 1. Trabalhe **somente** nesta branch e neste repositório. Nunca `git push`, `git merge`, `git tag`, `git rebase`, `git reset --hard`, `git checkout -- .`, `git clean`, nem apagar branches. Merge/tag/push só com confirmação explícita do Senhor, feitos por ele.
 2. Nunca contorne o PEP. Se uma ação for negada, **pare e relate**; não tente outro caminho para o mesmo efeito (outra tool, `run_command` com `sed`, scripts etc.).

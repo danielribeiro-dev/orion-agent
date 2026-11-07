@@ -7,6 +7,9 @@
 Provar que o ORION + Claude corrige um bug REAL do próprio repositório, com teste e commit passando pelo PEP,
 sem nenhuma intervenção do Claude Code.
 
+## Etapa 0 — harness modelo-ponte (sem custo)
+Antes da chave real, o Claude Code conduz o ORION real pelo harness `scripts/dogfood/` (README lá). Rodada H1 concluída em 2026-11-07: ver `dogfooding-findings.md`. Repetir o H1 após cada correção.
+
 ## Pré-condições
 1. Branch de trabalho limpa (`git status` vazio) numa cópia/branch descartável: `git switch -c gate/dogfooding`.
 2. `ANTHROPIC_API_KEY` configurada (`/doctor` deve mostrar a chave e o provider Anthropic) e teto do `BudgetGuard` conferido.
