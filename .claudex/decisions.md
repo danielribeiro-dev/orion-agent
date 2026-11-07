@@ -117,7 +117,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 
 ---
 
-### ADR-014: Comando Oficial `orion-agent` e Reserva de `orion` para eDEX/Desktop
+### ADR-014 [v0.4.0]: Comando Oficial `orion-agent` e Reserva de `orion` para eDEX/Desktop
 * **Status:** Aprovado (24/10/2026)
 * **Contexto:** Distinção clara entre o binário CLI de alta velocidade para o dia a dia e futuras interfaces visuais cinematográficas.
 * **Decisão:** O comando oficial para inicializar o CLI do agente no terminal é exclusivamente `orion-agent` (`[project.scripts] orion-agent = "orion.cli:main"`). O identificador `orion` fica formalmente reservado para a interface eDEX futurista / aplicativo desktop dedicado posterior.
@@ -125,7 +125,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 
 ---
 
-### ADR-015: Stack Tecnológica do Stream CLI (`prompt_toolkit` + `Rich`)
+### ADR-015 [v0.4.0]: Stack Tecnológica do Stream CLI (`prompt_toolkit` + `Rich`)
 * **Status:** Aprovado (24/10/2026)
 * **Contexto:** Garantir máxima produtividade de digitação, rolagem nativa de terminal e realce de código sem o peso de TUIs fixas.
 * **Decisão:** O Stream CLI do ORION utiliza exclusivamente:
@@ -136,7 +136,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 
 ---
 
-### ADR-016: Catálogo Oficial de 20 Slash Commands (`/`) do O.R.I.O.N
+### ADR-016 [v0.4.0]: Catálogo Oficial de 20 Slash Commands (`/`) do O.R.I.O.N
 * **Status:** Aprovado (24/10/2026)
 * **Contexto:** Padronização dos comandos rápidos do terminal, combinando o melhor do mercado (Claude Code, Antigravity, Aider) e as inovações nativas do ORION.
 * **Decisão:** Estabelecer o catálogo fechado de 20 comandos:
@@ -148,7 +148,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 
 ---
 
-### ADR-017: Command Trust Ledger & Autonomia Adaptativa (Capability Caching)
+### ADR-017 [v0.3.0]: Command Trust Ledger & Autonomia Adaptativa (Capability Caching)
 * **Status:** Aprovado (25/10/2026)
 * **Contexto:** Desenvolvedores sofrem de fadiga de confirmação ao responderem `[Y/n]` dezenas de vezes para comandos inofensivos de rotina (como `npm test`, `pytest`, `cargo check` ou `sudo apt update`), o que no mercado leva à ativação perigosa de bypass total de segurança (o "YOLO Mode" do Claude Code).
 * **Decisão:** Implementar o `CommandTrustLedger` no Policy Enforcement Point (PEP):
@@ -159,7 +159,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 
 ---
 
-### ADR-018: Nuclear Threshold & Popup Obrigatório de Senha do SO (Step-Up Authentication)
+### ADR-018 [v0.3.0]: Nuclear Threshold & Popup Obrigatório de Senha do SO (Step-Up Authentication)
 * **Status:** Aprovado (25/10/2026)
 * **Contexto:** Comandos com raio de destruição catastrófico (exclusão em massa, formatação, `rm -rf`, modificações na raiz do SO `/` ou `~/.ssh`) não podem sob hipótese alguma ser executados de forma autônoma ou via simples confirmação de texto facilmente burlável. Além disso, no modo de presença ambiente por voz (v0.5.0), falas descuidadas ou conversas de fundo no quarto enquanto o usuário está deitado (*"apaga tudo e recomeça"*) poderiam disparar desastres.
 * **Decisão:** Estabelecer a trava inviolável do **Nuclear Threshold**:
@@ -181,7 +181,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 
 ---
 
-### ADR-014: A Arquitetura das 5 Esferas Cognitivas & Progressive Cognitive Unpacking (PCU)
+### ADR-014 [v0.2.0]: A Arquitetura das 5 Esferas Cognitivas & Progressive Cognitive Unpacking (PCU)
 * **Status:** Aprovado (25/10/2026)
 * **Contexto:** Agentes convencionais sofrem de afogamento cognitivo (*Context Distraction*) ao injetar indiscriminadamente grandes blocos de texto no prompt de sistema a cada turno. Além disso, a memória do agente não separava perfil humano, regras de projeto e persona.
 * **Decisão:** Estruturar a cognição do ORION em **5 Esferas Delimitadas**:
@@ -195,7 +195,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 
 ---
 
-### ADR-015: Monitoramento Passivo de Telemetria do Host & Headroom Guard
+### ADR-015 [v0.2.0]: Monitoramento Passivo de Telemetria do Host & Headroom Guard
 * **Status:** Aprovado (25/10/2026)
 * **Contexto:** Nenhum agente de mercado monitora o impacto físico das suas ações no hardware do usuário. Disparar navegadores pesados ou processamentos multimídia em computadores com pouca RAM causa congelamento total do sistema operacional.
 * **Decisão:** Implementar o módulo passivo `EnvironmentMonitor` (via `psutil` com fallback para `/proc` do Linux) e a salvaguarda determinística **Headroom Guard**:
@@ -204,10 +204,45 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 
 ---
 
-### ADR-016: Escalonamento Remoto Out-of-Band (HITL via Telegram Bot com Inline Approval)
+### ADR-016 [v0.2.0]: Escalonamento Remoto Out-of-Band (HITL via Telegram Bot com Inline Approval)
 * **Status:** Aprovado (25/10/2026)
 * **Contexto:** Tarefas longas em segundo plano que necessitam de aprovação de segurança PEP (LEVEL_2 ou LEVEL_3) ficam bloqueadas indefinidamente no terminal se o desenvolvedor se afasta da mesa para tomar um café ou atender outro compromisso.
 * **Decisão:** Implementar o conector assíncrono de escalonamento remoto via **Telegram Bot**:
   - Se uma ação exigir aprovação e houver inatividade no terminal local superior a 180 segundos (configurável), o ORION despacha um alerta no Telegram do usuário com botões inline interativos `[Aprovar]` / `[Rejeitar]`.
   - Ao receber o callback autenticado do `telegram_chat_id` homologado, o PEP no PC libera a execução sem travar a máquina. Possui TTL de expiração de 10 minutos.
 * **Consequências:** Alta autonomia real com supervisão humana contínua em qualquer lugar, sem que o desenvolvedor precise ficar acorrentado ao terminal.
+
+---
+
+### ADR-017 [v0.4.0]: Desacoplamento do Cockpit Imersivo eDEX para a v0.7.0
+* **Status:** Aprovado (26/10/2026) — registrado retroativamente em 06/11/2026.
+* **Decisão:** O CLI `orion-agent` permanece 100% terminal; o cockpit sci-fi (Tauri v2 + WebGL, tokens do Figma) vira app standalone na v0.7.0. Ver `docs/design/TUI_DESIGN_SYSTEM.md`.
+* **Nota:** o número 017 colide com o ADR-017 da v0.3.0 (Trust Ledger); desambiguado pelo sufixo de versão.
+
+### ADR-018 [v0.4.0]: Paleta Oficial "Deep Cosmos & Glacial Platinum"
+* **Status:** Aprovado (26/10/2026) — registrado retroativamente em 06/11/2026.
+* **Decisão:** Paleta única do CLI com contraste WCAG AAA (> 13:1). Ver `docs/design/CLI_DESIGN_SYSTEM.md`.
+
+---
+
+### ADR-020: Provider Anthropic Nativo Antecipado para a v0.5.0
+* **Status:** Aprovado (06/11/2026)
+* **Contexto:** O ADR-019 e a spec da v1.6.0 adiavam o provider Anthropic nativo atrás de 8 gates (G1–G8) para não gastar tokens caros num agente imaturo. O Senhor decidiu tornar o ORION o seu agente principal de programação já na v0.5.0, o que exige Messages API nativa, `tool_use`, prompt caching e thinking.
+* **Decisão:**
+  1. A v0.5.0 ("Claude-Grade Agent") entrega o provider `AnthropicProvider` (`ANTHROPIC_API_KEY`), mantendo OpenRouter e Ollama como fallback via Circuit Breaker.
+  2. Os gates G1–G8 deixam de bloquear **este escopo** (provider nativo, tool use estruturado, caching). O escopo "modo copiloto de código" e os demais itens da v1.6.0 permanecem futuros.
+  3. G8 continua valendo na prática: nenhuma suíte paga roda sem opt-in explícito (`ORION_LIVE=1`) e sem teto de gasto.
+  4. O motor agêntico continua sendo do ORION (nada de Agent SDK/Managed Agents).
+* **Consequências:** O ORION passa a merecer o modelo por construção incremental: cada sprint da v0.5.0 é validada contra o provedor real. Voz e daemon de voz migram para a v0.6.0.
+
+### ADR-021: Protocolo de Mensagens Estruturado (Content Blocks) no Lugar de `<tool_call>` em Texto
+* **Status:** Aprovado (06/11/2026)
+* **Contexto:** O protocolo textual (`<tool_call>` + regex) permite 1 tool por resposta, aceita JSON inválido como resposta final e força um prompt monolítico que impede prompt caching.
+* **Decisão:** `LLMMessage.content` passa a aceitar blocos tipados (`text`, `thinking`, `tool_use`, `tool_result`, `image`); `LLMRequest` ganha `system`, `tools`, `tool_choice`, `thinking` e `cache_control`; toda tool declara `input_schema` validado; a conversa alterna assistant/user com `tool_result`. Todo `tool_use` continua passando pelo PEP. Providers legados recebem adaptador de compatibilidade.
+* **Consequências:** Tools paralelas, cache de prefixo e validação de parâmetros; remoção de `TOOL_PROTOCOL`/`ToolCallFilter`.
+
+### ADR-022: Daemon Event-Driven com Zero Tokens em Idle
+* **Status:** Aprovado (06/11/2026)
+* **Contexto:** A visão do ORION é ser um agente sempre presente (Jarvis) sem gastar tokens à toa.
+* **Decisão:** O daemon (`systemd --user`) é determinístico por padrão: scheduler, watchers de arquivo/processo e cron não chamam LLM. O modelo só é acionado por gatilho, precedido de triagem barata (Haiku, `max_tokens` mínimo) quando aplicável. O ledger registra a origem de cada chamada (`user`, `daemon`, `cron`, `loop`, `subagent`). Ações agendadas nunca excedem o nível de autonomia configurado e ações nucleares sempre exigem step-up.
+* **Consequências:** Em idle, zero chamadas ao provider (critério CA-10 da v0.5.0).

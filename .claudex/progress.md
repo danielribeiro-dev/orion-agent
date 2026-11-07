@@ -3,9 +3,9 @@
 
 ## 📊 Status Global do Projeto
 - **Repositório:** `orion-agent`
-- **Fase Atual:** Fase 4 (v0.4.0) **EM ANDAMENTO** 🟡 (Sprint 1 Concluída)
-- **Linhas de Código em `src/`:** ~2.300 linhas de produção testadas
-- **Testes:** 887/887 passando (100% sucesso) ✅ (838 das versões v0.1.0-v0.3.0 + 49 da Sprint 1 v0.4.0)
+- **Fase Atual:** Fase 5 (v0.5.0 Claude-Grade Agent) **EM ANDAMENTO** 🟡 (Sprint 0 concluída; v0.4.0 implementada, tags/merge pendentes)
+- **Linhas de Código em `src/`:** ~16.300 linhas de produção
+- **Testes:** 1119/1119 passando, cobertura global 93,70% (medido em 06/11/2026) ✅
 
 ---
 
@@ -76,18 +76,6 @@
 
 ---
 
-### [EM ANDAMENTO] Fase 2: v0.2.0 Cognitive Continuity: The 5-Sphere Memory, Universal Skills Standard & Dynamic Compaction
-- [x] Especificação formal da versão em `docs/planning/versions/v0.2.0/VERSION.md` (As 5 Esferas Cognitivas, PCU, Headroom Guard e Telegram HITL)
-- [x] Especificação técnica de habilidades em `docs/architecture/AGENT_SKILLS_STANDARD.md`
-- [x] Especificação técnica da Memória Tríplice & 5 Esferas em `docs/architecture/TRIPLE_MEMORY.md`
-- [x] Especificação técnica de Timeline & Compactor em `docs/architecture/TIMELINE_SYSTEM.md`
-- [x] As 4 Sprints detalhadas e congeladas com as 5 Esferas e PCU
-- [x] **Sprint 1: Main Timeline & SQLite FTS5 BM25** ✅ CONCLUÍDA (2026-10-25) — Cobertura: 92%
-  - [x] `src/orion/memory/models.py` (TimelineRecord, DayMarkerRecord e contratos das 5 esferas)
-  - [x] `src/orion/memory/timeline.py` (TimelineManager com WAL, FTS5 BM25, DayMarkers)
-  - [x] `tests/unit/test_timeline.py` (22 testes passando, verificação de concorrência e busca)
-- [ ] **Sprint 2: FastEmbed Local ONNX Vector & RRF Hybrid Fusion** 🟡 EM ANDAMENTO
-  - [x] `pyproject.toml` atualizado com `aiosqlite`, `fastembed`, `numpy`, `psutil`
 ### [CONCLUÍDO] Fase 2: v0.2.0 Cognitive Continuity & Triple Memory
 - [x] Especificação formal da versão em `docs/planning/versions/v0.2.0/VERSION.md`
 - [x] **Sprint 1: Main Timeline & SQLite FTS5** ✅ Concluída
@@ -130,7 +118,7 @@
 
 ---
 
-### [EM EXECUÇÃO] Fase 4: v0.4.0 High-Performance Stream CLI, Slash Commands & Native MCP
+### [IMPLEMENTADA] Fase 4: v0.4.0 High-Performance Stream CLI, Slash Commands & Native MCP
 - [x] Especificação formal da versão em `docs/planning/versions/v0.4.0/VERSION.md`
 - [x] Design System de Cores oficial "Deep Cosmos & Glacial Platinum" em `docs/design/ASCII_ART_IDENTITY.md` e `TUI_DESIGN_SYSTEM.md`
 - [x] Decisão arquitetural: Cockpit imersivo eDEX desacoplado para a v0.7.0 (Desktop App dedicado via Tauri v2 / WebGL com tokens do Figma)
@@ -149,7 +137,7 @@
   - [x] Módulo `src/orion/tui/prompt.py` com `InteractivePrompt`, histórico persistente em `~/.orion/history`, layout Rich integrado no bottom toolbar e execução resiliente com `TurnCancelledEvent`
   - [x] Evento `TurnCancelledEvent` adicionado em `src/orion/core/events.py`
   - [x] Suíte de 41 testes unitários (`test_completer.py`, `test_prompt_session.py`), totalizando 928 testes globais passando com 100% de sucesso
-- [x] **Sprint 3: Refinamento Estético, Geometria Anti-Emoji & Dynamic Prompt**
+- [x] **Sprint 3: Refinamento Estético, Geometria Anti-Emoji & Dynamic Prompt** ✅ CONCLUÍDA
 - [x] **Sprint 4: Streaming Vivo, Diffs Cirúrgicos & 23 Slash Commands** (falta validar com provedor real)
   - [x] `StreamRenderer`, `DiffViewer`, painéis dos blueprints e modais com teclado
   - [x] `AgentSession`: ponte Gateway → ReAct → PEP, custos, conversa, `/undo`, branches de contexto
@@ -164,7 +152,20 @@
 
 ---
 
-### [PLANEJADO] Fase 5: v0.5.0 Ambient Voice Daemon & Boot Headless
-- [ ] Systemd user daemon rodando no boot do Linux
-- [ ] Escuta contínua de wake word leve (openWakeWord)
-- [ ] Transcrição Faster-Whisper e síntese Piper TTS com Tone-Mirroring
+### [EM ANDAMENTO] Fase 5: v0.5.0 Claude-Grade Agent (Paridade Claude Code)
+Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz migraram para a v0.6.0 (ADR-020).
+- [x] **Sprint 0: Higiene & Fundação** ✅ CONCLUÍDA (2026-11-06) — docs reconciliados, ADR-020/021/022, `CLAUDE.md`, baseline (`docs/planning/versions/v0.5.0/baseline.md`)
+- [ ] Sprint 1: Provider Anthropic Nativo
+- [ ] Sprint 2: Loop Agêntico Nativo (tool_use estruturado)
+- [ ] Sprint 3: Contexto, Sessões & Memória
+- [ ] Sprint 4: Paridade de Ferramentas (portão de dogfooding)
+- [ ] Sprint 5: Extensibilidade & MCP Completo
+- [ ] Sprint 6: Subagents & Tasks
+- [ ] Sprint 7: Daemon, Jobs & Schedules
+- [ ] Sprint 8: Hardening & Release
+- [ ] Pendências herdadas da v0.4.0: tags `v0.3.0`/`v0.4.0` e merge em `main`; validar turno com provedor real; repetir A/B de MCP com modelo pago
+
+---
+
+### [PLANEJADO] Fase 6: v0.6.0 Ambient Voice Daemon
+- [ ] Wake word (openWakeWord), Faster-Whisper, Piper TTS com Tone-Mirroring, sobre o daemon da v0.5.0

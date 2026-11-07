@@ -47,8 +47,8 @@ Após as fundações do ReAct Loop (v0.1.0), da Memória Tríplice Contínua (v0
 | **Sprint 1** | Stream CLI Foundation, Design System & Status Line | Ponto de entrada `orion-agent`, tema Deep Cosmos, arte ASCII da Mão Cósmica com Buraco Negro adaptativa e barra de status dinâmica | [`sprints/sprint-1.md`](sprints/sprint-1.md) | ✅ Concluída |
 | **Sprint 2** | Terminal Engine, Prompt Interativo & Autocomplete | `prompt_toolkit` com histórico persistente, autocomplete flutuante para `/` e anexo de arquivos com `@` respeitando `.gitignore` | [`sprints/sprint-2.md`](sprints/sprint-2.md) | ✅ Concluída |
 | **Sprint 3** | Refinamento Estético da CLI, Geometria Anti-Emoji & Dynamic Prompt | Banimento total de emojis, correção de bugs visuais no box de input e na barra de status, e especificações mestras de design | [`sprints/sprint-3.md`](sprints/sprint-3.md) | ✅ Concluída |
-| **Sprint 4** | Streaming Vivo, Diffs Cirúrgicos & 20 Slash Commands | Streaming contínuo via `Rich.Live`, painéis de diff cirúrgico e o catálogo oficial dos 23 Slash Commands | [`sprints/sprint-4.md`](sprints/sprint-4.md) | 🔄 Implementada, validação com provedor real pendente |
-| **Sprint 5** | Native MCP Client & Integração PEP | Cliente nativo do Model Context Protocol (stdio & SSE) com auditoria de segurança PEP | [`sprints/sprint-5.md`](sprints/sprint-5.md) | 📋 Planejado |
+| **Sprint 4** | Streaming Vivo, Diffs Cirúrgicos & 23 Slash Commands | Streaming contínuo via `Rich.Live`, painéis de diff cirúrgico e o catálogo oficial dos 23 Slash Commands | [`sprints/sprint-4.md`](sprints/sprint-4.md) | ✅ Implementada (validação com provedor real pendente) |
+| **Sprint 5** | Native MCP Client & Integração PEP | Cliente nativo do Model Context Protocol (stdio & SSE) com auditoria de segurança PEP | [`sprints/sprint-5.md`](sprints/sprint-5.md) | ✅ Implementada |
 
 ---
 

@@ -1,5 +1,7 @@
 # Spec — [v1.6.0] Native Model Providers & Code Copilot Mode
 
+> **Atualização (2026-11-06, ADR-020):** o provedor Anthropic nativo (3.1), o tool use nativo (3.2), prompt caching e thinking foram **antecipados para a v0.5.0** por decisão do Senhor. Os gates abaixo deixam de bloquear esse escopo; continuam valendo para o modo copiloto de código e provedores adicionais.
+
 > **Status:** 🧊 FUTURO / BACKLOG — Especificação preliminar, **NÃO iniciar antes dos Gates de Prontidão (seção 2)**  
 > **Criada em:** 2026-11-06  
 > **Concluída em:** —  

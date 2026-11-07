@@ -1,41 +1,24 @@
 # O.R.I.O.N — Active Context (Memória de Sessão de Desenvolvimento)
 
 > **Data de Atualização:** 06/11/2026  
-> **Status Atual:** v0.4.0 Sprint 4 IMPLEMENTADA (1077 testes passando, cobertura global 94%). Turno com provedor real ainda não validado.  
-> **Fase Ativa:** v0.4.0 (High-Performance Stream CLI, Slash Commands & Native MCP).  
-> **Branch Ativo:** `version/v0.4.0`  
+> **Status Atual:** v0.4.0 implementada (Sprints 1–5; 1119 testes passando, cobertura 93,70%). v0.5.0 em execução: Sprint 0 concluída.  
+> **Fase Ativa:** v0.5.0 "Claude-Grade Agent" — meta: programar com Claude rodando pelo ORION (`ANTHROPIC_API_KEY`), com tools, memória, MCPs, decisões, loops, schedules, subagents e jobs em segundo plano.  
+> **Branch Ativo:** `version/v0.5.0`  
 > **Regra Suprema:** Nenhuma linha de código em `src/` é escrita sem o comando explícito de início da Sprint correspondente (Doc-First).
 
 ---
 
-## 🎯 Foco Imediato & Estado da v0.4.0 (Stream CLI & Native MCP)
-1. **Branch de Trabalho:** `version/v0.4.0`
-2. **Entregas da Sprint 2:**
-   - Dependência oficial `prompt-toolkit>=3.0.40` adicionada ao `pyproject.toml`.
-   - `OrionCompleter` em `src/orion/tui/completer.py` unificando autocompletar flutuante:
-     - `SlashCommandCompleter`: detecta prefixo `/` e sugere os 22 comandos cadastrados com descrições curtas e ícones.
-     - `PathMentionCompleter`: detecta prefixo `@` e sugere arquivos e diretórios a partir da raiz do workspace ativo, ignorando `.git/`, `__pycache__/`, `node_modules/` e padrões de `.gitignore`.
-     - `GitIgnoreMatcher`: parsing de regras `.gitignore` e verificação rápida de caminhos ignorados com cache em memória.
-     - `parse_mentions` e `resolve_mentions`: extração segura de menções `@` e resolução validada contra ataques de directory traversal (`../`).
-   - `create_key_bindings` em `src/orion/tui/keybindings.py`:
-     - Atalho `Ctrl+C` capturado graciosamente (limpa buffer ou emite cancelamento).
-     - Atalho `Alt+Enter` (`Escape, Enter`) para suporte a entrada multilinha.
-     - Atalho `Ctrl+L` para limpeza do terminal preservando o buffer.
-   - `InteractivePrompt` em `src/orion/tui/prompt.py`:
-     - Histórico persistente gravado em `~/.orion/history` com fallback para `InMemoryHistory`.
-     - Barra de status inferior Rich integrada ao layout do `prompt_toolkit`.
-     - Execução de tarefas com captura graciosa de `KeyboardInterrupt` (`Ctrl+C`) e emissão de `TurnCancelledEvent` para o `EventBus` sem derrubar o CLI.
-   - `TurnCancelledEvent` adicionado a `src/orion/core/events.py`.
-   - Loop interativo REPL integrado no entrypoint oficial `orion-agent` em `src/orion/cli.py` (`run_interactive_repl`), mantendo o terminal ativo com prompt responsivo, autocomplete flutuante, resolução de menções `@`, captura de comandos rápidos (`/help`, `/doctor`, `/clear`, `/exit`) e encerramento gracioso.
-   - Renderizador do banner em `src/orion/tui/banner.py` calibrado com o logo oficial `Stellar Cyber Block` em gradiente TrueColor (#00D2FF -> #3A7BD5), eliminando o slice bruto estático e desformatado de `ascii-art.txt`.
-   - 45 novos testes unitários adicionados em `tests/unit/test_completer.py`, `tests/unit/test_prompt_session.py` e `tests/unit/test_cli.py` (932 testes globais passando, 0 regressões).
-3. **Métricas de Qualidade Atuais:**
-   - Total de Testes: 932 passando (0 falhas).
-   - Cobertura do Pacote TUI + CLI: 94.15%.
-   - Mypy Strict: 0 erros em 9 arquivos TUI + CLI + core/events.
-   - Ruff Lint: 0 avisos / 100% limpo.
+## Estado
+- Especificação: `docs/planning/versions/v0.5.0/VERSION.md` e `sprints/sprint-0.md` … `sprint-8.md`.
+- ADRs novos: 020 (provider Anthropic antecipado), 021 (content blocks em vez de `<tool_call>`), 022 (daemon com zero token em idle). Ver `.claudex/decisions.md`.
+- Voz/wake word foi para a v0.6.0. Dogfooding (desenvolver pelo próprio ORION) começa após o portão da Sprint 4.
+- Cada sprint roda em sessão separada; ler `CLAUDE.md`, este arquivo e o `sprint-N.md` correspondente antes de começar.
 
----
+## Lacunas conhecidas (alvo das Sprints 1–8)
+Sem provider Anthropic; tool use em texto; prompt monolítico (sem caching); compactação só manual; `HybridRetriever`, skills, manifest, `EnvironmentMonitor` e circuit breaker não ligados à `AgentSession`; sem resume/rewind, hooks, plugins, subagents, tasks, scheduler, daemon; MCP sem HTTP/OAuth/resources/prompts. Nenhum turno com provedor real foi validado (ver `baseline.md`).
 
-## 📌 Próximo Passo
-Validar um turno real com `OPENROUTER_API_KEY` ou Ollama e, depois, iniciar a **Sprint 5 (Native MCP Client & Integração PEP)** mediante comando explícito.
+## Pendências de release da v0.4.0 (exigem autorização do Senhor)
+Merge de `version/v0.4.0` em `main` e tags `v0.3.0`/`v0.4.0`.
+
+## Próximo Passo
+Iniciar a **Sprint 1 (Provider Anthropic Nativo)** mediante comando explícito.
