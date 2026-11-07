@@ -53,7 +53,7 @@ A v0.4.0 entregou TUI, PEP, memória e MCP, mas **nunca validou um turno com pro
 | **Sprint 1** | Provider Anthropic Nativo | Messages API, content blocks, caching, retry em stream, failover | [`sprint-1.md`](sprints/sprint-1.md) | ✅ Implementada (live pendente) |
 | **Sprint 2** | Loop Agêntico Nativo | `tool_use` estruturado, schemas, tools paralelas, cancelamento | [`sprint-2.md`](sprints/sprint-2.md) | ✅ Implementada |
 | **Sprint 3** | Contexto, Sessões & Memória | Auto-compactação, resume/rewind, wiring de memória/skills, decision log | [`sprint-3.md`](sprints/sprint-3.md) | ✅ Implementada |
-| **Sprint 4** | Paridade de Ferramentas | Web, glob/grep, todo, ask_user, plan mode, bash em background; **portão de dogfooding** | [`sprint-4.md`](sprints/sprint-4.md) | 📋 Planejando |
+| **Sprint 4** | Paridade de Ferramentas | Web, glob/grep, todo, ask_user, plan mode, bash em background; **portão de dogfooding** | [`sprint-4.md`](sprints/sprint-4.md) | ✅ Implementada (portão pendente) |
 | **Sprint 5** | Extensibilidade & MCP Completo | Settings, regras, hooks, comandos custom, MCP HTTP/OAuth/resources/prompts | [`sprint-5.md`](sprints/sprint-5.md) | 📋 Planejando |
 | **Sprint 6** | Subagents & Tasks | Tool `task`, paralelismo, background, worktree, `/loop` | [`sprint-6.md`](sprints/sprint-6.md) | 📋 Planejando |
 | **Sprint 7** | Daemon, Jobs & Schedules | systemd --user, IPC, scheduler, jobs, notificações, idle = 0 tokens | [`sprint-7.md`](sprints/sprint-7.md) | 📋 Planejando |

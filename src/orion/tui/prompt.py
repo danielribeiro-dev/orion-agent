@@ -185,8 +185,18 @@ class InteractivePrompt:
         )
 
     def dock_to_bottom(self, rendered_lines: int = 15) -> None:
-        """Mantido para compatibilidade com inicialização da CLI sem causar scrollback forçado."""
-        return
+        """Empurra o prompt para o rodapé do terminal (aparência de tela cheia).
+
+        Só em TTY: preenche com linhas em branco o espaço entre o banner e o prompt.
+        """
+        if not self.console.is_terminal:
+            return
+        import shutil
+
+        rows = shutil.get_terminal_size((80, 24)).lines
+        pad = rows - rendered_lines - 4  # prompt + barra de status + folga
+        if pad > 0:
+            self.console.print("\n" * (pad - 1))
 
     async def prompt_async(
         self,

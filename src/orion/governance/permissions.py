@@ -48,7 +48,23 @@ TOOL_LEVELS: dict[str, ActionLevel] = {
     "deprecate_fact": ActionLevel.LEVEL_2,
     # Grava fato CONFIRMED (só o usuário deveria promover): sempre confirmado (v0.5.0 Sprint 3).
     "record_decision": ActionLevel.LEVEL_3,
+    # Paridade de ferramentas (v0.5.0 Sprint 4)
+    "glob": ActionLevel.LEVEL_1,
+    "grep": ActionLevel.LEVEL_1,
+    "bash_output": ActionLevel.LEVEL_1,
+    "kill_shell": ActionLevel.LEVEL_2,
+    "notebook_edit": ActionLevel.LEVEL_2,
+    "web_fetch": ActionLevel.LEVEL_2,
+    "web_search": ActionLevel.LEVEL_2,
+    # Estado de sessão / interação: sem efeito no sistema; a saída do plan mode exige modal.
+    "todo_write": ActionLevel.LEVEL_0,
+    "ask_user": ActionLevel.LEVEL_0,
+    "enter_plan_mode": ActionLevel.LEVEL_0,
+    "exit_plan_mode": ActionLevel.LEVEL_0,
 }
+
+#: Tools que abrem modal no terminal: nunca rodam em paralelo com outras.
+SERIAL_TOOLS: frozenset[str] = frozenset({"ask_user", "enter_plan_mode", "exit_plan_mode"})
 
 # ActionLevel -> RiskLevel carried by Action events (single source of truth).
 _RISK_BY_LEVEL: dict[ActionLevel, RiskLevel] = {
@@ -110,7 +126,7 @@ def risk_to_action_level(risk: RiskLevel) -> ActionLevel:
 
 def is_read_only_tool(tool_name: str) -> bool:
     """True if *tool_name* has no side effects (LEVEL_0/1) and may run in parallel."""
-    return tool_action_level(tool_name) <= ActionLevel.LEVEL_1
+    return tool_name not in SERIAL_TOOLS and tool_action_level(tool_name) <= ActionLevel.LEVEL_1
 
 
 class WorkspaceScope:

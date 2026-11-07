@@ -81,3 +81,8 @@ omit = ["tests/*"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 85
+
+[[tool.mypy.overrides]]
+# Cada tool declara parâmetros nomeados em run(); o contrato dinâmico (**params) é validado por JSON Schema.
+module = "orion.runtime.tools.*"
+disable_error_code = ["override"]

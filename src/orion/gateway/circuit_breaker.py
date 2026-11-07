@@ -272,6 +272,7 @@ MUTATING_TOOLS: frozenset[str] = frozenset(
     {
         "write_file",
         "edit_file",
+        "notebook_edit",
         "run_command",  # run_command pode ser mutante; Nuclear Gate filtra os destrutivos
     }
 )

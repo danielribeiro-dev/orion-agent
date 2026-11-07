@@ -294,12 +294,14 @@ class ReActEngine:
         user_message: str,
         history: Sequence[LLMMessage] | None = None,
         context: str = "",
+        images: Sequence[dict[str, str]] = (),
     ) -> str:
         """Executa a conversa até a resposta final.
 
         Args:
             user_message: Pedido do usuário (passa pela checagem anti-injection).
             history: Mensagens anteriores da sessão (já válidas).
+            images: Anexos de imagem (``source`` base64) enviados junto do pedido.
             context: Contexto recuperado (memória) anexado ao pedido; é dado, não instrução:
                 não passa pelo filtro de injeção, mas delimitadores forjados são desarmados.
 
@@ -313,7 +315,13 @@ class ReActEngine:
         content = user_message
         if context.strip():
             content += f"\n\n<recalled_context>\n{_DELIM_FORGERY.sub('<<', context.strip())}\n</recalled_context>"
-        self._append(LLMMessage(role=MessageRole.USER, content=content))
+        message_content: str | list[ContentBlock] = content
+        if images:
+            message_content = [
+                *(ContentBlock(type="image", source=dict(src)) for src in images),
+                ContentBlock.of_text(content),
+            ]
+        self._append(LLMMessage(role=MessageRole.USER, content=message_content))
         self._fsm.reset()
         self._fsm.transition(AgentState.CONTEXT_ASSEMBLY)
 
@@ -489,10 +497,12 @@ class ReActEngine:
     async def _execute(self, call: _Call, turn_index: int) -> None:
         observation = await self._execute_action(call.action)
         call.observation = observation
+        wrapped = self._wrap_tool_output(observation.output, self._tool_output_limit)
+        content: str | list[ContentBlock] = wrapped
+        if observation.image is not None and observation.success:
+            content = [ContentBlock.of_text(wrapped), ContentBlock(type="image", source=observation.image)]
         call.result = ContentBlock.of_tool_result(
-            call.block.id or "",
-            self._wrap_tool_output(observation.output, self._tool_output_limit),
-            is_error=not observation.success,
+            call.block.id or "", content, is_error=not observation.success
         )
         await self._bus.publish(
             ObservationReceived(
@@ -534,7 +544,8 @@ class ReActEngine:
             success=result.success,
             output=result.output if result.success else result.error,
             error=result.error or None,
-            metadata=result.metadata,
+            metadata={k: v for k, v in result.metadata.items() if k != "image"},
+            image=result.metadata.get("image"),
         )
 
     # ------------------------------------------------------------------

@@ -31,10 +31,18 @@ from orion.governance.permissions import (
     tool_risk_level,
 )
 from orion.runtime.provider import BaseRuntimeProvider, RuntimeResult
+from orion.runtime.tools.bash_output import BashOutputTool
 from orion.runtime.tools.edit_file import EditFileTool
+from orion.runtime.tools.glob import GlobTool
+from orion.runtime.tools.grep import GrepTool
+from orion.runtime.tools.kill_shell import KillShellTool
+from orion.runtime.tools.notebook_edit import NotebookEditTool
 from orion.runtime.tools.read_file import ReadFileTool
 from orion.runtime.tools.run_command import RunCommandTool
 from orion.runtime.tools.search_files import SearchFilesTool
+from orion.runtime.tools.shells import ShellManager
+from orion.runtime.tools.web_fetch import WebFetchTool
+from orion.runtime.tools.web_search import WebSearchTool
 from orion.runtime.tools.write_file import WriteFileTool
 
 if TYPE_CHECKING:
@@ -56,6 +64,7 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
         environment_monitor : Optional EnvironmentMonitor for inspect_environment.
         skills_engine       : Optional SkillsEngine to enable use_skill.
         extra_tools         : Optional sequence of custom tool instances.
+        shells              : ShellManager for background shells (a private one is created if omitted).
     """
 
     def __init__(
@@ -67,19 +76,29 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
         environment_monitor: EnvironmentMonitor | None = None,
         skills_engine: SkillsEngine | None = None,
         extra_tools: Sequence[Any] | None = None,
+        shells: ShellManager | None = None,
     ) -> None:
         self._scope = scope or WorkspaceScope.default()
         self._pep = pep or PolicyEnforcementPoint(scope=self._scope)
 
-        # Base primitive tools
+        self.shells = shells or ShellManager()
+
+        # Primitive + parity tools (interactive ones — todo/ask_user/plan mode — come via extra_tools)
         self._tools: dict[str, Any] = {
             t.name: t
             for t in [
-                RunCommandTool(),
+                RunCommandTool(self.shells),
                 ReadFileTool(),
                 WriteFileTool(),
                 EditFileTool(),
                 SearchFilesTool(),
+                GlobTool(),
+                GrepTool(),
+                NotebookEditTool(),
+                WebFetchTool(),
+                WebSearchTool(),
+                BashOutputTool(self.shells),
+                KillShellTool(self.shells),
             ]
         }
 

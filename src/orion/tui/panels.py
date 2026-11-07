@@ -311,3 +311,43 @@ def render_pep_dialog(tool: str, params: dict[str, Any], level: ActionLevel) -> 
     keys.append("[a]", style="pep_warn")
     keys.append(" Sempre Permitir na Sessão", style="text_dim")
     return Group(orion_panel(body, title, border=ORION_COLORS["pep_warn"]), keys)
+
+
+def render_question(
+    question: str,
+    options: list[dict[str, str]],
+    selected: int,
+    checked: set[int],
+    multi: bool,
+) -> Group:
+    """Pergunta do agente ao Senhor (ask_user): opções navegáveis + resposta livre."""
+    body = Text()
+    body.append(question + "\n", style="text_primary")
+    rows = [*options, {"label": "Outro (digitar resposta)", "description": ""}]
+    for index, option in enumerate(rows):
+        body.append("\n")
+        cursor = "❯" if index == selected else " "
+        mark = ""
+        if multi and index < len(options):
+            mark = "[x] " if index in checked else "[ ] "
+        style = "accent_cyan" if index == selected else "text_primary"
+        body.append(f"{cursor} {index + 1}. {mark}{option['label']}", style=style)
+        if option.get("description"):
+            body.append(f"  · {option['description']}", style="text_dim")
+    keys = key_hints(("↑↓", "Navegar"), ("Enter", "Escolher"), ("Esc", "Cancelar"))
+    if multi:
+        keys = key_hints(("↑↓", "Navegar"), ("Espaço", "Marcar"), ("Enter", "Confirmar"), ("Esc", "Cancelar"))
+    return Group(orion_panel(body, brand_title("Pergunta do agente")), keys)
+
+
+def render_plan_approval(plan: str, mode_label: str) -> Group:
+    """Plano proposto pelo agente (exit_plan_mode) aguardando aprovação."""
+    title = Text()
+    title.append(" [PEP]", style="pep_warn")
+    title.append(" Plano para aprovação ", style="text_primary")
+    keys = Text("   ")
+    keys.append("[y]", style="status_ok")
+    keys.append(f" Aprovar e sair do modo plano ({mode_label})   ", style="text_dim")
+    keys.append("[n]", style="diff_del")
+    keys.append(" Continuar planejando", style="text_dim")
+    return Group(orion_panel(Text(plan.strip(), style="text_primary"), title, border=ORION_COLORS["pep_warn"]), keys)

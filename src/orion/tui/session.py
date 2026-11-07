@@ -58,6 +58,11 @@ from orion.governance.permissions import ActionLevel, WorkspaceScope
 from orion.memory.auto_recall import AutoRecall
 from orion.memory.timeline import TimelineManager
 from orion.runtime.local_provider import LocalRuntimeProvider
+from orion.runtime.tools.ask_user import AskUserTool
+from orion.runtime.tools.plan_mode import EnterPlanModeTool, ExitPlanModeTool
+from orion.runtime.tools.read_file import IMAGE_TYPES, MAX_IMAGE_BYTES, encode_image
+from orion.runtime.tools.shells import ShellManager
+from orion.runtime.tools.todo_write import TodoList, TodoWriteTool
 from orion.sessions import (
     FileSnapshot,
     JsonlSessionStore,
@@ -85,7 +90,7 @@ from orion.tui.stream_renderer import StreamRenderer
 logger = logging.getLogger(__name__)
 
 _MAX_MENTION_CHARS = 20_000
-_MUTATING_TOOLS = {"write_file", "edit_file"}
+_MUTATING_TOOLS = {"write_file", "edit_file", "notebook_edit"}
 _MEMORY_TOOLS = {"memorize", "deprecate_fact", "record_decision"}
 _PROJECT_FILES = ("CLAUDE.md", "ORION.md")
 _MAX_PROJECT_CONTEXT_CHARS = 16_000
@@ -257,6 +262,10 @@ class AgentSession:
         )
         self.skills = self._open_skills()
         self.memory_syncer = self._open_syncer()
+        self.todos = TodoList()
+        self.shells = ShellManager(self.home / "shells")
+        self._pre_plan_mode = AgentMode.ACCEPT_EDITS
+        self._turn_images: list[dict[str, str]] = []
         self.runtime = self._build_runtime(scope)
         self.identity = self._open_identity()
         self.manifest = self._build_manifest()
@@ -333,7 +342,14 @@ class AgentSession:
             from orion.memory.decisions import RecordDecisionTool
 
             extra.append(RecordDecisionTool(self.facts, self.workspace / ".orion" / "decisions"))
+        extra += [
+            TodoWriteTool(self.todos),
+            AskUserTool(self._ask_user),
+            EnterPlanModeTool(self._enter_plan_mode),
+            ExitPlanModeTool(self._approve_plan, lambda: self.mode == AgentMode.PLAN),
+        ]
         return LocalRuntimeProvider(
+            shells=self.shells,
             pep=self.pep,
             scope=scope,
             facts_store=self.facts,
@@ -747,6 +763,37 @@ class AgentSession:
             key=event.action_id,
         )
 
+    # ── Interação do agente com o Senhor (ask_user / plan mode) ─────
+
+    async def _ask_user(
+        self, question: str, options: list[dict[str, str]], multi: bool
+    ) -> list[str] | None:
+        from orion.tui.modal import ask_user_choice
+
+        self.renderer.pause()
+        try:
+            return await ask_user_choice(self.console, question, options, multi)
+        finally:
+            self.renderer.resume()
+
+    def _enter_plan_mode(self) -> None:
+        if self.mode != AgentMode.PLAN:
+            self._pre_plan_mode = self.mode
+            self.set_mode(AgentMode.PLAN)
+
+    async def _approve_plan(self, plan: str) -> bool:
+        from orion.tui.modal import approve_plan
+
+        target = self._pre_plan_mode if self._pre_plan_mode != AgentMode.PLAN else AgentMode.ACCEPT_EDITS
+        self.renderer.pause()
+        try:
+            approved = await approve_plan(self.console, plan, target.value)
+        finally:
+            self.renderer.resume()
+        if approved:
+            self.set_mode(target)
+        return approved
+
     # ── Governança ──────────────────────────────────────────────────
 
     async def _confirm(self, action: Action, level: ActionLevel) -> Any:
@@ -778,8 +825,17 @@ class AgentSession:
 
     def _with_mentions(self, text: str) -> str:
         blocks: list[str] = []
+        self._turn_images = []
         for mention, path in resolve_mentions(text, workspace_root=self.workspace).items():
             if not path.is_file():
+                continue
+            if path.suffix.lower() in IMAGE_TYPES:
+                try:
+                    if path.stat().st_size <= MAX_IMAGE_BYTES and (source := encode_image(path)):
+                        self._turn_images.append(source)
+                        blocks.append(f'<file path="{mention}">[image attached]</file>')
+                except OSError:
+                    pass
                 continue
             try:
                 content = path.read_text(encoding="utf-8", errors="replace")[:_MAX_MENTION_CHARS]
@@ -796,6 +852,8 @@ class AgentSession:
         self._active_user_text = text
         self.refresh_mcp()
         content = self._with_mentions(text)
+        if self._turn_images and self._resolve_model()[0].provider != ProviderName.ANTHROPIC:
+            self.renderer.warn("Imagem anexada ignorada: apenas modelos Anthropic recebem imagens.")
         recalled = await self.recall.recall(text, self.session_id)
         self.last_recall_tokens = estimate_tokens(recalled) if recalled else 0
         engine = ReActEngine(
@@ -815,7 +873,9 @@ class AgentSession:
         self.status_bar.is_busy = True
         await self._log_timeline("user", "user", text)
         try:
-            answer = await engine.run(content, history=self.history, context=recalled)
+            answer = await engine.run(
+                content, history=self.history, context=recalled, images=self._turn_images
+            )
         except asyncio.CancelledError:
             # A conversa permanece válida (tool_use pendentes foram fechados): preserva o contexto.
             self.history = engine.messages

@@ -179,7 +179,14 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
   - [x] OpenRouter/Ollama com tool calling nativo (`openai_wire.py`), degradação a texto com aviso, failover preservando tools e `tool_result`; `mcp_schema` removida
   - [x] Testes: `test_autocompact.py`, `test_sessions.py`, `test_decisions.py`, `test_legacy_tool_calling.py` (servidor HTTP simulado); suíte 1293 verdes, cobertura global 94%
   - Pendente: validar compactação/caching com provedor real (`ORION_LIVE=1`); ruff/mypy têm backlog pré-existente (74/31 → sem novos erros)
-- [ ] Sprint 4: Paridade de Ferramentas (portão de dogfooding)
+- [x] **Sprint 4: Paridade de Ferramentas** ✅ IMPLEMENTADA (2026-11-07; commit pendente) — **portão de dogfooding pendente** (`docs/planning/versions/v0.5.0/dogfooding-gate.md`)
+  - [x] `read_file` (offset/limit, numeração, imagem como bloco `image`, PDF via `pdftotext`), `edit_file(replace_all)`, `glob`, `grep` (ripgrep ou Python), `notebook_edit`
+  - [x] `web_fetch`/`web_search` (LEVEL_2): allowlist, anti-SSRF por redirect, 2 MB, conteúdo neutralizado e rotulado como não confiável
+  - [x] `todo_write` (card na TUI), `ask_user` e `enter/exit_plan_mode` (modais; LEVEL_0, `SERIAL_TOOLS`), `run_command(run_in_background)` + `bash_output` + `kill_shell`
+  - [x] Imagens: `@arquivo.png` anexa bloco de imagem (só modelos Anthropic; aviso nos demais); `engine.run(images=...)`
+  - [x] **Startup:** stderr do MCP e logs da CLI redirecionados para `~/.orion/logs/`; tela limpa no boot e prompt ancorado no rodapé
+  - [x] Testes: `test_tools_read_search`, `test_tools_web`, `test_tools_shell_flow`, `test_sprint4_integration`; cobertura global 94%; mypy 30 → 26 erros (backlog pré-existente, nenhum novo)
+  - Pendente: executar o portão com chave real; colar imagem da área de transferência (adiado); modais verificados por teste de lógica, não em TTY interativo real
 - [ ] Sprint 5: Extensibilidade & MCP Completo
 - [ ] Sprint 6: Subagents & Tasks
 - [ ] Sprint 7: Daemon, Jobs & Schedules

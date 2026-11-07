@@ -6,8 +6,10 @@ Command-line interface using Typer + Rich with The Hunter Crest ASCII banner.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import typer
@@ -59,6 +61,28 @@ def print_banner(status_bar: SessionStatusBar | None = None) -> int:
         return panel_lines + 2
     except Exception:
         return 16
+
+
+def configure_logging(home: Path | None = None) -> Path | None:
+    """Envia todos os logs para ``~/.orion/logs/orion-agent.log``.
+
+    Sem handler, o ``lastResort`` do logging despeja WARNING+ no stderr e estraga a TUI.
+    """
+    try:
+        logs = (home or Path.home() / ".orion") / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        path = logs / "orion-agent.log"
+        handler: logging.Handler = logging.FileHandler(path, encoding="utf-8")
+        handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    except OSError:
+        handler, path = logging.NullHandler(), None
+    root = logging.getLogger()
+    for old in [h for h in root.handlers if isinstance(h, logging.StreamHandler)
+                and not isinstance(h, logging.FileHandler)]:
+        root.removeHandler(old)
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
+    return path
 
 
 def _clear_screen(prompt: InteractivePrompt) -> None:
@@ -181,12 +205,16 @@ def cli_root(
         raise typer.Exit()
 
     if ctx.invoked_subcommand is None:
+        configure_logging()
         status_bar = SessionStatusBar.from_environment()
         session = create_session(status_bar)
         resume_message = _resume_session(session, continue_session, resume)
+        if console.is_terminal:
+            console.clear()
         banner_lines = print_banner(status_bar)
         if resume_message:
             console.print(Text(resume_message, style="text_dim"))
+            banner_lines += 1
         prompt = create_prompt(status_bar, session)
         prompt.dock_to_bottom(banner_lines)
         run_interactive_repl(prompt, session)

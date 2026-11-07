@@ -24,6 +24,7 @@ from typing import Any
 
 from orion.runtime.provider import RuntimeResult
 from orion.runtime.tools.base import BaseTool
+from orion.runtime.tools.shells import ShellManager
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +47,16 @@ class RunCommandTool(BaseTool):
             "timeout": {"type": "number", "exclusiveMinimum": 0, "description": "Seconds before the process is killed."},
             "cwd": {"type": "string", "description": "Working directory."},
             "env": {"type": "object", "additionalProperties": {"type": "string"}},
+            "run_in_background": {
+                "type": "boolean",
+                "description": "Start and return a shell_id immediately; read it with bash_output.",
+            },
         },
         "required": ["command"],
     }
+
+    def __init__(self, shells: ShellManager | None = None) -> None:
+        self._shells = shells
 
     async def run(
         self,
@@ -56,6 +64,7 @@ class RunCommandTool(BaseTool):
         timeout: float = _DEFAULT_TIMEOUT,
         cwd: str | None = None,
         env: dict[str, str] | None = None,
+        run_in_background: bool = False,
         **_: Any,
     ) -> RuntimeResult:
         """Run *command* in a subprocess with a hard timeout.
@@ -65,6 +74,20 @@ class RunCommandTool(BaseTool):
         """
         if not command or not command.strip():
             return RuntimeResult.fail("run_command: 'command' parameter is required and must be non-empty.")
+
+        if run_in_background:
+            if self._shells is None:
+                return RuntimeResult.fail("run_command: background shells are not available.")
+            try:
+                shell = self._shells.start(command, cwd=cwd, env=env)
+            except OSError as exc:
+                return RuntimeResult.fail(f"run_command: failed to start background shell: {exc}")
+            return RuntimeResult.ok(
+                f"Started in background as '{shell.shell_id}'. "
+                "Use bash_output to read its output and kill_shell to stop it.",
+                shell_id=shell.shell_id,
+                background=True,
+            )
 
         merged_env: dict[str, str] | None = None
         if env:

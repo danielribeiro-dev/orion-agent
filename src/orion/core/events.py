@@ -108,6 +108,11 @@ class Observation(OrionEvent):
         default_factory=dict,
         description="Optional structured metadata (exit_code, path, line_count, etc.).",
     )
+    image: dict[str, Any] | None = Field(
+        default=None,
+        exclude=True,
+        description="Base64 image source produced by the tool (sent to the model, never logged).",
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -102,14 +102,14 @@ class TestReadFileTool:
     @pytest.mark.asyncio
     async def test_read_line_range(self, tool: ReadFileTool, tmp_path: Path) -> None:
         p = _file(tmp_path, "lines.txt", "a\nb\nc\nd\ne\n")
-        result = await tool.run(path=str(p), start_line=2, end_line=4)
+        result = await tool.run(path=str(p), start_line=2, end_line=4, numbered=False)
         assert result.success
         assert result.output.strip() == "b\nc\nd"
 
     @pytest.mark.asyncio
     async def test_read_byte_offset(self, tool: ReadFileTool, tmp_path: Path) -> None:
         p = _file(tmp_path, "offset.txt", "ABCDEF")
-        result = await tool.run(path=str(p), byte_offset=3)
+        result = await tool.run(path=str(p), byte_offset=3, numbered=False)
         assert result.success
         assert result.output == "DEF"
 

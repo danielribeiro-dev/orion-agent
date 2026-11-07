@@ -287,7 +287,10 @@ class StreamRenderer:
 
         if diff is not None and diff.hunks:
             self.console.print(self._diff_viewer.render(diff))
-        if tool == "run_command" or not success:
+        if tool == "todo_write" and success:
+            for row in output.splitlines():
+                self._guide(row, style="text_primary" if row.lstrip().startswith("●") else "text_dim")
+        elif tool == "run_command" or not success:
             self._print_output(output)
 
     def _print_output(self, output: str) -> None:

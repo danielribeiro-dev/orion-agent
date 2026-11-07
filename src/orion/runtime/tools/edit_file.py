@@ -40,7 +40,8 @@ class EditFileTool(BaseTool):
     name = "edit_file"
     description = (
         "Replace an exact string in a file. `target` must appear exactly once; "
-        "include enough surrounding context to make it unique."
+        "include enough surrounding context to make it unique, or pass replace_all=true to "
+        "replace every occurrence."
     )
     input_schema = {
         "type": "object",
@@ -48,6 +49,10 @@ class EditFileTool(BaseTool):
             "path": {"type": "string", "description": "Target file path."},
             "target": {"type": "string", "description": "Exact text to replace (must be unique)."},
             "replacement": {"type": "string", "description": "Replacement text."},
+            "replace_all": {
+                "type": "boolean",
+                "description": "Replace every occurrence (e.g. renaming); default requires a unique target.",
+            },
         },
         "required": ["path", "target"],
     }
@@ -57,6 +62,7 @@ class EditFileTool(BaseTool):
         path: str,
         target: str,
         replacement: str = "",
+        replace_all: bool = False,
         **_: Any,
     ) -> RuntimeResult:
         """Replace the unique occurrence of *target* with *replacement* in *path*.
@@ -92,7 +98,7 @@ class EditFileTool(BaseTool):
                 occurrences_found=0,
             )
 
-        if occurrences > 1:
+        if occurrences > 1 and not replace_all:
             return RuntimeResult.fail(
                 f"edit_file: target string appears {occurrences} times in '{path}'. "
                 "The target must be unique to ensure a safe surgical edit. "
@@ -100,8 +106,8 @@ class EditFileTool(BaseTool):
                 occurrences_found=occurrences,
             )
 
-        # Exactly one occurrence — safe to replace
-        new_content = original.replace(target, replacement, 1)
+        # Unique (or replace_all) — safe to replace
+        new_content = original.replace(target, replacement, -1 if replace_all else 1)
         encoded = new_content.encode("utf-8")
         bytes_before = len(original.encode("utf-8"))
         bytes_after = len(encoded)
@@ -124,8 +130,9 @@ class EditFileTool(BaseTool):
 
         action = "deleted" if replacement == "" else "replaced"
         return RuntimeResult.ok(
-            f"edit_file: {action} target in '{path}' ({bytes_before} → {bytes_after} bytes).",
-            occurrences_found=1,
+            f"edit_file: {action} {f'{occurrences} occurrence(s)' if replace_all else 'target'} "
+            f"in '{path}' ({bytes_before} → {bytes_after} bytes).",
+            occurrences_found=occurrences,
             bytes_before=bytes_before,
             bytes_after=bytes_after,
         )

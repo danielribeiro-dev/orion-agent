@@ -22,10 +22,17 @@ from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import Window
 from prompt_toolkit.layout.controls import FormattedTextControl
 from rich.console import Console, RenderableType
+from rich.text import Text
 
 from orion.core.events import Action
 from orion.governance.permissions import ActionLevel
-from orion.tui.panels import render_config, render_model_picker, render_pep_dialog
+from orion.tui.panels import (
+    render_config,
+    render_model_picker,
+    render_pep_dialog,
+    render_plan_approval,
+    render_question,
+)
 from orion.tui.theme import get_orion_theme
 
 
@@ -224,3 +231,102 @@ async def ask_pep_decision(console: Console, action: Action, level: ActionLevel)
     if not edited.strip():
         return "n"
     return {**action.params, "command": edited.strip()}
+
+
+class AskChoice:
+    """ask_user: escolha entre opções (uma ou várias) ou resposta livre."""
+
+    def __init__(self, question: str, options: list[dict[str, str]], multi: bool = False) -> None:
+        self.question = question
+        self.options = options
+        self.multi = multi
+        self.selected = 0
+        self.checked: set[int] = set()
+        self.answers: list[str] = []
+        self.wants_text = not options  # sem opções: vai direto para a resposta livre
+
+    @property
+    def _other_index(self) -> int:
+        return len(self.options)
+
+    def render(self) -> RenderableType:
+        return render_question(self.question, self.options, self.selected, self.checked, self.multi)
+
+    def on_key(self, key: str) -> bool:
+        total = len(self.options) + 1
+        if self.wants_text:
+            return True
+        if key == "escape":
+            return True
+        if key == "up":
+            self.selected = (self.selected - 1) % total
+        elif key == "down":
+            self.selected = (self.selected + 1) % total
+        elif key.isdigit() and 1 <= int(key) <= total:
+            self.selected = int(key) - 1
+            return self._confirm() if not self.multi else self._toggle()
+        elif key == " " and self.multi:
+            return self._toggle()
+        elif key == "enter":
+            return self._confirm()
+        return False
+
+    def _toggle(self) -> bool:
+        if self.selected == self._other_index:
+            self.wants_text = True
+            return True
+        self.checked.symmetric_difference_update({self.selected})
+        return False
+
+    def _confirm(self) -> bool:
+        if self.selected == self._other_index:
+            self.wants_text = True
+            return True
+        picks = sorted(self.checked) if self.multi and self.checked else [self.selected]
+        self.answers = [self.options[i]["label"] for i in picks]
+        return True
+
+
+async def ask_user_choice(
+    console: Console, question: str, options: list[dict[str, str]], multi: bool = False
+) -> list[str] | None:
+    """Pergunta ao Senhor; sem terminal interativo devolve None (a tool falha com clareza)."""
+    if not is_interactive():
+        return None
+    picker = AskChoice(question, options, multi)
+    if not picker.wants_text:
+        await run_modal(picker, console, keep_on_screen=True)
+    if picker.wants_text:
+        session: PromptSession[str] = PromptSession()
+        console.print(Text(question, style="text_primary"))
+        typed = (await session.prompt_async("❯ ")).strip()
+        return [typed] if typed else None
+    return picker.answers or None
+
+
+class PlanApproval:
+    """exit_plan_mode: aprovação do plano em uma tecla."""
+
+    def __init__(self, plan: str, mode_label: str) -> None:
+        self.plan = plan
+        self.mode_label = mode_label
+        self.approved = False
+
+    def render(self) -> RenderableType:
+        return render_plan_approval(self.plan, self.mode_label)
+
+    def on_key(self, key: str) -> bool:
+        lowered = key.lower()
+        if lowered == "y":
+            self.approved = True
+            return True
+        return lowered == "n" or key == "escape"
+
+
+async def approve_plan(console: Console, plan: str, mode_label: str) -> bool:
+    """Mostra o plano; sem terminal interativo o plano NÃO é aprovado."""
+    if not is_interactive():
+        return False
+    modal = PlanApproval(plan, mode_label)
+    await run_modal(modal, console, keep_on_screen=True)
+    return modal.approved
