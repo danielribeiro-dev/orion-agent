@@ -409,6 +409,8 @@ def test_empty_submit_erases_the_prompt_block() -> None:
     """Enter vazio não empilha régua/❯/régua no scrollback; com texto, o bloco permanece."""
     from types import SimpleNamespace
 
+    from prompt_toolkit.application.current import set_app
+
     from orion.tui.prompt import InteractivePrompt
 
     prompt = InteractivePrompt(history_path=None)
@@ -417,8 +419,9 @@ def test_empty_submit_erases_the_prompt_block() -> None:
     handler = prompt.session.default_buffer.accept_handler
     assert handler is not None
 
-    handler(SimpleNamespace(text="   ", document=SimpleNamespace(text="   ")))  # type: ignore[arg-type]
-    assert app.erase_when_done is True
+    with set_app(app):
+        handler(SimpleNamespace(text="   ", document=SimpleNamespace(text="   ")))  # type: ignore[arg-type]
+        assert app.erase_when_done is True
 
-    handler(SimpleNamespace(text="oi", document=SimpleNamespace(text="oi")))  # type: ignore[arg-type]
-    assert app.erase_when_done is False
+        handler(SimpleNamespace(text="oi", document=SimpleNamespace(text="oi")))  # type: ignore[arg-type]
+        assert app.erase_when_done is False
