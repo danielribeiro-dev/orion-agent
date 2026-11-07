@@ -20,5 +20,10 @@ Sem hooks, plugins, settings/regras, comandos custom, subagents, tasks, schedule
 ## Pendências de release da v0.4.0 (exigem autorização do Senhor)
 Merge de `version/v0.4.0` em `main` e tags `v0.3.0`/`v0.4.0`.
 
-## Próximo Passo
-Commit da Sprint 4 (`feat(tools): v0.5.0 Sprint 4 — Paridade de Ferramentas`), então o Senhor executa o portão de dogfooding (`docs/planning/versions/v0.5.0/dogfooding-gate.md`) com `ANTHROPIC_API_KEY` real, em modo `manual`. Aprovado, as Sprints 5–8 passam a ser desenvolvidas pelo próprio ORION; reprovado, seguem pelo Claude Code e os defeitos são corrigidos. Também pendente: `ORION_LIVE=1 pytest -m live` (cache hit e auto-compactação).
+## Próximo Passo (retomar aqui)
+Estado: branch `gate/dogfooding-v0.5.0` (commits locais NÃO enviados ao remoto após `00eaeae`; `version/v0.5.0` = Sprint 4 `a0c42bb`, já no remoto). Harness modelo-ponte em `scripts/dogfood/` (README lá); rodadas H1 (pty) e H2 (aba do Senhor) concluídas — achados em `docs/planning/versions/v0.5.0/dogfooding-findings.md`.
+1. Corrigir **F-06** (alta): `engine._execute_action` descarta `RuntimeResult.output` quando a tool falha; devolver erro + saída; teste de regressão.
+2. Validar **compactação/poda** (nunca disparou: janela 1M): `/compact` e saídas enormes de tool pelo harness; depois live.
+3. Corrigir **F-02** (negação do modo plano dita "user rejected"), F-01, F-03, F-04 e **F-05** (`ctl attach` deve limpar `home/`).
+4. Decidir design de **F-07/F-08** (destaque do prompt, réguas do input; atualizar `CLI_AGENT_RULES.md`) e abrir spec para **F-09** (detalhe de tools/diffs/raciocínio).
+5. Só então a rodada live com `ANTHROPIC_API_KEY` (criar conta de API; o plano Pro não cobre) e decidir push/merge com o Senhor.
