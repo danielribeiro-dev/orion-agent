@@ -39,8 +39,14 @@ Cenário: o Senhor usou o ORION na própria aba; o Claude Code respondeu como mo
 ### F-07/F-08 — Separação visual entre usuário e agente
 - Observação do Senhor: o prompt não tem cor/fundo próprio e não há traço acima/abaixo do campo; só a seta `❯` separa. `prompt.py` removeu os "túneis" de propósito (comentário no código), mas `CLI_DESIGN_SYSTEM.md` define `border_subtle` para "linhas divisórias e réguas". Decidir: régua fina em `border_subtle` acima/abaixo do input e/ou eco do pedido do usuário com cor distinta. Exige atualizar `CLI_AGENT_RULES.md`.
 
+### N-01 — Notas do harness (não são defeitos do ORION)
+- **Contagem de tokens:** o provider-ponte estima `caracteres/4` só das mensagens (ignora system prompt ≈290 tokens e tools ≈2,7k); o `out` ≈ texto do modelo. A soma por chamada está correta. Valor absoluto só é confiável no live.
+- **Raciocínio não aparece:** a ponte não emite thinking; o bloco de raciocínio só poderá ser avaliado no live.
+- **Memória (verificada em `home/`):** transcript 20 mensagens + snapshot de arquivo, Timeline 13 eventos/6 embeddings (recall funcionando), auditoria 12 registros, **fatos duráveis = 0** (só `memorize`/`record_decision` gravam; por desenho).
+- **Pendente de validação:** poda (60%) e compactação (80%) nunca dispararam (janela 1M, uso ≈9k). Testar com `/compact` e com saídas enormes de tool no harness; depois no live.
+
 ### F-09 — Nível de detalhe
-- Observação do Senhor: pensamentos, execução de tools e diffs "superficiais" frente a Claude Code/Hermes. Hoje o card mostra `✔ Edit: calc.py · 0.0s · +1 / -1` e o diff; sem parâmetros do comando, duração útil, saída ao vivo, nem raciocínio em bloco. Requer spec de TUI (próxima sprint de interface), não correção pontual.
+- Observação do Senhor (a parte de pensamentos é artefato do harness, ver N-01; tools e diffs são do ORION): pensamentos, execução de tools e diffs "superficiais" frente a Claude Code/Hermes. Hoje o card mostra `✔ Edit: calc.py · 0.0s · +1 / -1` e o diff; sem parâmetros do comando, duração útil, saída ao vivo, nem raciocínio em bloco. Requer spec de TUI (próxima sprint de interface), não correção pontual.
 
 ### F-01 — Modal PEP não mostra `run_in_background`
 - Etapa: harness  Severidade: baixa
