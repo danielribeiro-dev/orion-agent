@@ -1,10 +1,10 @@
 # Sprint — v0.5.0 Sprint 1: Provider Anthropic Nativo
 
-> **Status:** 📋 Planejando  
+> **Status:** ✅ Implementada (teste live pendente de chave)  
 > **Versão Relacionada:** v0.5.0  
 > **Responsável / Agente:** Daniel Dev & Claude  
-> **Data de Início:** —  
-> **Data de Conclusão:** —  
+> **Data de Início:** 2026-11-06  
+> **Data de Conclusão:** 2026-11-06  
 
 ---
 
@@ -37,13 +37,13 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo
-- [ ] `ContentBlock`, `LLMRequest.system/tools/tool_choice/thinking`, `cache_control`.
-- [ ] `AnthropicProvider` (streaming tipado, thinking, `count_tokens`, usage com cache).
-- [ ] Retry com backoff em `stream()` (extraído para `providers/base.py`, reutilizado por todos).
-- [ ] Registry com Claude 5 (`claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`) e tiers.
-- [ ] Failover Anthropic → OpenRouter → Ollama via `CircuitBreaker` ligado à sessão, sem downgrade silencioso de modelo de código.
-- [ ] `ANTHROPIC_API_KEY` (ou arquivo em `~/.orion/`), validação no `orion doctor`.
-- [ ] Adaptador de compatibilidade para os providers antigos (strings → blocos).
+- [x] `ContentBlock`, `LLMRequest.system/tools/tool_choice/thinking`, `cache_control`.
+- [x] `AnthropicProvider` (streaming tipado, thinking, `count_tokens`, usage com cache).
+- [x] Retry com backoff em `stream()` (extraído para `providers/base.py`, reutilizado por todos).
+- [x] Registry com Claude 5 (`claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`) e tiers.
+- [x] Failover Anthropic → OpenRouter → Ollama via `CircuitBreaker` ligado à sessão, sem downgrade silencioso de modelo de código.
+- [x] `ANTHROPIC_API_KEY` (ou arquivo em `~/.orion/`), validação no `orion doctor`.
+- [x] Adaptador de compatibilidade para os providers antigos (strings → blocos).
 
 ### 🚫 Fora de Escopo
 - Loop de `tool_use` (Sprint 2), auto-compactação (Sprint 3).

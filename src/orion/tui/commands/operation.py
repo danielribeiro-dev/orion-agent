@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import platform
 import shutil
+from typing import Any
 
 from rich.table import Table
 from rich.text import Text
@@ -56,6 +57,12 @@ class RunCommand(BaseSlashCommand):
         return CommandResult(success=ok)
 
 
+def _anthropic_status(home: Any) -> Any:
+    from orion.gateway.credentials import inspect_anthropic_key
+
+    return inspect_anthropic_key(home)
+
+
 class DoctorCommand(BaseSlashCommand):
     name = "/doctor"
     description = "Diagnóstico do ambiente: Python, hardware, Ollama e chaves"
@@ -66,6 +73,7 @@ class DoctorCommand(BaseSlashCommand):
         checks: list[tuple[str, bool, str]] = [
             ("Python", True, platform.python_version()),
             ("Git", shutil.which("git") is not None, shutil.which("git") or "não encontrado"),
+            ("ANTHROPIC_API_KEY", _anthropic_status(session.home).ok, _anthropic_status(session.home).detail),
             (
                 "OPENROUTER_API_KEY",
                 bool(os.environ.get("OPENROUTER_API_KEY")),

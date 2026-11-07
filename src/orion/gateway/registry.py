@@ -10,16 +10,64 @@ Referência de custos (USD/1M tokens — OpenRouter, Out. 2026):
 
 from __future__ import annotations
 
-from typing import Optional
-
 from orion.gateway.models import ComplexityTier, ModelSpec, ProviderName
-
 
 # ---------------------------------------------------------------------------
 # Catálogo Oficial de Modelos
 # ---------------------------------------------------------------------------
 
 _CATALOG: list[ModelSpec] = [
+    # ── CLAUDE 5 NATIVO (API Anthropic — ADR-020) ───────────────────────────
+    # Preços: tabela da Anthropic (cache de 06/10/2026). Escrita no cache = 1,25x input.
+    # Haiku 5.5: preço vale para prompts até 100K tokens ($0.50/$2.50 acima).
+    ModelSpec(
+        id="claude-fable-5-1",
+        name="Claude Fable 5.1",
+        provider=ProviderName.ANTHROPIC,
+        context_window=1_000_000,
+        cost_input_m=10.0,
+        cost_output_m=50.0,
+        supports_thinking=True,
+        default_tier=ComplexityTier.HEAVY,
+        openrouter_id="anthropic/claude-fable-5-1",
+        cache_read_cost_m=0.25,
+    ),
+    ModelSpec(
+        id="claude-opus-5-5",
+        name="Claude Opus 5.5",
+        provider=ProviderName.ANTHROPIC,
+        context_window=1_000_000,
+        cost_input_m=4.0,
+        cost_output_m=20.0,
+        supports_thinking=True,
+        default_tier=ComplexityTier.HEAVY,
+        openrouter_id="anthropic/claude-opus-5-5",
+        cache_read_cost_m=0.2,
+    ),
+    ModelSpec(
+        id="claude-sonnet-5-5",
+        name="Claude Sonnet 5.5",
+        provider=ProviderName.ANTHROPIC,
+        context_window=1_000_000,
+        cost_input_m=2.0,
+        cost_output_m=10.0,
+        supports_thinking=True,
+        default_tier=ComplexityTier.BALANCED,
+        openrouter_id="anthropic/claude-sonnet-5-5",
+        cache_read_cost_m=0.2,
+    ),
+    ModelSpec(
+        id="claude-haiku-5-5",
+        name="Claude Haiku 5.5",
+        provider=ProviderName.ANTHROPIC,
+        context_window=1_000_000,
+        cost_input_m=0.1,
+        cost_output_m=0.5,
+        supports_thinking=True,
+        default_tier=ComplexityTier.FAST,
+        openrouter_id="anthropic/claude-haiku-5-5",
+        cache_read_cost_m=None,
+    ),
     # ── HEAVY FRONTIER ──────────────────────────────────────────────────────
     ModelSpec(
         id="anthropic/claude-opus-4-5",
@@ -182,14 +230,14 @@ class ModelRegistry:
     O catálogo é um singleton de dados; não persiste estado externo.
     """
 
-    def __init__(self, catalog: Optional[list[ModelSpec]] = None) -> None:
+    def __init__(self, catalog: list[ModelSpec] | None = None) -> None:
         self._catalog: dict[str, ModelSpec] = {
             m.id: m for m in (catalog or _CATALOG)
         }
 
     # ── Consultas ─────────────────────────────────────────────────────────
 
-    def get(self, model_id: str) -> Optional[ModelSpec]:
+    def get(self, model_id: str) -> ModelSpec | None:
         """Retorna a ``ModelSpec`` pelo ID canônico, ou ``None`` se não encontrado."""
         return self._catalog.get(model_id)
 

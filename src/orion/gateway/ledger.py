@@ -15,17 +15,16 @@ import asyncio
 import sqlite3
 import threading
 import uuid
+from collections.abc import Generator
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from datetime import date as date_type
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Generator, Optional
 
 from pydantic import BaseModel, Field
 
 from orion.gateway.models import ComplexityTier, ProviderName, TokenUsage
 from orion.gateway.registry import ModelRegistry
-
 
 # ---------------------------------------------------------------------------
 # Contratos de Dados
@@ -46,9 +45,10 @@ class CostRecord(BaseModel):
     prompt_tokens: int = Field(ge=0, description="Tokens de prompt enviados")
     completion_tokens: int = Field(ge=0, description="Tokens gerados")
     cached_tokens: int = Field(ge=0, description="Tokens lidos do cache (custo reduzido)")
+    cache_write_tokens: int = Field(default=0, ge=0, description="Tokens escritos no cache (custo maior)")
     cost_usd: float = Field(ge=0.0, description="Custo total calculado em USD")
     cost_brl: float = Field(ge=0.0, description="Custo total convertido em BRL")
-    task_id: Optional[str] = Field(default=None, description="ID externo do turno/task")
+    task_id: str | None = Field(default=None, description="ID externo do turno/task")
     latency_ms: float = Field(default=0.0, ge=0.0, description="Latência da chamada em ms")
 
 
@@ -73,6 +73,9 @@ class DailySummary(BaseModel):
 # Desconto padrão para prompt caching (tokens em cache são cobrados a ~10%
 # do preço normal de input — prática comum em Anthropic e OpenAI).
 DEFAULT_CACHE_DISCOUNT = 0.1
+
+# Escrita no cache de prompt (TTL de 5 min) custa 1,25x o input normal (Anthropic).
+DEFAULT_CACHE_WRITE_MULTIPLIER = 1.25
 
 
 # ---------------------------------------------------------------------------
@@ -137,13 +140,21 @@ class CostCalculator:
         """
         spec = self._registry.require(model_id)
 
-        # Tokens de input não-cacheados
-        billable_input = usage.prompt_tokens - usage.cached_tokens
-        billable_input = max(0, billable_input)
+        # prompt_tokens é o total de entrada (inclui cache lido e escrito)
+        billable_input = max(0, usage.prompt_tokens - usage.cached_tokens - usage.cache_write_tokens)
+        read_price_m = (
+            spec.cache_read_cost_m
+            if spec.cache_read_cost_m is not None
+            else spec.cost_input_m * self._cache_discount
+        )
 
         cost_usd = (
             billable_input * spec.cost_input_m / 1_000_000
-            + usage.cached_tokens * spec.cost_input_m * self._cache_discount / 1_000_000
+            + usage.cached_tokens * read_price_m / 1_000_000
+            + usage.cache_write_tokens
+            * spec.cost_input_m
+            * DEFAULT_CACHE_WRITE_MULTIPLIER
+            / 1_000_000
             + usage.completion_tokens * spec.cost_output_m / 1_000_000
         )
         cost_brl = cost_usd * self._usd_to_brl
@@ -165,6 +176,7 @@ CREATE TABLE IF NOT EXISTS token_ledger (
     prompt_tokens    INTEGER NOT NULL DEFAULT 0,
     completion_tokens INTEGER NOT NULL DEFAULT 0,
     cached_tokens    INTEGER NOT NULL DEFAULT 0,
+    cache_write_tokens INTEGER NOT NULL DEFAULT 0,
     cost_usd         REAL    NOT NULL DEFAULT 0.0,
     cost_brl         REAL    NOT NULL DEFAULT 0.0,
     task_id          TEXT,
@@ -190,8 +202,8 @@ class CostLedger:
 
     def __init__(
         self,
-        db_path: Optional[Path] = None,
-        registry: Optional[ModelRegistry] = None,
+        db_path: Path | None = None,
+        registry: ModelRegistry | None = None,
         usd_to_brl: float = 5.7,
         cache_discount: float = DEFAULT_CACHE_DISCOUNT,
     ) -> None:
@@ -229,6 +241,13 @@ class CostLedger:
             try:
                 conn.execute("PRAGMA journal_mode=WAL;")
                 conn.executescript(_DDL)
+                # Migração v0.5.0: bancos antigos não têm cache_write_tokens
+                cols = {r[1] for r in conn.execute("PRAGMA table_info(token_ledger)")}
+                if "cache_write_tokens" not in cols:
+                    conn.execute(
+                        "ALTER TABLE token_ledger ADD COLUMN "
+                        "cache_write_tokens INTEGER NOT NULL DEFAULT 0"
+                    )
                 conn.commit()
             finally:
                 conn.close()
@@ -272,7 +291,7 @@ class CostLedger:
         usage: TokenUsage,
         routing_mode: str = "auto",
         complexity: ComplexityTier | str = ComplexityTier.BALANCED,
-        task_id: Optional[str] = None,
+        task_id: str | None = None,
         latency_ms: float = 0.0,
     ) -> CostRecord:
         """Grava uma linha atômica no livro-razão e retorna o registro criado.
@@ -296,7 +315,7 @@ class CostLedger:
 
         record = CostRecord(
             id=str(uuid.uuid4()),
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             provider=str(provider.value if isinstance(provider, ProviderName) else provider),
             model=model,
             routing_mode=routing_mode,
@@ -304,6 +323,7 @@ class CostLedger:
             prompt_tokens=usage.prompt_tokens,
             completion_tokens=usage.completion_tokens,
             cached_tokens=usage.cached_tokens,
+            cache_write_tokens=usage.cache_write_tokens,
             cost_usd=cost_usd,
             cost_brl=cost_brl,
             task_id=task_id,
@@ -319,7 +339,7 @@ class CostLedger:
         usage: TokenUsage,
         routing_mode: str = "auto",
         complexity: ComplexityTier | str = ComplexityTier.BALANCED,
-        task_id: Optional[str] = None,
+        task_id: str | None = None,
         latency_ms: float = 0.0,
     ) -> CostRecord:
         """Versão assíncrona de record_turn_cost (executa em thread pool)."""
@@ -344,11 +364,11 @@ class CostLedger:
                 """
                 INSERT INTO token_ledger (
                     id, timestamp, provider, model, routing_mode, complexity_level,
-                    prompt_tokens, completion_tokens, cached_tokens,
+                    prompt_tokens, completion_tokens, cached_tokens, cache_write_tokens,
                     cost_usd, cost_brl, task_id, latency_ms
                 ) VALUES (
                     :id, :timestamp, :provider, :model, :routing_mode, :complexity_level,
-                    :prompt_tokens, :completion_tokens, :cached_tokens,
+                    :prompt_tokens, :completion_tokens, :cached_tokens, :cache_write_tokens,
                     :cost_usd, :cost_brl, :task_id, :latency_ms
                 )
                 """,
@@ -362,6 +382,7 @@ class CostLedger:
                     "prompt_tokens": record.prompt_tokens,
                     "completion_tokens": record.completion_tokens,
                     "cached_tokens": record.cached_tokens,
+                    "cache_write_tokens": record.cache_write_tokens,
                     "cost_usd": record.cost_usd,
                     "cost_brl": record.cost_brl,
                     "task_id": record.task_id,
@@ -371,7 +392,7 @@ class CostLedger:
 
     # ── Consultas ────────────────────────────────────────────────────────────
 
-    def daily_summary(self, day: Optional[date_type] = None) -> DailySummary:
+    def daily_summary(self, day: date_type | None = None) -> DailySummary:
         """Retorna o resumo de custos de um dia específico (padrão: hoje UTC).
 
         Args:
@@ -381,7 +402,7 @@ class CostLedger:
             DailySummary com totais de custo e tokens do dia.
         """
         if day is None:
-            day = datetime.now(timezone.utc).date()
+            day = datetime.now(UTC).date()
 
         date_prefix = day.isoformat()  # "YYYY-MM-DD"
 
@@ -411,7 +432,7 @@ class CostLedger:
             total_cached_tokens=row["total_cached_tokens"],
         )
 
-    async def daily_summary_async(self, day: Optional[date_type] = None) -> DailySummary:
+    async def daily_summary_async(self, day: date_type | None = None) -> DailySummary:
         """Versão assíncrona de daily_summary."""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, lambda: self.daily_summary(day))
@@ -422,7 +443,7 @@ class CostLedger:
 
     def list_records(
         self,
-        day: Optional[date_type] = None,
+        day: date_type | None = None,
         limit: int = 100,
     ) -> list[CostRecord]:
         """Lista registros individuais de um dia (padrão: hoje).
@@ -435,7 +456,7 @@ class CostLedger:
             Lista de CostRecord em ordem cronológica decrescente.
         """
         if day is None:
-            day = datetime.now(timezone.utc).date()
+            day = datetime.now(UTC).date()
         date_prefix = day.isoformat()
 
         with self._connection() as conn:
@@ -460,6 +481,7 @@ class CostLedger:
                 prompt_tokens=row["prompt_tokens"],
                 completion_tokens=row["completion_tokens"],
                 cached_tokens=row["cached_tokens"],
+                cache_write_tokens=row["cache_write_tokens"],
                 cost_usd=row["cost_usd"],
                 cost_brl=row["cost_brl"],
                 task_id=row["task_id"],

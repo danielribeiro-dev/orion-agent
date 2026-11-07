@@ -42,9 +42,9 @@ import asyncio
 import logging
 import random
 import time
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Optional
 
 from orion.gateway.models import ComplexityTier
 
@@ -110,7 +110,7 @@ _HTTP_FAILURE_MAP: dict[int, FailureReason] = {
 
 def classify_failure(
     *,
-    http_status: Optional[int] = None,
+    http_status: int | None = None,
     is_timeout: bool = False,
     is_offline: bool = False,
     is_budget: bool = False,
@@ -253,9 +253,9 @@ class CircuitSnapshot:
 
     state: CircuitState
     failure_count: int
-    last_failure_reason: Optional[FailureReason]
-    last_failure_at: Optional[float]
-    failed_model: Optional[str]
+    last_failure_reason: FailureReason | None
+    last_failure_at: float | None
+    failed_model: str | None
     safe_holding_active: bool
     intentional_lite_mode: bool
     message_for_user: str
@@ -323,9 +323,9 @@ class CircuitBreaker:
         self,
         primary_model_id: str,
         primary_model_tier: ComplexityTier,
-        config: Optional[CircuitBreakerConfig] = None,
-        equi_tier_models: Optional[list[str]] = None,
-        on_state_change: Optional[Callable[[CircuitState, CircuitSnapshot], None]] = None,
+        config: CircuitBreakerConfig | None = None,
+        equi_tier_models: list[str] | None = None,
+        on_state_change: Callable[[CircuitState, CircuitSnapshot], None] | None = None,
         intentional_lite_mode: bool = False,
     ) -> None:
         """Inicializa o Circuit Breaker.
@@ -357,9 +357,9 @@ class CircuitBreaker:
         self._state: CircuitState = CircuitState.CLOSED
         self._failure_count: int = 0
         self._success_count_half_open: int = 0
-        self._last_failure_reason: Optional[FailureReason] = None
-        self._last_failure_at: Optional[float] = None
-        self._failed_model: Optional[str] = None
+        self._last_failure_reason: FailureReason | None = None
+        self._last_failure_at: float | None = None
+        self._failed_model: str | None = None
         self._current_equi_tier_index: int = 0
 
         # Lock para segurança em contextos async concorrentes
@@ -475,7 +475,7 @@ class CircuitBreaker:
     def record_failure(
         self,
         reason: FailureReason,
-        failed_model: Optional[str] = None,
+        failed_model: str | None = None,
     ) -> None:
         """Registra uma falha de chamada ao modelo.
 
@@ -507,6 +507,15 @@ class CircuitBreaker:
         # Threshold de falhas atingido
         if self._failure_count >= self._config.failure_threshold:
             self._open_circuit()
+
+    def trip(self, reason: FailureReason, failed_model: str | None = None) -> None:
+        """Abre o circuito de imediato (todos os candidatos do mesmo tier falharam).
+
+        Equivale a atingir ``failure_threshold``; em modelo HEAVY sem modo lite
+        intencional resulta em SAFE_HOLDING (mutações bloqueadas pelo PEP).
+        """
+        self._failure_count = max(self._failure_count, self._config.failure_threshold - 1)
+        self.record_failure(reason, failed_model)
 
     def can_attempt(self) -> bool:
         """Verifica se o circuit breaker permite uma nova tentativa.
@@ -572,7 +581,7 @@ class CircuitBreaker:
                 retry_after_seconds=self._seconds_until_retry(),
             )
 
-        last_exc: Optional[Exception] = None
+        last_exc: Exception | None = None
         for attempt in range(self._config.max_retries + 1):
             try:
                 result = await coro_factory()  # type: ignore[misc]
@@ -604,7 +613,7 @@ class CircuitBreaker:
 
         raise last_exc  # type: ignore[misc]
 
-    def get_next_equi_tier_model(self) -> Optional[str]:
+    def get_next_equi_tier_model(self) -> str | None:
         """Retorna o próximo modelo equi-tier disponível para substituição.
 
         Modelos equi-tier são de mesma potência (HEAVY) configurados como

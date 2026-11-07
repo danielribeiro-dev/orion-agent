@@ -16,12 +16,19 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any, AsyncIterator, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
+from orion.gateway.errors import (  # noqa: F401  (reexport)
+    GatewayError,
+    ProviderAPIError,
+    ProviderConnectionError,
+    ProviderTimeoutError,
+    RateLimitError,
+)
 from orion.gateway.models import (
-    ComplexityTier,
     LLMMessage,
     LLMRequest,
     LLMResponse,
@@ -29,42 +36,14 @@ from orion.gateway.models import (
     ProviderName,
     TokenUsage,
 )
-from orion.gateway.providers.base import BaseLLMProvider
+from orion.gateway.providers.base import (
+    BaseLLMProvider,
+    RetryPolicy,
+    retry_call,
+    stream_with_retry,
+)
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Exceções de Domínio do Gateway
-# ---------------------------------------------------------------------------
-
-
-class GatewayError(Exception):
-    """Raiz das exceções do Model Gateway."""
-
-
-class ProviderAPIError(GatewayError):
-    """Erro genérico retornado pelo provedor (autenticação, resposta inválida, etc.)."""
-
-    def __init__(self, message: str, status_code: Optional[int] = None) -> None:
-        super().__init__(message)
-        self.status_code = status_code
-
-
-class RateLimitError(ProviderAPIError):
-    """Limite de taxa atingido (HTTP 429). Inclui retry_after em segundos, se disponível."""
-
-    def __init__(self, message: str, retry_after: Optional[float] = None) -> None:
-        super().__init__(message, status_code=429)
-        self.retry_after = retry_after
-
-
-class ProviderTimeoutError(GatewayError):
-    """Timeout na chamada ao provedor."""
-
-
-class ProviderConnectionError(GatewayError):
-    """Falha de conexão de rede — sinal para ativar o circuit breaker (Sprint 4)."""
-
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -135,7 +114,7 @@ class OpenRouterProvider(BaseLLMProvider):
         """Converte ``LLMMessage`` para o formato dict da API OpenAI-compatible."""
         serialized = []
         for msg in messages:
-            d: dict[str, Any] = {"role": msg.role.value, "content": msg.content}
+            d: dict[str, Any] = {"role": msg.role.value, "content": msg.text}
             if msg.name is not None:
                 d["name"] = msg.name
             serialized.append(d)
@@ -158,7 +137,7 @@ class OpenRouterProvider(BaseLLMProvider):
     # ── Parsing de Usage ─────────────────────────────────────────────────────
 
     @staticmethod
-    def _parse_usage(usage_dict: Optional[dict[str, Any]]) -> TokenUsage:
+    def _parse_usage(usage_dict: dict[str, Any] | None) -> TokenUsage:
         """Extrai ``TokenUsage`` do campo ``usage`` da resposta do OpenRouter."""
         if not usage_dict:
             return TokenUsage()
@@ -190,7 +169,7 @@ class OpenRouterProvider(BaseLLMProvider):
         if response.status_code == 200:
             return
         if response.status_code == 429:
-            retry_after: Optional[float] = None
+            retry_after: float | None = None
             ra_header = response.headers.get("Retry-After")
             if ra_header is not None:
                 try:
@@ -223,82 +202,61 @@ class OpenRouterProvider(BaseLLMProvider):
 
     # ── complete() ────────────────────────────────────────────────────────────
 
+    def _retry_policy(self) -> RetryPolicy:
+        return RetryPolicy(
+            max_attempts=_MAX_RETRIES, base_delay_s=_BACKOFF_BASE_S, max_delay_s=_BACKOFF_MAX_S
+        )
+
     async def complete(self, request: LLMRequest) -> LLMResponse:
         """Executa inferência completa (não-streaming) no OpenRouter.
 
-        Inclui retry automático com backoff exponencial para 429 e 5xx.
+        Retry com backoff exponencial para 429, 5xx e timeout (``base.retry_call``).
         """
+        return await retry_call(
+            lambda: self._complete_once(request), self._retry_policy(), "OpenRouter"
+        )
+
+    async def _complete_once(self, request: LLMRequest) -> LLMResponse:
         url = f"{self._base_url}{_CHAT_COMPLETIONS_PATH}"
         headers = self._build_headers()
         payload = self._build_payload(request, stream=False)
+        try:
+            t0 = time.monotonic()
+            async with httpx.AsyncClient(timeout=self._timeout_s) as client:
+                response = await client.post(url, headers=headers, json=payload)
+        except httpx.TimeoutException as exc:
+            raise ProviderTimeoutError(
+                f"OpenRouter timeout after {self._timeout_s}s"
+            ) from exc
+        except httpx.ConnectError as exc:
+            raise ProviderConnectionError(f"OpenRouter connection failed: {exc}") from exc
 
-        last_error: Exception = RuntimeError("No attempts made")
+        self._raise_for_status(response)
+        latency_ms = (time.monotonic() - t0) * 1000.0
 
-        for attempt in range(_MAX_RETRIES):
-            try:
-                t0 = time.monotonic()
-                async with httpx.AsyncClient(timeout=self._timeout_s) as client:
-                    response = await client.post(url, headers=headers, json=payload)
-
-                self._raise_for_status(response)
-                latency_ms = (time.monotonic() - t0) * 1000.0
-
-                data = response.json()
-                choice = data["choices"][0]
-                message = choice.get("message", {})
-                content = message.get("content") or ""
-
-                # Raciocínio interno (DeepSeek R1, Claude Extended Thinking)
-                reasoning_content: Optional[str] = message.get("reasoning_content")
-
-                usage = self._parse_usage(data.get("usage"))
-
-                return LLMResponse(
-                    content=content,
-                    reasoning_content=reasoning_content,
-                    model=data.get("model", request.model),
-                    provider=ProviderName.OPENROUTER,
-                    usage=usage,
-                    latency_ms=latency_ms,
-                    complexity_tier=request.complexity_tier,
-                )
-
-            except RateLimitError as exc:
-                last_error = exc
-                wait = min(_BACKOFF_BASE_S * (2**attempt), _BACKOFF_MAX_S)
-                if exc.retry_after is not None:
-                    wait = max(wait, exc.retry_after)
-                logger.warning(
-                    "OpenRouter rate limit on attempt %d/%d. Waiting %.1fs.",
-                    attempt + 1,
-                    _MAX_RETRIES,
-                    wait,
-                )
-                import asyncio
-                await asyncio.sleep(wait)
-
-            except ProviderAPIError:
-                raise  # Não retenta erros de autenticação, crédito etc.
-
-            except httpx.TimeoutException as exc:
-                last_error = ProviderTimeoutError(
-                    f"OpenRouter timeout after {self._timeout_s}s on attempt {attempt + 1}"
-                )
-                logger.warning(str(last_error))
-                if attempt == _MAX_RETRIES - 1:
-                    raise ProviderTimeoutError(str(last_error)) from exc
-
-            except httpx.ConnectError as exc:
-                raise ProviderConnectionError(
-                    f"OpenRouter connection failed: {exc}"
-                ) from exc
-
-        raise last_error  # type: ignore[misc]
+        data = response.json()
+        message = data["choices"][0].get("message", {})
+        return LLMResponse(
+            content=message.get("content") or "",
+            reasoning_content=message.get("reasoning_content"),
+            model=data.get("model", request.model),
+            provider=ProviderName.OPENROUTER,
+            usage=self._parse_usage(data.get("usage")),
+            latency_ms=latency_ms,
+            complexity_tier=request.complexity_tier,
+        )
 
     # ── stream() ──────────────────────────────────────────────────────────────
 
     async def stream(self, request: LLMRequest) -> AsyncIterator[LLMResponseChunk]:  # type: ignore[override]
-        """Streaming SSE assíncrono token a token via OpenRouter.
+        """Streaming com retry/reconexão antes do primeiro chunk (``base.stream_with_retry``)."""
+        async for chunk in stream_with_retry(
+            lambda: self._stream_once(request), self._retry_policy(), "OpenRouter"
+        ):
+            yield chunk
+
+    async def _stream_once(self, request: LLMRequest) -> AsyncIterator[LLMResponseChunk]:
+        """Uma tentativa de streaming SSE assíncrono token a token via OpenRouter.
 
         Yields:
             ``LLMResponseChunk`` com delta de texto. O chunk final
@@ -357,8 +315,8 @@ class OpenRouterProvider(BaseLLMProvider):
                         choice = choices[0]
                         delta = choice.get("delta", {})
                         text_delta: str = delta.get("content") or ""
-                        reasoning_delta: Optional[str] = delta.get("reasoning_content") or delta.get("reasoning")
-                        finish_reason: Optional[str] = choice.get("finish_reason")
+                        reasoning_delta: str | None = delta.get("reasoning_content") or delta.get("reasoning")
+                        finish_reason: str | None = choice.get("finish_reason")
 
                         is_final = finish_reason is not None
 

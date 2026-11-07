@@ -57,7 +57,8 @@ packages = ["src/orion"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--tb=short -q"
+addopts = "--tb=short -q -m 'not live'"
+markers = ["live: chama provedor real e gasta tokens (opt-in: ORION_LIVE=1 pytest -m live)"]
 
 [tool.ruff]
 line-length = 100

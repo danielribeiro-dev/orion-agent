@@ -28,19 +28,28 @@ from orion.core.errors import PromptInjectionSuspected, TurnBudgetExceeded
 from orion.core.event_bus import EventBus
 from orion.core.events import Action, ActionEmitted, Observation
 from orion.gateway.budget import BudgetExceededError, BudgetGuard
+from orion.gateway.circuit_breaker import CircuitBreaker
+from orion.gateway.credentials import load_anthropic_key
+from orion.gateway.failover import FailoverEvent, FailoverProvider, build_candidates
 from orion.gateway.ledger import CostLedger
 from orion.gateway.models import (
+    CacheControl,
     ComplexityTier,
     LLMMessage,
     LLMRequest,
     MessageRole,
     ModelSpec,
     ProviderName,
+    ThinkingConfig,
     TokenUsage,
 )
 from orion.gateway.providers.base import BaseLLMProvider
 from orion.gateway.registry import ModelRegistry
-from orion.gateway.router import DEFAULT_TIER_MODELS, ModelRouter, RoutingMode
+from orion.gateway.router import (
+    ANTHROPIC_TIER_MODELS,
+    ModelRouter,
+    RoutingMode,
+)
 from orion.governance.audit import AuditLogger
 from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint
 from orion.governance.permissions import ActionLevel, WorkspaceScope
@@ -242,7 +251,16 @@ class AgentSession:
         self._ask_pep = ask_pep
 
         self.registry = ModelRegistry()
-        self.router = ModelRouter(registry=self.registry)
+        self.anthropic_key = load_anthropic_key(self.home)
+        self.router = ModelRouter(
+            registry=self.registry,
+            tier_models=ANTHROPIC_TIER_MODELS if self.anthropic_key else None,
+        )
+        self.allow_downgrade = os.environ.get("ORION_ALLOW_DOWNGRADE") == "1"
+        self.breaker = CircuitBreaker(
+            primary_model_id=self.router.tier_model(ComplexityTier.HEAVY),
+            primary_model_tier=ComplexityTier.HEAVY,
+        )
         self.ledger = CostLedger(db_path=self.home / "metrics.db", registry=self.registry)
         self.budget = BudgetGuard(ledger=self.ledger)
         self.compactor = ContextCompactor()
@@ -282,14 +300,15 @@ class AgentSession:
 
         status_bar.session_tokens_in = status_bar.session_tokens_out = 0
         status_bar.session_cost_usd = 0.0
-        self.online = bool(os.environ.get("OPENROUTER_API_KEY"))
+        self.pep.attach_circuit_breaker(self.breaker)
+        self.online = bool(os.environ.get("OPENROUTER_API_KEY") or self.anthropic_key)
         status_bar.is_online = self.online
         self.selected_model: str | None = None
         self._load_settings()
         self.set_mode(self.mode)
         if self.selected_model is None and not self.online:
             self.set_model(self._local_default())
-        self.status_bar.model_name = self.selected_model or DEFAULT_TIER_MODELS[ComplexityTier.HEAVY]
+        self.status_bar.model_name = self.selected_model or self.router.tier_model(ComplexityTier.HEAVY)
 
     # ── Inicialização tolerante a falhas ────────────────────────────
 
@@ -382,31 +401,73 @@ class AgentSession:
 
     # ── Provedores ──────────────────────────────────────────────────
 
-    @staticmethod
-    def _default_provider(spec: ModelSpec) -> BaseLLMProvider:
+    def _default_provider(self, spec: ModelSpec) -> BaseLLMProvider:
         if spec.provider == ProviderName.OLLAMA:
             from orion.gateway.providers.local_ollama import LocalOllamaProvider
 
             return LocalOllamaProvider(model_id=spec.id)
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
+        if spec.provider == ProviderName.ANTHROPIC:
+            if not self.anthropic_key:
+                raise RuntimeError(
+                    "ANTHROPIC_API_KEY ausente: defina a variável ou grave a chave em "
+                    "~/.orion/anthropic_api_key (chmod 600)."
+                )
+            from orion.gateway.providers.anthropic import AnthropicProvider
+            from orion.gateway.providers.local_ollama import LocalOllamaProvider
+            from orion.gateway.providers.openrouter import OpenRouterProvider
+
+            chain = build_candidates(
+                spec,
+                self.registry,
+                AnthropicProvider(api_key=self.anthropic_key),
+                openrouter=(lambda: OpenRouterProvider(api_key=openrouter_key))
+                if openrouter_key
+                else None,
+                local=lambda local_spec: LocalOllamaProvider(model_id=local_spec.id),
+            )
+            return FailoverProvider(
+                chain,
+                breaker=self.breaker,
+                allow_downgrade=self.allow_downgrade,
+                on_event=self._on_failover,
+            )
         from orion.gateway.providers.openrouter import OpenRouterProvider
 
-        return OpenRouterProvider(api_key=os.environ.get("OPENROUTER_API_KEY", ""))
+        return OpenRouterProvider(api_key=openrouter_key)
+
+    def _on_failover(self, event: FailoverEvent) -> None:
+        kind = "DOWNGRADE" if event.downgrade else "failover"
+        suffix = " (mutações bloqueadas pelo PEP)" if self.breaker.is_mutation_blocked() else ""
+        self.renderer.warn(
+            f"{kind}: {event.from_model} -> {event.to_model} via "
+            f"{event.to_provider.value} [{event.reason.value}]{suffix}"
+        )
 
     def _resolve_model(self) -> tuple[ModelSpec, ComplexityTier, str]:
         decision = self.router.route(self._active_user_text)
         model_id = decision.selected_model
         if self.status_bar.fast_mode and self.online:
-            model_id = DEFAULT_TIER_MODELS[ComplexityTier.FAST]
+            model_id = self.router.tier_model(ComplexityTier.FAST)
         return self.registry.require(model_id), decision.complexity, decision.mode.value
 
     def _extra_params(self, spec: ModelSpec) -> dict[str, Any]:
-        if spec.provider == ProviderName.OLLAMA:
+        if spec.provider in (ProviderName.OLLAMA, ProviderName.ANTHROPIC):
             return {}
         extra: dict[str, Any] = {"usage": {"include": True}}
         effort = self.status_bar.reasoning_effort
         if spec.supports_thinking and effort != ReasoningEffort.OFF:
             extra["reasoning"] = {"effort": effort.value.lower()}
         return extra
+
+    def _thinking(self, spec: ModelSpec) -> ThinkingConfig | None:
+        """Esforço -> thinking adaptativo (Claude 5 não aceita budget_tokens nem desligar)."""
+        if spec.provider != ProviderName.ANTHROPIC:
+            return None
+        effort = self.status_bar.reasoning_effort
+        if not spec.supports_thinking or effort == ReasoningEffort.OFF:
+            return ThinkingConfig(type="adaptive", effort="low") if spec.supports_thinking else None
+        return ThinkingConfig(type="adaptive", display="summarized", effort=effort.value.lower())  # type: ignore[arg-type]
 
     # ── Ponte LLM ───────────────────────────────────────────────────
 
@@ -472,6 +533,9 @@ class AgentSession:
         spec, tier, routing = self._resolve_model()
         self.status_bar.model_name = spec.id
         self.budget.check(is_local_model=spec.provider == ProviderName.OLLAMA)
+        # Modelo leve só é "intencional" se o tier resolvido não é HEAVY; senão uma falha
+        # externa do modelo de topo ativa SAFE_HOLDING (mutações bloqueadas).
+        self.breaker.set_intentional_lite_mode(tier != ComplexityTier.HEAVY)
 
         messages = [
             LLMMessage(role=MessageRole.SYSTEM, content=self.system_prompt()),
@@ -483,6 +547,8 @@ class AgentSession:
             messages=messages,
             complexity_tier=tier,
             extra_params=self._extra_params(spec),
+            thinking=self._thinking(spec),
+            cache_control=CacheControl() if spec.provider == ProviderName.ANTHROPIC else None,
         )
 
         started = time.monotonic()
@@ -490,7 +556,8 @@ class AgentSession:
         stream_filter = ToolCallFilter()
         usage: TokenUsage | None = None
         reasoning_chars = 0
-        async for chunk in self._provider_factory(spec).stream(request):
+        provider = self._provider_factory(spec)
+        async for chunk in provider.stream(request):
             if chunk.reasoning_delta:
                 reasoning_chars += len(chunk.reasoning_delta)
                 self.renderer.add_reasoning(chunk.reasoning_delta)
@@ -504,12 +571,20 @@ class AgentSession:
             self.renderer.add_text(tail)
         self.renderer.end_message()
 
+        served = getattr(provider, "served", None)
+        if served is not None:
+            # Failover: custo na tarifa do destino que de fato respondeu.
+            spec = self.registry.require(served.pricing_model)
+            provider_name = served.provider
+        else:
+            provider_name = spec.provider
         self._record_cost(
             spec,
             usage or self._estimate_usage(messages, stream_filter.text, reasoning_chars),
             tier,
             routing,
             (time.monotonic() - started) * 1000,
+            provider_name,
         )
 
         call = stream_filter.tool_call()
@@ -519,7 +594,7 @@ class AgentSession:
 
     @staticmethod
     def _estimate_usage(messages: list[LLMMessage], text: str, reasoning_chars: int) -> TokenUsage:
-        prompt_tokens = sum(estimate_tokens(m.content) for m in messages)
+        prompt_tokens = sum(estimate_tokens(m.text) for m in messages)
         completion = estimate_tokens(text) + reasoning_chars // 4
         return TokenUsage(
             prompt_tokens=prompt_tokens,
@@ -534,9 +609,10 @@ class AgentSession:
         tier: ComplexityTier,
         routing: str,
         latency_ms: float,
+        provider_name: ProviderName | None = None,
     ) -> None:
         record = self.ledger.record_turn_cost(
-            provider=spec.provider,
+            provider=provider_name or spec.provider,
             model=spec.id,
             usage=usage,
             routing_mode=routing,
@@ -695,7 +771,7 @@ class AgentSession:
 
     def context_breakdown(self) -> dict[str, int]:
         """Composição estimada da janela de contexto ativa."""
-        conversation = sum(estimate_tokens(m.content) for m in self.history)
+        conversation = sum(estimate_tokens(m.text) for m in self.history)
         return {
             "sistema": estimate_tokens(self.identity.render_system_preamble()) if self.identity else 0,
             "ferramentas": estimate_tokens(self.system_prompt()),
@@ -714,8 +790,8 @@ class AgentSession:
         pairs = [
             TurnData(
                 turn_index=i // 2,
-                user_input=self.history[i].content,
-                tool_output=self.history[i + 1].content,
+                user_input=self.history[i].text,
+                tool_output=self.history[i + 1].text,
             )
             for i in range(0, len(self.history) - 1, 2)
         ]

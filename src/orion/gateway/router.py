@@ -17,12 +17,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 from orion.gateway.classifier import ClassificationResult, ComplexityClassifier
 from orion.gateway.models import ComplexityTier, LLMMessage
 from orion.gateway.registry import ModelRegistry
-
 
 # ---------------------------------------------------------------------------
 # Enumerações e Contratos de Roteamento
@@ -80,6 +78,14 @@ DEFAULT_TIER_MODELS: dict[ComplexityTier, str] = {
 }
 
 
+# Tiers nativos (ADR-020): usados quando há ANTHROPIC_API_KEY.
+ANTHROPIC_TIER_MODELS: dict[ComplexityTier, str] = {
+    ComplexityTier.FAST: "claude-haiku-5-5",
+    ComplexityTier.BALANCED: "claude-sonnet-5-5",
+    ComplexityTier.HEAVY: "claude-opus-5-5",
+}
+
+
 # ---------------------------------------------------------------------------
 # Padrões de Linguagem Natural para Alternância de Modo
 # ---------------------------------------------------------------------------
@@ -126,6 +132,12 @@ _MODEL_ALIASES: dict[str, str] = {
     "opus": "anthropic/claude-opus-4-5",
     "sonnet": "anthropic/claude-sonnet-4-5",
     "haiku": "anthropic/claude-haiku-3-5",
+    # Claude 5 nativo
+    "fable": "claude-fable-5-1",
+    "claude fable": "claude-fable-5-1",
+    "opus 5": "claude-opus-5-5",
+    "sonnet 5": "claude-sonnet-5-5",
+    "haiku 5": "claude-haiku-5-5",
     # Gemini
     "gemini pro": "google/gemini-2.5-pro",
     "gemini flash": "google/gemini-2.0-flash",
@@ -176,11 +188,11 @@ class ModelRouter:
 
     def __init__(
         self,
-        registry: Optional[ModelRegistry] = None,
-        classifier: Optional[ComplexityClassifier] = None,
-        tier_models: Optional[dict[ComplexityTier, str]] = None,
+        registry: ModelRegistry | None = None,
+        classifier: ComplexityClassifier | None = None,
+        tier_models: dict[ComplexityTier, str] | None = None,
         default_mode: RoutingMode = RoutingMode.AUTO,
-        fixed_model: Optional[str] = None,
+        fixed_model: str | None = None,
     ) -> None:
         """Inicializa o roteador.
 
@@ -197,7 +209,7 @@ class ModelRouter:
             tier_models or DEFAULT_TIER_MODELS
         )
         self._mode: RoutingMode = default_mode
-        self._fixed_model: Optional[str] = fixed_model
+        self._fixed_model: str | None = fixed_model
 
         # Valida o modelo fixo inicial, se fornecido
         if self._fixed_model and self._fixed_model not in self._registry:
@@ -221,16 +233,20 @@ class ModelRouter:
         return self._mode
 
     @property
-    def fixed_model(self) -> Optional[str]:
+    def fixed_model(self) -> str | None:
         """Modelo fixo atual (relevante apenas no modo FIXED)."""
         return self._fixed_model
+
+    def tier_model(self, tier: ComplexityTier) -> str:
+        """Modelo configurado para o tier."""
+        return self._tier_models[tier]
 
     # ── API Pública ─────────────────────────────────────────────────────────
 
     def route(
         self,
         prompt: str,
-        history: Optional[list[LLMMessage]] = None,
+        history: list[LLMMessage] | None = None,
     ) -> RoutingDecision:
         """Produz a decisão de roteamento para o turno atual.
 
@@ -266,7 +282,7 @@ class ModelRouter:
         # ── Modo AUTO: classificação + seleção por tier ──────────────────
         return self._route_auto(prompt, history)
 
-    def set_mode(self, mode: RoutingMode, fixed_model: Optional[str] = None) -> None:
+    def set_mode(self, mode: RoutingMode, fixed_model: str | None = None) -> None:
         """Alterna o modo de operação programaticamente.
 
         Args:
@@ -349,7 +365,7 @@ class ModelRouter:
 
     def _detect_mode_change(
         self, prompt: str
-    ) -> Optional[tuple[RoutingMode, Optional[str]]]:
+    ) -> tuple[RoutingMode, str | None] | None:
         """Detecta intenção de mudança de modo na linguagem natural.
 
         Returns:

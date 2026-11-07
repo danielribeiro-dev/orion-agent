@@ -8,10 +8,9 @@ streaming e especificações de modelos no Model Registry.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
-
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Enumerações
@@ -55,15 +54,173 @@ class TokenUsage(BaseModel):
 
     model_config = {"frozen": True}
 
-    prompt_tokens: int = Field(default=0, ge=0, description="Tokens de entrada (prompt)")
+    prompt_tokens: int = Field(
+        default=0,
+        ge=0,
+        description="Tokens de entrada TOTAIS (inclui cache lido e escrito)",
+    )
     completion_tokens: int = Field(default=0, ge=0, description="Tokens gerados (completion)")
     cached_tokens: int = Field(default=0, ge=0, description="Tokens lidos do cache (prompt caching)")
     reasoning_tokens: int = Field(default=0, ge=0, description="Tokens de raciocínio interno (thinking)")
+    cache_write_tokens: int = Field(
+        default=0,
+        ge=0,
+        description="Tokens escritos no cache de prompt (cobrança maior; já contidos em prompt_tokens)",
+    )
     total_tokens: int = Field(default=0, ge=0, description="Total: prompt + completion")
 
     def model_post_init(self, __context: object) -> None:
         """Garante que total_tokens seja consistente se não fornecido."""
         # total_tokens é calculado externamente; este model é frozen (imutável)
+
+
+
+# ---------------------------------------------------------------------------
+# Content Blocks (ADR-021)
+# ---------------------------------------------------------------------------
+
+
+class CacheControl(BaseModel):
+    """Ponto de cache de prompt (``cache_control`` da Messages API)."""
+
+    model_config = {"frozen": True}
+
+    type: Literal["ephemeral"] = "ephemeral"
+    ttl: Literal["5m", "1h"] | None = Field(default=None, description="TTL; None = padrão do provedor (5m)")
+
+
+class ContentBlock(BaseModel):
+    """Bloco tipado de conteúdo de mensagem (formato neutro, espelha a Messages API).
+
+    Campos por tipo:
+      - ``text``: ``text``
+      - ``thinking``: ``thinking`` + ``signature`` (deve voltar intacto em turnos seguintes)
+      - ``redacted_thinking``: ``data``
+      - ``tool_use``: ``id``, ``name``, ``input``
+      - ``tool_result``: ``tool_use_id``, ``content``, ``is_error``
+      - ``image``: ``source`` (``{"type": "base64", "media_type": ..., "data": ...}``)
+    """
+
+    model_config = {"frozen": True}
+
+    type: Literal["text", "thinking", "redacted_thinking", "tool_use", "tool_result", "image"]
+    text: str | None = None
+    thinking: str | None = None
+    signature: str | None = None
+    data: str | None = None
+    id: str | None = None
+    name: str | None = None
+    input: dict[str, Any] | None = None
+    tool_use_id: str | None = None
+    content: str | list[ContentBlock] | None = None
+    is_error: bool = False
+    source: dict[str, Any] | None = None
+    cache_control: CacheControl | None = None
+
+    @model_validator(mode="after")
+    def _check_required(self) -> ContentBlock:
+        required: dict[str, tuple[str, ...]] = {
+            "text": ("text",),
+            "thinking": ("thinking",),
+            "redacted_thinking": ("data",),
+            "tool_use": ("id", "name", "input"),
+            "tool_result": ("tool_use_id",),
+            "image": ("source",),
+        }
+        missing = [f for f in required[self.type] if getattr(self, f) is None]
+        if missing:
+            raise ValueError(f"ContentBlock '{self.type}' exige: {', '.join(missing)}")
+        return self
+
+    # ── Fábricas ──
+    @classmethod
+    def of_text(cls, text: str, cache_control: CacheControl | None = None) -> ContentBlock:
+        return cls(type="text", text=text, cache_control=cache_control)
+
+    @classmethod
+    def of_tool_use(cls, id: str, name: str, input: dict[str, Any]) -> ContentBlock:
+        return cls(type="tool_use", id=id, name=name, input=input)
+
+    @classmethod
+    def of_tool_result(
+        cls, tool_use_id: str, content: str | list[ContentBlock], is_error: bool = False
+    ) -> ContentBlock:
+        return cls(type="tool_result", tool_use_id=tool_use_id, content=content, is_error=is_error)
+
+
+ContentBlock.model_rebuild()
+
+
+def flatten_content(content: str | list[ContentBlock]) -> str:
+    """Adaptador de compatibilidade: reduz blocos a texto para providers legados.
+
+    ``thinking`` é descartado; ``tool_use``/``tool_result`` viram texto marcado
+    (os providers legados não têm tool use estruturado — vide Sprint 2).
+    """
+    if isinstance(content, str):
+        return content
+    parts: list[str] = []
+    for b in content:
+        if b.type == "text":
+            parts.append(b.text or "")
+        elif b.type == "tool_use":
+            parts.append(f"[tool_use {b.name} {b.input}]")
+        elif b.type == "tool_result":
+            inner = b.content if isinstance(b.content, str) else flatten_content(b.content or [])
+            parts.append(f"[tool_result {b.tool_use_id}{' error' if b.is_error else ''}] {inner}")
+        elif b.type == "image":
+            parts.append("[image]")
+    return "\n".join(p for p in parts if p)
+
+
+def to_blocks(content: str | list[ContentBlock]) -> list[ContentBlock]:
+    """Adaptador de compatibilidade: string legada -> lista de blocos."""
+    if isinstance(content, str):
+        return [ContentBlock.of_text(content)] if content else []
+    return list(content)
+
+
+class ToolSpec(BaseModel):
+    """Definição de tool exposta ao modelo (schema JSON validado)."""
+
+    model_config = {"frozen": True}
+
+    name: str
+    description: str
+    input_schema: dict[str, Any] = Field(default_factory=lambda: {"type": "object", "properties": {}})
+    strict: bool = False
+    cache_control: CacheControl | None = None
+
+
+class ToolChoice(BaseModel):
+    """Política de escolha de tool. ``any``/``tool`` forçados são recusados por alguns modelos Claude 5."""
+
+    model_config = {"frozen": True}
+
+    type: Literal["auto", "any", "tool", "none"] = "auto"
+    name: str | None = None
+    disable_parallel_tool_use: bool = False
+
+    @model_validator(mode="after")
+    def _check_name(self) -> ToolChoice:
+        if self.type == "tool" and not self.name:
+            raise ValueError("ToolChoice 'tool' exige name")
+        return self
+
+
+class ThinkingConfig(BaseModel):
+    """Configuração de thinking/esforço.
+
+    Modelos Claude 5: ``adaptive`` (+ ``effort``); ``enabled``/``budget_tokens``
+    só existe para modelos legados e é rejeitado (400) pela API nos novos.
+    """
+
+    model_config = {"frozen": True}
+
+    type: Literal["adaptive", "enabled", "disabled"] = "adaptive"
+    budget_tokens: int | None = Field(default=None, ge=1024)
+    display: Literal["summarized", "omitted"] | None = None
+    effort: Literal["low", "medium", "high", "xhigh", "max"] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -77,15 +234,27 @@ class LLMMessage(BaseModel):
     model_config = {"frozen": True}
 
     role: MessageRole = Field(description="Papel da mensagem no diálogo")
-    content: str = Field(description="Conteúdo textual da mensagem")
-    reasoning_content: Optional[str] = Field(
+    content: str | list[ContentBlock] = Field(
+        description="Texto (legado) ou lista de ContentBlock (ADR-021)"
+    )
+    reasoning_content: str | None = Field(
         default=None,
         description="Conteúdo de raciocínio interno (apenas em mensagens do assistant com thinking)",
     )
-    name: Optional[str] = Field(
+    name: str | None = Field(
         default=None,
         description="Nome opcional do participante (útil para tool calls)",
     )
+
+    @property
+    def text(self) -> str:
+        """Conteúdo reduzido a texto (adaptador para providers/estimadores legados)."""
+        return flatten_content(self.content)
+
+    @property
+    def blocks(self) -> list[ContentBlock]:
+        """Conteúdo como lista de blocos."""
+        return to_blocks(self.content)
 
 
 # ---------------------------------------------------------------------------
@@ -111,9 +280,18 @@ class LLMRequest(BaseModel):
         default=ComplexityTier.BALANCED,
         description="Tier de complexidade para registro e roteamento",
     )
-    extra_params: dict = Field(
+    extra_params: dict[str, Any] = Field(
         default_factory=dict,
         description="Parâmetros extras passados diretamente ao provedor (ex: top_p, seed)",
+    )
+    system: str | list[ContentBlock] | None = Field(
+        default=None, description="System prompt estruturado (blocos podem levar cache_control)"
+    )
+    tools: list[ToolSpec] = Field(default_factory=list, description="Tools expostas ao modelo")
+    tool_choice: ToolChoice | None = None
+    thinking: ThinkingConfig | None = None
+    cache_control: CacheControl | None = Field(
+        default=None, description="Cache automático do prefixo (nível de requisição)"
     )
 
 
@@ -132,12 +310,22 @@ class LLMResponseChunk(BaseModel):
     model_config = {"frozen": True}
 
     delta: str = Field(default="", description="Fragmento de texto do completion")
-    reasoning_delta: Optional[str] = Field(
+    reasoning_delta: str | None = Field(
         default=None,
         description="Fragmento de raciocínio interno (thinking), se suportado",
     )
+    block: ContentBlock | None = Field(
+        default=None,
+        description=(
+            "Bloco COMPLETO finalizado (text/thinking/tool_use), na ordem do modelo. "
+            "Os deltas servem à renderização ao vivo; os blocos, à montagem da mensagem."
+        ),
+    )
+    stop_reason: str | None = Field(
+        default=None, description="end_turn, tool_use, max_tokens, refusal... (chunk final)"
+    )
     is_final: bool = Field(default=False, description="Indica o último chunk do stream")
-    usage: Optional[TokenUsage] = Field(
+    usage: TokenUsage | None = Field(
         default=None,
         description="Métricas de uso — presentes apenas no chunk final",
     )
@@ -157,10 +345,12 @@ class LLMResponse(BaseModel):
     model_config = {"frozen": True}
 
     content: str = Field(description="Conteúdo completo gerado pelo modelo")
-    reasoning_content: Optional[str] = Field(
+    reasoning_content: str | None = Field(
         default=None,
         description="Raciocínio interno completo (thinking), se disponível",
     )
+    blocks: list[ContentBlock] = Field(default_factory=list, description="Blocos completos, em ordem")
+    stop_reason: str | None = None
     model: str = Field(description="ID do modelo que gerou a resposta")
     provider: ProviderName = Field(description="Provedor que atendeu a requisição")
     usage: TokenUsage = Field(description="Contagem detalhada de tokens")
@@ -204,4 +394,13 @@ class ModelSpec(BaseModel):
     is_local: bool = Field(
         default=False,
         description="Modelo local (Ollama). Custo zero; não requer internet.",
+    )
+    openrouter_id: str | None = Field(
+        default=None,
+        description="Slug equivalente no OpenRouter (failover do mesmo modelo, sem downgrade)",
+    )
+    cache_read_cost_m: float | None = Field(
+        default=None,
+        ge=0.0,
+        description="Custo absoluto/1M de tokens lidos do cache; None = input * desconto padrão",
     )

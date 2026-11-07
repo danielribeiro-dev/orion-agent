@@ -321,6 +321,13 @@ class StreamRenderer:
         for text in self.last_output.rstrip().splitlines():
             self._guide(text)
 
+    def warn(self, message: str) -> None:
+        """Aviso não fatal (ex.: failover de provedor); não encerra o Live."""
+        line = Text()
+        line.append("! ", style="text_primary")
+        line.append(message, style="text_primary")
+        self.console.print(line)
+
     def error(self, message: str) -> None:
         """Encerra o Live e mostra um erro operacional."""
         self.close()

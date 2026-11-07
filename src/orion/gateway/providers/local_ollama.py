@@ -22,17 +22,14 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
 
 import aiohttp
 
 from orion.gateway.models import (
-    ComplexityTier,
-    LLMMessage,
     LLMRequest,
     LLMResponse,
     LLMResponseChunk,
-    MessageRole,
     ProviderName,
     TokenUsage,
 )
@@ -59,7 +56,7 @@ class OllamaUnavailableError(Exception):
         original_error: Exceção original (opcional).
     """
 
-    def __init__(self, base_url: str, original_error: Optional[Exception] = None) -> None:
+    def __init__(self, base_url: str, original_error: Exception | None = None) -> None:
         self.base_url = base_url
         self.original_error = original_error
         super().__init__(
@@ -84,7 +81,7 @@ class OllamaModelNotFoundError(Exception):
     def __init__(
         self,
         model_id: str,
-        available_models: Optional[list[str]] = None,
+        available_models: list[str] | None = None,
     ) -> None:
         self.model_id = model_id
         self.available_models = available_models or []
@@ -218,24 +215,23 @@ class LocalOllamaProvider(BaseLLMProvider):
 
         try:
             timeout = aiohttp.ClientTimeout(total=self._timeout_s)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(
-                    f"{self._base_url}/api/chat",
-                    json=payload,
-                ) as resp:
-                    if resp.status == 404:
-                        available = await self.list_available_models()
-                        raise OllamaModelNotFoundError(
-                            model_id=self._model_id,
-                            available_models=available,
-                        )
-                    resp.raise_for_status()
-                    data = await resp.json()
+            async with aiohttp.ClientSession(timeout=timeout) as session, session.post(
+                f"{self._base_url}/api/chat",
+                json=payload,
+            ) as resp:
+                if resp.status == 404:
+                    available = await self.list_available_models()
+                    raise OllamaModelNotFoundError(
+                        model_id=self._model_id,
+                        available_models=available,
+                    )
+                resp.raise_for_status()
+                data = await resp.json()
         except (OllamaUnavailableError, OllamaModelNotFoundError):
             raise
         except aiohttp.ClientConnectorError as exc:
             raise OllamaUnavailableError(self._base_url, exc) from exc
-        except Exception as exc:
+        except Exception:
             logger.exception("LocalOllamaProvider: erro na chamada de complete.")
             raise
 
@@ -279,56 +275,55 @@ class LocalOllamaProvider(BaseLLMProvider):
 
         try:
             timeout = aiohttp.ClientTimeout(total=self._timeout_s)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(
-                    f"{self._base_url}/api/chat",
-                    json=payload,
-                ) as resp:
-                    if resp.status == 404:
-                        available = await self.list_available_models()
-                        raise OllamaModelNotFoundError(
-                            model_id=self._model_id,
-                            available_models=available,
+            async with aiohttp.ClientSession(timeout=timeout) as session, session.post(
+                f"{self._base_url}/api/chat",
+                json=payload,
+            ) as resp:
+                if resp.status == 404:
+                    available = await self.list_available_models()
+                    raise OllamaModelNotFoundError(
+                        model_id=self._model_id,
+                        available_models=available,
+                    )
+                resp.raise_for_status()
+
+                prompt_tokens = 0
+                completion_tokens = 0
+
+                async for raw_line in resp.content:
+                    line = raw_line.decode("utf-8").strip()
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    delta = data.get("message", {}).get("content", "")
+                    done = data.get("done", False)
+
+                    if done:
+                        # Chunk final com métricas de uso
+                        usage_data = data.get("usage", {})
+                        prompt_tokens = usage_data.get("prompt_tokens", prompt_tokens)
+                        completion_tokens = usage_data.get(
+                            "completion_tokens", completion_tokens
                         )
-                    resp.raise_for_status()
-
-                    prompt_tokens = 0
-                    completion_tokens = 0
-
-                    async for raw_line in resp.content:
-                        line = raw_line.decode("utf-8").strip()
-                        if not line:
-                            continue
-                        try:
-                            data = json.loads(line)
-                        except json.JSONDecodeError:
-                            continue
-
-                        delta = data.get("message", {}).get("content", "")
-                        done = data.get("done", False)
-
-                        if done:
-                            # Chunk final com métricas de uso
-                            usage_data = data.get("usage", {})
-                            prompt_tokens = usage_data.get("prompt_tokens", prompt_tokens)
-                            completion_tokens = usage_data.get(
-                                "completion_tokens", completion_tokens
-                            )
-                            usage = TokenUsage(
-                                prompt_tokens=prompt_tokens,
-                                completion_tokens=completion_tokens,
-                                cached_tokens=0,
-                                reasoning_tokens=0,
-                                total_tokens=prompt_tokens + completion_tokens,
-                            )
-                            yield LLMResponseChunk(
-                                delta=delta,
-                                is_final=True,
-                                usage=usage,
-                            )
-                        else:
-                            completion_tokens += 1
-                            yield LLMResponseChunk(delta=delta, is_final=False)
+                        usage = TokenUsage(
+                            prompt_tokens=prompt_tokens,
+                            completion_tokens=completion_tokens,
+                            cached_tokens=0,
+                            reasoning_tokens=0,
+                            total_tokens=prompt_tokens + completion_tokens,
+                        )
+                        yield LLMResponseChunk(
+                            delta=delta,
+                            is_final=True,
+                            usage=usage,
+                        )
+                    else:
+                        completion_tokens += 1
+                        yield LLMResponseChunk(delta=delta, is_final=False)
 
         except (OllamaUnavailableError, OllamaModelNotFoundError):
             raise
@@ -356,7 +351,7 @@ class LocalOllamaProvider(BaseLLMProvider):
             Dicionário com o payload JSON para o Ollama.
         """
         messages = [
-            {"role": msg.role.value, "content": msg.content}
+            {"role": msg.role.value, "content": msg.text}
             for msg in request.messages
         ]
         return {

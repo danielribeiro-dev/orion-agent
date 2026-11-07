@@ -155,7 +155,13 @@
 ### [EM ANDAMENTO] Fase 5: v0.5.0 Claude-Grade Agent (Paridade Claude Code)
 Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz migraram para a v0.6.0 (ADR-020).
 - [x] **Sprint 0: Higiene & Fundação** ✅ CONCLUÍDA (2026-11-06) — docs reconciliados, ADR-020/021/022, `CLAUDE.md`, baseline (`docs/planning/versions/v0.5.0/baseline.md`)
-- [ ] Sprint 1: Provider Anthropic Nativo
+- [x] **Sprint 1: Provider Anthropic Nativo** ✅ IMPLEMENTADA (2026-11-06; commit pendente)
+  - [x] `ContentBlock`/`ToolSpec`/`ToolChoice`/`ThinkingConfig`/`CacheControl`; `LLMRequest.system/tools/tool_choice/thinking/cache_control`; adaptador `flatten_content`/`to_blocks` para providers legados
+  - [x] `gateway/providers/anthropic.py` (SSE tipado, thinking com assinatura, tool_use, cache, `count_tokens`), `errors.py`, retry/reconexão de `stream()` em `providers/base.py` (também OpenRouter; 5xx agora retentado em `complete()`)
+  - [x] Registry Claude 5 (preços da tabela Anthropic de 06/10/2026), tiers nativos, cache read/write precificados e persistidos no ledger (migração de coluna)
+  - [x] `gateway/failover.py` (Anthropic -> OpenRouter -> Ollama; downgrade só com `ORION_ALLOW_DOWNGRADE=1`), breaker ligado à `AgentSession` e ao PEP, `gateway/credentials.py` + `/doctor`
+  - [x] Testes: `test_anthropic_provider.py`, `test_failover.py`; live opt-in `test_anthropic_live.py` (`ORION_LIVE=1 pytest -m live`) — NÃO executado (sem chave)
+  - Decisões: erro no meio do stream não reinicia (vira `StreamInterruptedError`); `temperature` nunca enviada; `tool_choice` forçado vira `auto` em Fable 5.1/Opus 5.5/Sonnet 5.5; slug OpenRouter `anthropic/<id>` NÃO verificado
 - [ ] Sprint 2: Loop Agêntico Nativo (tool_use estruturado)
 - [ ] Sprint 3: Contexto, Sessões & Memória
 - [ ] Sprint 4: Paridade de Ferramentas (portão de dogfooding)

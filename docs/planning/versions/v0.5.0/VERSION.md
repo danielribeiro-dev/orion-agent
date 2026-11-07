@@ -1,6 +1,6 @@
 # Spec — v0.5.0 Claude-Grade Agent (Paridade Claude Code)
 
-> **Status:** 🔄 Em Execução (Sprint 0 concluída)  
+> **Status:** 🔄 Em Execução (Sprints 0–1 concluídas)  
 > **Criada em:** 2026-11-06  
 > **Concluída em:** —  
 > **Autor(es):** Daniel Dev & Claude (Pair Programming)  
@@ -50,7 +50,7 @@ A v0.4.0 entregou TUI, PEP, memória e MCP, mas **nunca validou um turno com pro
 | Sprint | Nome da Sprint | Objetivo Principal | Documento | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **Sprint 0** | Higiene & Fundação | Fechar v0.4.0, corrigir docs, ADRs, baseline com provedor real | [`sprint-0.md`](sprints/sprint-0.md) | ✅ Concluída |
-| **Sprint 1** | Provider Anthropic Nativo | Messages API, content blocks, caching, retry em stream, failover | [`sprint-1.md`](sprints/sprint-1.md) | 📋 Planejando |
+| **Sprint 1** | Provider Anthropic Nativo | Messages API, content blocks, caching, retry em stream, failover | [`sprint-1.md`](sprints/sprint-1.md) | ✅ Implementada (live pendente) |
 | **Sprint 2** | Loop Agêntico Nativo | `tool_use` estruturado, schemas, tools paralelas, cancelamento | [`sprint-2.md`](sprints/sprint-2.md) | 📋 Planejando |
 | **Sprint 3** | Contexto, Sessões & Memória | Auto-compactação, resume/rewind, wiring de memória/skills, decision log | [`sprint-3.md`](sprints/sprint-3.md) | 📋 Planejando |
 | **Sprint 4** | Paridade de Ferramentas | Web, glob/grep, todo, ask_user, plan mode, bash em background; **portão de dogfooding** | [`sprint-4.md`](sprints/sprint-4.md) | 📋 Planejando |
@@ -95,7 +95,7 @@ src/orion/
 | CA-08 | Subagents | Paralelos, isolados, sem escalar privilégio, com orçamento | `pytest tests/unit/test_subagents.py` | ⏳ Pendente |
 | CA-09 | Schedule sobrevive | Tarefa agendada executa após reiniciar o daemon | `pytest tests/unit/test_scheduler.py` | ⏳ Pendente |
 | CA-10 | Idle sem tokens | 1 h de idle com 0 chamadas ao provider | teste de daemon + ledger | ⏳ Pendente |
-| CA-11 | Failover | Anthropic indisponível → OpenRouter → Ollama sem downgrade silencioso de modelo de código | `pytest tests/unit/test_failover.py` | ⏳ Pendente |
+| CA-11 | Failover | Anthropic indisponível → OpenRouter → Ollama sem downgrade silencioso de modelo de código | `pytest tests/unit/test_failover.py` | ✅ |
 | CA-12 | Sem regressão | Suíte da v0.4.0 passa ou é migrada com justificativa | `pytest tests/` | ⏳ Pendente |
 
 ---
