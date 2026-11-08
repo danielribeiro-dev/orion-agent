@@ -16,7 +16,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # Sprint 1 — Lexical / Episodic Layer
@@ -192,11 +192,22 @@ class CognitiveManifest(BaseModel):
 class SkillMetadata(BaseModel):
     """SKILL.md frontmatter parsed into a typed contract."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     name: str = Field(..., max_length=64)
     description: str = Field(..., max_length=1024)
     license: str | None = None
     compatibility: str | None = None
-    allowed_tools: list[str] | None = None
+    allowed_tools: list[str] | None = Field(default=None, alias="allowed-tools")
+    argument_hint: str | None = Field(default=None, alias="argument-hint")
+
+    @field_validator("allowed_tools", mode="before")
+    @classmethod
+    def split_allowed_tools(cls, v: Any) -> Any:
+        """Aceita lista YAML ou string separada por vírgulas/espaços."""
+        if isinstance(v, str):
+            return [part for part in re.split(r"[,\s]+", v) if part]
+        return v
 
     @field_validator("name")
     @classmethod

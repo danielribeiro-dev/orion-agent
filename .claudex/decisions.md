@@ -246,3 +246,26 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 * **Contexto:** A visão do ORION é ser um agente sempre presente (Jarvis) sem gastar tokens à toa.
 * **Decisão:** O daemon (`systemd --user`) é determinístico por padrão: scheduler, watchers de arquivo/processo e cron não chamam LLM. O modelo só é acionado por gatilho, precedido de triagem barata (Haiku, `max_tokens` mínimo) quando aplicável. O ledger registra a origem de cada chamada (`user`, `daemon`, `cron`, `loop`, `subagent`). Ações agendadas nunca excedem o nível de autonomia configurado e ações nucleares sempre exigem step-up.
 * **Consequências:** Em idle, zero chamadas ao provider (critério CA-10 da v0.5.0).
+
+### ADR-023: Settings em Camadas, Regras de Permissão e Escalada com Pergunta
+* **Status:** Aprovado (08/11/2026)
+* **Contexto:** A configuração era um JSON plano lido ad hoc; "sempre permitir" vivia em RAM; sudo e caminhos fora do workspace eram bloqueios duros, o que impedia o ORION de fazer trabalho legítimo (`sudo apt update`) e dependia de listas que nunca cobrem todos os comandos perigosos.
+* **Decisão:**
+  1. `settings.json` em três camadas (`~/.orion/` < `<ws>/.orion/settings.json` < `<ws>/.orion/settings.local.json`); listas concatenam, escalares sobrescrevem. O `config.json` legado é lido e migrado sem ser apagado.
+  2. Regras `allow`/`ask`/`deny` (`Tool(padrão)`), com **deny > ask > allow**. `allow` não casa comandos compostos (`;`, `&&`, `|`, redirecionamentos, substituições).
+  3. **Confiança na primeira vez** (TOFU) para o `settings.json` do projeto: sem confiança, valem apenas `deny`, `ask`, `model` e `effort`; hooks, `allow`, `mode`, `mcp`, `env` e orçamento são ignorados. Confiança por hash do arquivo em `~/.orion/trusted_projects.json` (0600); qualquer mudança pede de novo.
+  4. **Perguntar em vez de bloquear:** sudo (fora de `FULLY_AUTO`) e caminhos fora do workspace passam a **escalar** para uma confirmação de uso único, com o comando e o motivo na tela. Nunca viram "sempre permitir" (sudo), nunca são aprovados por regra ou hook, e **sem humano para responder** (`interactive=False`: hooks, subagents, jobs, daemon) são **negados**. Recusa devolve ao modelo o motivo e o pedido de alternativa.
+  5. Seguem como bloqueio duro e inviolável: desafio nuclear do SO e safe-holding do circuit breaker.
+  6. "Sempre permitir" grava regra `allow` exata na camada local quando expressável; o que não é (composto, glob, sem subject) vale só na sessão.
+  7. Auditoria: `decision_source` (`mode|rule|ledger|user|user_escalation|hook`), negações por regra/escalada/hook registradas, `pending` fechado por `log_result`, e o `action_id` do engine propagado ao runtime (`CURRENT_ACTION_ID`).
+* **Consequências:** Menos bloqueios arbitrários e mais decisão do Senhor, ao custo de mais perguntas (mitigado pelo comando exato na tela e por regras persistentes). Revoga o texto "sudo sempre negado em SUPERVISED/WORKSPACE_AUTO" do ADR-018 [v0.3.0].
+
+### ADR-024: Hooks que Só Bloqueiam
+* **Status:** Aprovado (08/11/2026)
+* **Decisão:** Oito eventos (`PreToolUse`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`, `PreCompact`, `Notification`). Hook é um comando shell com JSON do evento no stdin; **exit 2 bloqueia** (stderr volta ao modelo); qualquer outro código ou falha/timeout segue ao PEP. Um hook **nunca aprova** e nunca altera parâmetros. Roda antes do PEP em `LocalRuntimeProvider.execute`. Cada execução é auditada; a saída é tratada como dado não confiável (delimitadores `<<<ORION_` neutralizados, truncada).
+* **Consequências:** Hooks não ampliam privilégio; o pior caso de um hook malicioso é código do usuário (daí a confiança TOFU para hooks de projeto).
+
+### ADR-025: Comandos Custom e Plugin Mínimo
+* **Status:** Aprovado (08/11/2026)
+* **Decisão:** `.md` em `<ws>/.orion/commands` e `~/.orion/commands` viram slash commands (`$ARGUMENTS`, `$1..$9`); subpastas viram `/ns:cmd`; nomes nativos são reservados; projeto vence user. Plugin = pasta em `~/.orion/plugins/<nome>/` com `plugin.json` e `commands/`, `skills/`, `hooks.json`, `mcp.json`; comandos de plugin ganham namespace `/<plugin>:<cmd>`. Sem marketplace. O comando só envia o prompt ao agente; toda tool segue pelo PEP.
+* **Consequências:** Afrouxa o "catálogo fechado" do ADR-016 [v0.4.0]: o catálogo oficial continua fechado e testado; os dinâmicos são aditivos e aparecem em `/help` e no autocompletar.

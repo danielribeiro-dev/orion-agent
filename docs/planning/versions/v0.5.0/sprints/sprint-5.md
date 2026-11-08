@@ -1,9 +1,9 @@
 # Sprint — v0.5.0 Sprint 5: Extensibilidade & MCP Completo
 
-> **Status:** 📋 Spec detalhada (aguardando comando de início)  
+> **Status:** 🔄 5A implementada (2026-11-08) · 5B (MCP) pendente  
 > **Versão Relacionada:** v0.5.0  
 > **Responsável / Agente:** Daniel Dev & Claude Code (o portão de dogfooding segue pendente)  
-> **Data de Início:** —  
+> **Data de Início:** 2026-11-08  
 > **Data de Conclusão:** —  
 
 ---
@@ -53,15 +53,15 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo — Commit 5A
-- [ ] `settings/` com merge e validação; `.orion/settings.local.json` fora do git, 0600.
-- [ ] Regras declarativas integradas ao PEP (deny > ask > allow; nuclear, sudo e escopo nunca contornáveis).
-- [ ] "Sempre permitir" persistente como regra `allow` na camada local (nunca para nuclear nem sudo).
-- [ ] Confiança na primeira vez para settings/hooks de projeto (`~/.orion/trusted_projects.json`, hash do arquivo, 0600).
-- [ ] sudo e caminhos fora do workspace: de bloqueio para pergunta com motivo; sem humano, negar.
-- [ ] `hooks/` (shell; exit 2 bloqueia; auditados).
-- [ ] Comandos custom `.md` com `$ARGUMENTS`/`$1..$n`; `/skills`; plugin mínimo.
-- [ ] `/help` e completer derivados do registry.
-- [ ] Lacunas de auditoria fechadas.
+- [x] `settings/` com merge e validação; `.orion/settings.local.json` fora do git, 0600.
+- [x] Regras declarativas integradas ao PEP (deny > ask > allow; nuclear, sudo e escopo nunca contornáveis).
+- [x] "Sempre permitir" persistente como regra `allow` na camada local (nunca para nuclear nem sudo).
+- [x] Confiança na primeira vez para settings/hooks de projeto (`~/.orion/trusted_projects.json`, hash do arquivo, 0600).
+- [x] sudo e caminhos fora do workspace: de bloqueio para pergunta com motivo; sem humano, negar.
+- [x] `hooks/` (shell; exit 2 bloqueia; auditados).
+- [x] Comandos custom `.md` com `$ARGUMENTS`/`$1..$n`; `/skills`; plugin mínimo.
+- [x] `/help` e completer derivados do registry.
+- [x] Lacunas de auditoria fechadas.
 
 ### ✅ No Escopo — Commit 5B
 - [ ] MCP: streamable HTTP, headers com `${VAR}`, OAuth PKCE, resources (`@server:recurso`), prompts como slash commands, `list_changed`, reconexão com backoff, `/mcp add|remove|auth|resources|prompts`.
@@ -199,3 +199,18 @@ class TokenStorage(Protocol):              # SDK mcp; impl. em mcp/oauth.py (060
 ### Riscos conhecidos
 - **Fadiga de confirmação:** perguntar mais pode levar a aprovar no automático. Mitigação: a pergunta mostra o comando exato e o motivo; sudo nunca é "sempre"; repetições seguras usam o trust ledger existente.
 - **Confiança de projeto:** o hash do arquivo é o gatilho; edição por `git pull` pede confiança de novo.
+
+---
+
+## 10. Registro de Implementação — Commit 5A (2026-11-08)
+
+* **Desvios e decisões:**
+  * **`allow` em LEVEL_3:** a spec original limitava `allow` a LEVEL_2, o que tornava inútil a regra `run_command(git status:*)`. Passou a dispensar a pergunta em LEVEL_2/3, mas nunca em modo plano, nunca sobre nuclear/safe-holding e nunca sobre sudo; para fora do workspace só com padrão absoluto.
+  * **Plan mode dentro do PEP:** `set_read_only` recusa LEVEL_2+ antes de qualquer regra, para que um `allow` nunca fure o modo plano (a guarda da sessão permanece como segunda camada).
+  * **Catálogo duplicado:** em vez de derivar `/help` e o completer do registry, mantive o catálogo oficial estático (guardado por teste de igualdade com o registry, agora 26) e somei `AgentSession.dynamic_slash_infos()` para os dinâmicos. Menos invasivo e igualmente visível ao Senhor.
+  * **Hooks e `FULLY_AUTO`:** sudo continua liberado em `FULLY_AUTO` (comportamento anterior preservado); fora do workspace pergunta em todos os modos.
+  * **Nuclear antes de sudo:** a ordem do PEP agora executa o desafio nuclear antes da escalada de sudo (antes, o sudo era negado primeiro).
+  * **Incidente de teste:** ao reordenar, um teste existente (`sudo rm -rf /` sem gate falso) abriu um desafio nuclear real do SO. Nada foi executado, mas o popup apareceu. Corrigido com fixture autouse em `tests/conftest.py` que bloqueia `_try_graphical_auth`/`_try_tty_auth` em todos os testes (exceto `test_nuclear.py`, que os simula).
+  * **Testes migrados:** `test_pep.py`, `test_security_audit.py` e `test_tools.py` esperavam `ActionDenied` imediato para sudo/escopo; agora verificam pergunta, recusa e negação sem humano (`set_interactive(False)`).
+* **Não validado:** modal de escalada em TTY real; pedido de confiança em TTY real; hooks com um provedor real (só testes com scripts shell).
+* **Pendente (5B):** todo o MCP (HTTP, OAuth, resources, prompts, reconexão, `/mcp add|remove|auth`). O fechamento do cliente MCP no encerramento já entrou no 5A (`AgentSession.shutdown`).

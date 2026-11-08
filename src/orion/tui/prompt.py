@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -36,7 +36,7 @@ from rich.console import Console
 
 from orion.core.event_bus import EventBus
 from orion.core.events import TurnCancelledEvent
-from orion.tui.completer import OrionCompleter
+from orion.tui.completer import OrionCompleter, SlashCommandInfo
 from orion.tui.console import get_console
 from orion.tui.keybindings import create_key_bindings
 from orion.tui.status_bar import SessionStatusBar
@@ -90,6 +90,7 @@ class InteractivePrompt:
         event_bus: EventBus | None = None,
         console: Console | None = None,
         custom_key_bindings: KeyBindings | None = None,
+        dynamic_commands: Callable[[], list[SlashCommandInfo]] | None = None,
     ) -> None:
         self.workspace_root = Path(workspace_root).resolve() if workspace_root else Path.cwd()
         self.event_bus = event_bus
@@ -111,7 +112,9 @@ class InteractivePrompt:
             self.history = InMemoryHistory()
 
         # 2. Autocompletador unificado
-        self.completer = OrionCompleter(workspace_root=self.workspace_root)
+        self.completer = OrionCompleter(
+            workspace_root=self.workspace_root, dynamic_commands=dynamic_commands
+        )
 
         # 3. Atalhos de teclado
         self.key_bindings = custom_key_bindings or create_key_bindings()

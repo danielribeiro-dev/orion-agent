@@ -289,7 +289,9 @@ def describe_action(tool: str, params: dict[str, Any]) -> tuple[str, str, str]:
     return name, target, "Modifica o arquivo no workspace"
 
 
-def render_pep_dialog(tool: str, params: dict[str, Any], level: ActionLevel) -> Group:
+def render_pep_dialog(
+    tool: str, params: dict[str, Any], level: ActionLevel, reason: str | None = None
+) -> Group:
     """Blueprint D: autorização operacional."""
     action, target, impact = describe_action(tool, params)
     body = Text()
@@ -299,6 +301,9 @@ def render_pep_dialog(tool: str, params: dict[str, Any], level: ActionLevel) -> 
     body.append(target + "\n", style="accent_cyan")
     body.append("Impacto:         ", style="text_dim")
     body.append(impact, style="text_primary")
+    if reason:
+        body.append("\nEscalada:        ", style="text_dim")
+        body.append(reason, style="pep_warn")
 
     title = Text()
     title.append(f" [PEP NÍVEL {int(level)}]", style="pep_warn")
@@ -312,8 +317,9 @@ def render_pep_dialog(tool: str, params: dict[str, Any], level: ActionLevel) -> 
     if tool == "run_command":
         keys.append("[e]", style="accent_cyan")
         keys.append(" Editar Comando   ", style="text_dim")
-    keys.append("[a]", style="pep_warn")
-    keys.append(" Sempre Permitir na Sessão", style="text_dim")
+    if not reason:  # escalada vale uma vez: nunca "sempre"
+        keys.append("[a]", style="pep_warn")
+        keys.append(" Sempre Permitir (salva regra local)", style="text_dim")
     return Group(orion_panel(body, title, border=ORION_COLORS["pep_warn"]), keys)
 
 

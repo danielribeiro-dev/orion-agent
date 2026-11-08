@@ -11,7 +11,7 @@ import fnmatch
 import os
 import re
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from prompt_toolkit.completion import CompleteEvent, Completer, Completion
@@ -86,6 +86,12 @@ class SlashCommandInfo:
 
 
 OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
+    SlashCommandInfo(
+        "/skills",
+        "Listar skills ou ativar uma pelo nome",
+        icon="●",
+        category="memory",
+    ),
     # Cognitivos & Raciocínio
     SlashCommandInfo(
         "/plan",
@@ -327,8 +333,21 @@ class GitIgnoreMatcher:
 class SlashCommandCompleter(Completer):
     """Autocompletador para comandos slash (/), com busca difusa e metadados."""
 
-    def __init__(self, commands: list[SlashCommandInfo] | None = None) -> None:
-        self.commands = commands if commands is not None else list(OFFICIAL_SLASH_COMMANDS)
+    def __init__(
+        self,
+        commands: list[SlashCommandInfo] | None = None,
+        dynamic: Callable[[], list[SlashCommandInfo]] | None = None,
+    ) -> None:
+        self._static = commands if commands is not None else list(OFFICIAL_SLASH_COMMANDS)
+        self._dynamic = dynamic
+
+    @property
+    def commands(self) -> list[SlashCommandInfo]:
+        """Comandos oficiais mais os dinâmicos (custom, plugins, prompts MCP)."""
+        if self._dynamic is None:
+            return self._static
+        known = {c.name for c in self._static}
+        return [*self._static, *(c for c in self._dynamic() if c.name not in known)]
 
     def _fuzzy_match(self, query: str, target: str) -> bool:
         """Verifica se todos os caracteres da query aparecem na ordem dentro de target."""
@@ -478,9 +497,10 @@ class OrionCompleter(Completer):
         self,
         workspace_root: Path | str | None = None,
         commands: list[SlashCommandInfo] | None = None,
+        dynamic_commands: Callable[[], list[SlashCommandInfo]] | None = None,
     ) -> None:
         self.workspace_root = Path(workspace_root).resolve() if workspace_root else Path.cwd()
-        self.slash_completer = SlashCommandCompleter(commands=commands)
+        self.slash_completer = SlashCommandCompleter(commands=commands, dynamic=dynamic_commands)
         self.path_completer = PathMentionCompleter(workspace_root=self.workspace_root)
 
     def get_completions(

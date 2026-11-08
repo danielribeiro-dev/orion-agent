@@ -48,7 +48,7 @@ Ao receber uma instrução como *"Adicione o comando /xyz que faz tal coisa"*:
        category="operation",
    )
    ```
-3. **Crie a Classe do Comando no módulo da sua categoria em `src/orion/tui/commands/` (`cognitive.py`, `memory.py`, `context.py` ou `operation.py`) herdando de `BaseSlashCommand`:**
+3. **Crie a Classe do Comando no módulo da sua categoria em `src/orion/tui/commands/` (`cognitive.py`, `memory.py`, `context.py`, `operation.py`, `mcp.py`, `session.py` ou `extend.py`) herdando de `BaseSlashCommand`:**
    ```python
    class XyzCommand(BaseSlashCommand):
        name = "/xyz"
@@ -59,6 +59,8 @@ Ao receber uma instrução como *"Adicione o comando /xyz que faz tal coisa"*:
            return CommandResult(success=True, output_message="")
    ```
 4. **Registro automático:** o `CommandRegistry` descobre as subclasses de `BaseSlashCommand` dos módulos de categoria.
+
+4. **Comandos dinâmicos (v0.5.0, ADR-025):** comandos custom `.md`, de plugins e (Sprint 5B) prompts MCP **não** entram em `OFFICIAL_SLASH_COMMANDS` nem em classes; são registrados em tempo de execução com `registry.register(CustomCommand(spec))` e expostos ao `/help` e ao autocompletar por `AgentSession.dynamic_slash_infos()`. Mesmas regras visuais: ícone `●`, sem emojis, só cores de `ORION_COLORS`. Nome de comando nativo é reservado.
 
 ---
 

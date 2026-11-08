@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import best_match
 
-from orion.core.events import Action, RiskLevel
+from orion.core.events import CURRENT_ACTION_ID, Action, RiskLevel
 from orion.gateway.models import ToolSpec
 from orion.governance.pep import ActionDenied, PolicyEnforcementPoint
 from orion.governance.permissions import (
@@ -30,6 +30,7 @@ from orion.governance.permissions import (
     risk_to_action_level,
     tool_risk_level,
 )
+from orion.hooks import HookRunner
 from orion.runtime.provider import BaseRuntimeProvider, RuntimeResult
 from orion.runtime.tools.bash_output import BashOutputTool
 from orion.runtime.tools.edit_file import EditFileTool
@@ -80,6 +81,7 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
     ) -> None:
         self._scope = scope or WorkspaceScope.default()
         self._pep = pep or PolicyEnforcementPoint(scope=self._scope)
+        self._hooks: HookRunner | None = None
 
         self.shells = shells or ShellManager()
 
@@ -121,6 +123,10 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
         if extra_tools:
             for tool_inst in extra_tools:
                 self.register_tool(tool_inst)
+
+    def set_hooks(self, hooks: HookRunner | None) -> None:
+        """Attach the PreToolUse/PostToolUse hook runner (hooks never approve, only block)."""
+        self._hooks = hooks
 
     # ------------------------------------------------------------------
     # Tool registration API
@@ -191,7 +197,21 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
         if invalid is not None:
             return RuntimeResult.fail(invalid, invalid_params=True)
 
-        action = Action(tool=tool, params=params, risk_level=tool_risk_level(tool))
+        action_kwargs: dict[str, Any] = {}
+        if (current := CURRENT_ACTION_ID.get()) is not None:
+            action_kwargs["event_id"] = current  # mesma id do engine: auditoria correlacionável
+        action = Action(tool=tool, params=params, risk_level=tool_risk_level(tool), **action_kwargs)
+
+        # ── PreToolUse hooks: can only BLOCK; the PEP still decides everything else ──
+        if self._hooks is not None:
+            pre = await self._hooks.run(
+                "PreToolUse", {"params": params, "action_id": action.event_id}, tool=tool
+            )
+            if pre.blocked:
+                self._pep.record_hook_denial(action, pre.message or "")
+                return RuntimeResult.fail(
+                    f"Hook blocked '{tool}': {pre.message}", action_id=action.event_id, denied=True
+                )
 
         # ── Governance gate ──────────────────────────────────────────────
         try:
@@ -216,10 +236,26 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
         params = self._pep.take_edited_params(action.event_id) or params
         impl = self._tools[tool]
         try:
-            return await self._dispatch_impl(impl, params)
+            result = await self._dispatch_impl(impl, params)
         except Exception as exc:
             logger.exception("LocalRuntimeProvider: unhandled error in tool '%s'", tool)
+            self._pep.record_result(action.event_id, tool, False, str(exc))
             return RuntimeResult.fail(f"'{tool}' raised an unexpected error: {exc}")
+        self._pep.record_result(
+            action.event_id, tool, result.success, "" if result.success else (result.error or "")
+        )
+        if self._hooks is not None:
+            await self._hooks.run(
+                "PostToolUse",
+                {
+                    "params": params,
+                    "action_id": action.event_id,
+                    "success": result.success,
+                    "output": (result.output or "")[:2000],
+                },
+                tool=tool,
+            )
+        return result
 
     # ------------------------------------------------------------------
     # Direct tool access (bypasses PEP — use only in tests / trusted paths)

@@ -196,10 +196,11 @@ async def test_sec_path_traversal_write_file_blocked(
         risk_level=RiskLevel.CONTROLLED,
     )
 
+    pep_fully_auto.set_interactive(False)  # sem humano para confirmar a escalada
     with pytest.raises(ActionDenied) as exc_info:
         await pep_fully_auto.evaluate(action)
 
-    assert "outside" in str(exc_info.value).lower() or "authorised" in str(exc_info.value).lower()
+    assert "workspace" in str(exc_info.value).lower()
 
 
 @pytest.mark.asyncio
@@ -215,6 +216,7 @@ async def test_sec_path_traversal_edit_file_blocked(
         risk_level=RiskLevel.CONTROLLED,
     )
 
+    pep_fully_auto.set_interactive(False)
     with pytest.raises(ActionDenied):
         await pep_fully_auto.evaluate(action)
 
@@ -227,6 +229,7 @@ async def test_sec_path_traversal_via_runtime(
     scope: WorkspaceScope,
 ):
     """LocalRuntimeProvider deve retornar RuntimeResult.fail para path traversal."""
+    pep_fully_auto.set_interactive(False)
     provider = LocalRuntimeProvider(pep=pep_fully_auto, scope=scope)
     malicious_path = str(outside_dir / "stolen.txt")
 
@@ -281,13 +284,14 @@ async def test_sec_sudo_blocked_supervised(pep_supervised: PolicyEnforcementPoin
 
 @pytest.mark.asyncio
 async def test_sec_sudo_blocked_workspace_auto(pep_workspace_auto: PolicyEnforcementPoint):
-    """sudo em WORKSPACE_AUTO deve ser bloqueado com ActionDenied."""
+    """sudo em WORKSPACE_AUTO sem humano disponível é negado com ActionDenied."""
     action = Action(
         tool="run_command",
         params={"command": "sudo apt-get install evil"},
         risk_level=RiskLevel.CRITICAL,
     )
 
+    pep_workspace_auto.set_interactive(False)
     with pytest.raises(ActionDenied):
         await pep_workspace_auto.evaluate(action)
 

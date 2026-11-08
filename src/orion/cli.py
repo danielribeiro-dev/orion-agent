@@ -91,11 +91,34 @@ def _clear_screen(prompt: InteractivePrompt) -> None:
     prompt.dock_to_bottom(print_banner(prompt.status_bar))
 
 
+def _ask_project_trust(session: AgentSession) -> None:
+    """Pergunta se o Senhor confia no settings.json do projeto (primeira vez ou após mudança)."""
+    loaded = session.settings
+    if not loaded.project_needs_trust:
+        return
+    from orion.tui.modal import ask_user_choice, is_interactive
+
+    console.print("! Este projeto traz .orion/settings.json que pede para:", style="pep_warn")
+    for line in loaded.project_summary():
+        console.print(f"  › {line}", style="text_dim")
+    if not is_interactive():
+        console.print("  Sem terminal interativo: ignorado até o Senhor confiar.", style="text_dim")
+        return
+    options = [
+        {"label": "Confiar", "description": "Aplica hooks, allow e modo deste projeto."},
+        {"label": "Não confiar", "description": "Ignora o que afrouxa ou executa; mantém deny/ask."},
+    ]
+    answer = asyncio.run(ask_user_choice(console, "Confiar neste projeto?", options))
+    if answer and answer[0] == "Confiar":
+        session.trust_project()
+
+
 def create_session(status_bar: SessionStatusBar) -> AgentSession:
     """Constrói a sessão do agente; importado aqui para manter o boot do CLI leve."""
     from orion.tui.session import AgentSession
 
     session = AgentSession(status_bar=status_bar, console=console)
+    _ask_project_trust(session)
     if os.environ.get("ORION_MCP", "1") != "0":
         session.start_mcp()
     return session
@@ -122,14 +145,20 @@ def create_prompt(status_bar: SessionStatusBar, session: AgentSession) -> Intera
         on_expand_reasoning=session.renderer.expand_reasoning,
         on_expand_output=session.renderer.expand_output,
     )
-    return InteractivePrompt(status_bar=status_bar, custom_key_bindings=bindings)
+    return InteractivePrompt(
+        status_bar=status_bar,
+        custom_key_bindings=bindings,
+        dynamic_commands=session.dynamic_slash_infos,
+    )
 
 
 def run_interactive_repl(prompt: InteractivePrompt, session: AgentSession) -> None:
     """Loop interativo principal do terminal orion-agent."""
     from orion.tui.commands import CommandContext, CommandRegistry
+    from orion.tui.commands.custom import register_custom_commands
 
     registry = CommandRegistry.discover()
+    register_custom_commands(registry, session.custom_commands)
     context = CommandContext(
         session=session,
         console=console,
@@ -217,7 +246,11 @@ def cli_root(
             banner_lines += 1
         prompt = create_prompt(status_bar, session)
         prompt.dock_to_bottom(banner_lines)
-        run_interactive_repl(prompt, session)
+        session.fire_hook_sync("SessionStart", {"source": "resume" if resume_message else "startup"})
+        try:
+            run_interactive_repl(prompt, session)
+        finally:
+            session.shutdown()
 
 
 @app.command(name="info")

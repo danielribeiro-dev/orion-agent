@@ -256,12 +256,41 @@ async def test_pep_sudo_raises_action_denied_in_supervised(
 
 
 @pytest.mark.asyncio
-async def test_pep_sudo_raises_action_denied_in_workspace_auto(
+async def test_pep_sudo_escalates_to_confirmation_in_workspace_auto(
+    workspace: WorkspaceScope, audit: AuditLogger
+) -> None:
+    """sudo não é mais bloqueio duro: pergunta ao Senhor, uma vez."""
+    asked: list[str] = []
+    pep = PolicyEnforcementPoint(
+        scope=workspace,
+        mode=AutonomyMode.WORKSPACE_AUTO,
+        audit_logger=audit,
+        confirm=lambda prompt: asked.append(prompt) or True,
+    )
+    action = _action("run_command", {"command": "sudo apt update"})
+    assert await pep.evaluate(action) is True
+    assert "sudo apt update" in asked[0] and "sudo" in asked[0]
+
+
+@pytest.mark.asyncio
+async def test_pep_sudo_declined_returns_false_with_reason(
+    workspace: WorkspaceScope, audit: AuditLogger
+) -> None:
+    pep = _pep(workspace, audit, mode=AutonomyMode.WORKSPACE_AUTO, confirm=False)
+    action = _action("run_command", {"command": "sudo apt update"})
+    assert await pep.evaluate(action) is False
+    reason = pep.take_rejection_reason(action.event_id)
+    assert reason and "alternative" in reason
+
+
+@pytest.mark.asyncio
+async def test_pep_sudo_without_human_is_denied(
     workspace: WorkspaceScope, audit: AuditLogger
 ) -> None:
     pep = _pep(workspace, audit, mode=AutonomyMode.WORKSPACE_AUTO, confirm=True)
+    pep.set_interactive(False)
     action = _action("run_command", {"command": "sudo apt update"})
-    with pytest.raises(ActionDenied, match="sudo"):
+    with pytest.raises(ActionDenied, match="no human"):
         await pep.evaluate(action)
 
 
@@ -271,13 +300,26 @@ async def test_pep_sudo_raises_action_denied_in_workspace_auto(
 
 
 @pytest.mark.asyncio
-async def test_pep_path_outside_workspace_denied(
+async def test_pep_path_outside_workspace_asks_even_in_fully_auto(
+    tmp_path: Path, audit: AuditLogger
+) -> None:
+    workspace = WorkspaceScope(roots=[tmp_path])
+    action = _action("write_file", {"path": "/etc/malicious.conf", "content": "x"})
+    declined = _pep(workspace, audit, mode=AutonomyMode.FULLY_AUTO, confirm=False)
+    assert await declined.evaluate(action) is False
+    accepted = _pep(workspace, audit, mode=AutonomyMode.FULLY_AUTO, confirm=True)
+    assert await accepted.evaluate(_action("write_file", {"path": "/etc/x", "content": "x"}))
+
+
+@pytest.mark.asyncio
+async def test_pep_path_outside_workspace_without_human_is_denied(
     tmp_path: Path, audit: AuditLogger
 ) -> None:
     workspace = WorkspaceScope(roots=[tmp_path])
     pep = _pep(workspace, audit, mode=AutonomyMode.FULLY_AUTO)
+    pep.set_interactive(False)
     action = _action("write_file", {"path": "/etc/malicious.conf", "content": "x"})
-    with pytest.raises(ActionDenied, match="outside the authorised workspace"):
+    with pytest.raises(ActionDenied, match="workspace"):
         await pep.evaluate(action)
 
 

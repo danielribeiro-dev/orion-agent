@@ -253,7 +253,9 @@ class HelpCommand(BaseSlashCommand):
         table.add_column(no_wrap=True)
         table.add_column(no_wrap=True)
         table.add_column()
-        for command in OFFICIAL_SLASH_COMMANDS:
+        dynamic = getattr(context.session, "dynamic_slash_infos", None)
+        extra = dynamic() if callable(dynamic) else []
+        for command in [*OFFICIAL_SLASH_COMMANDS, *extra]:
             table.add_row(
                 Text(command.name, style="accent_cyan"),
                 Text(command.category, style="text_dim"),

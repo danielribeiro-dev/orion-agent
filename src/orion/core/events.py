@@ -9,11 +9,16 @@ Events are published to the EventBus and permanently recorded in the turn histor
 from __future__ import annotations
 
 import uuid
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from enum import IntEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+#: ``event_id`` da Action do engine em execução. O runtime reutiliza este id ao
+#: consultar o PEP, para que a auditoria correlacione com ``ActionEmitted``.
+CURRENT_ACTION_ID: ContextVar[str | None] = ContextVar("orion_current_action_id", default=None)
 
 # ---------------------------------------------------------------------------
 # Risk level (used by Action before PEP validation in Sprint 3)

@@ -199,18 +199,21 @@ class ConfigPanel:
 class PepChoice:
     """Blueprint D: decisão de uma tecla."""
 
-    def __init__(self, action: Action, level: ActionLevel) -> None:
+    def __init__(self, action: Action, level: ActionLevel, reason: str | None = None) -> None:
         self.action = action
         self.level = level
+        self.reason = reason
         self.choice = "n"
 
     def render(self) -> RenderableType:
-        return render_pep_dialog(self.action.tool, self.action.params, self.level)
+        return render_pep_dialog(self.action.tool, self.action.params, self.level, self.reason)
 
     def on_key(self, key: str) -> bool:
         lowered = key.lower()
         if lowered == "e" and self.action.tool != "run_command":
             return False
+        if lowered == "a" and self.reason:
+            return False  # escalada (sudo / fora do workspace) nunca vira "sempre"
         if lowered in ("y", "n", "e", "a"):
             self.choice = lowered
             return True
@@ -220,9 +223,11 @@ class PepChoice:
         return False
 
 
-async def ask_pep_decision(console: Console, action: Action, level: ActionLevel) -> Any:
+async def ask_pep_decision(
+    console: Console, action: Action, level: ActionLevel, reason: str | None = None
+) -> Any:
     """Exibe o diálogo; sem terminal interativo a ação é negada."""
-    picker = PepChoice(action, level)
+    picker = PepChoice(action, level, reason)
     await run_modal(picker, console, keep_on_screen=True)
     if picker.choice != "e":
         return picker.choice

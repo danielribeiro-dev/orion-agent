@@ -23,6 +23,27 @@ from orion.config import (
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _never_open_real_os_auth(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+) -> None:
+    """Nenhum teste pode abrir o desafio nuclear real (zenity/kdialog/tty).
+
+    Testes que exercitam o gate fazem ``patch.object`` na instância, que tem
+    precedência sobre este patch de classe.
+    """
+    if request.module.__name__.endswith("test_nuclear"):
+        return  # exercita as primitivas com subprocess/tty simulados
+    from orion.governance.nuclear import NuclearSafetyGate
+
+    monkeypatch.setattr(
+        NuclearSafetyGate, "_try_graphical_auth", lambda self, prompt: ("blocked_in_tests", False)
+    )
+    monkeypatch.setattr(
+        NuclearSafetyGate, "_try_tty_auth", lambda self, prompt: ("blocked_in_tests", False)
+    )
+
+
 @pytest.fixture()
 def cli_runner() -> CliRunner:
     """Typer CLI test runner (isolated, no sys.exit)."""

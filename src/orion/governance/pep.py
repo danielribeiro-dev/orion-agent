@@ -9,14 +9,21 @@ Modes:
   WORKSPACE_AUTO: LEVEL_2 inside workspace auto-approved; LEVEL_3 still gated.
   FULLY_AUTO    : All actions auto-approved (LEVEL_3 still blocks sudo).
 
-Safety invariants that are NEVER bypassed regardless of mode:
-  - 'sudo' in any run_command invocation always requires explicit confirmation
-    (unless already trusted via CommandTrustLedger).
-  - Paths outside the WorkspaceScope are always denied for mutating tools.
+Safety invariants that are NEVER bypassed regardless of mode, rule or hook:
   - NUCLEAR_DESTRUCTIVE commands always trigger OS authentication popup.
   - SAFE_HOLDING state blocks all mutations until the frontier model recovers
     (ONLY applies when SAFE_HOLDING was triggered by a model failure, NOT
      when the user deliberately chose a light model as their daily driver).
+
+Escalations (v0.5.0 Sprint 5): 'sudo' and paths outside the workspace no longer
+hard-block. They ESCALATE to a one-shot confirmation that shows the exact
+command and the reason. They are never persisted as "always allow" (sudo) and
+never approved by a rule or hook. With no human available (``interactive=False``:
+hooks, subagents, scheduled jobs, daemon) an escalation is DENIED.
+
+Declarative rules (``governance/rules.py``): deny > ask > allow. A deny rule
+blocks; an ask rule forces a confirmation; an allow rule only skips the prompt
+where the mode would have asked, never overriding the invariants above.
 
 Sprint 4 additions (v0.3.0):
   - CircuitBreaker integration: blocks mutations in SAFE_HOLDING state.
@@ -29,6 +36,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -47,6 +55,7 @@ from orion.governance.permissions import (
     is_dynamic_mutating,
     tool_action_level,
 )
+from orion.governance.rules import RuleMatch, RuleSet
 from orion.governance.trust_ledger import CommandTrustLedger
 
 logger = logging.getLogger(__name__)
@@ -96,6 +105,17 @@ class Rejection:
     reason: str
 
 
+_SUDO_RE = re.compile(r"(?:^|[\s;&|(`])sudo(?:\s|$)")
+
+
+@dataclass(frozen=True)
+class Escalation:
+    """Motivo pelo qual a ação exige confirmação explícita do Senhor."""
+
+    kind: str  # "sudo" | "outside_workspace"
+    reason: str
+
+
 def _default_confirm(prompt: str) -> bool:  # pragma: no cover
     """Synchronous stdin confirmation for interactive sessions."""
     answer = input(f"\n{prompt} [Y/n] ").strip().lower()
@@ -141,6 +161,8 @@ class PolicyEnforcementPoint:
         trust_ledger: CommandTrustLedger | None = None,
         nuclear_gate: NuclearSafetyGate | None = None,
         circuit_breaker: Any | None = None,  # CircuitBreaker (avoid circular import)
+        rules: RuleSet | None = None,
+        interactive: bool = True,
     ) -> None:
         self._scope = scope or WorkspaceScope.default()
         self._mode = mode
@@ -153,6 +175,10 @@ class PolicyEnforcementPoint:
         self._nuclear_gate = nuclear_gate or NuclearSafetyGate()
         self._circuit_breaker = circuit_breaker  # Optional[CircuitBreaker]
         self._blast_classifier = BlastRadiusClassifier()
+        self._rules = rules
+        self._interactive = interactive
+        self._read_only = False
+        self._pending_escalations: dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -170,6 +196,26 @@ class PolicyEnforcementPoint:
         """Switch autonomy mode at runtime."""
         logger.info("PEP: autonomy mode changed %s → %s", self._mode, mode)
         self._mode = mode
+
+    @property
+    def rules(self) -> RuleSet | None:
+        return self._rules
+
+    def set_rules(self, rules: RuleSet | None) -> None:
+        """Replace the declarative rule set (settings reloaded, "always allow" saved)."""
+        self._rules = rules
+
+    def set_interactive(self, interactive: bool) -> None:
+        """False when no human can answer (hooks, subagents, jobs, daemon)."""
+        self._interactive = interactive
+
+    def set_read_only(self, read_only: bool) -> None:
+        """Plan mode: every LEVEL_2+ action is refused, whatever the rules say."""
+        self._read_only = read_only
+
+    def peek_escalation(self, action_id: str) -> str | None:
+        """Reason of the escalation being asked for *action_id* (None if ordinary)."""
+        return self._pending_escalations.get(action_id)
 
     def attach_circuit_breaker(self, circuit_breaker: Any) -> None:
         """Attaches a CircuitBreaker instance to the PEP.
@@ -195,58 +241,81 @@ class PolicyEnforcementPoint:
         """Gate the given Action through the policy.
 
         Evaluation order:
-          1. Safe Holding check (circuit breaker): blocks mutations if in
-             SAFE_HOLDING due to frontier model failure (NOT if user chose
-             a light model deliberately).
-          2. Nuclear Safety Gate: NUCLEAR_DESTRUCTIVE commands always require
-             OS authentication, regardless of autonomy mode.
-          3. Static safety invariants: sudo, path scope.
-          4. Trust Ledger lookup: known-safe commands skip prompt in auto mode.
-          5. Autonomy mode gating: LEVEL_2/LEVEL_3 policy.
+          1. Safe Holding check (circuit breaker): hard block of mutations.
+          2. Nuclear Safety Gate: NUCLEAR_DESTRUCTIVE always needs OS auth.
+          3. Declarative rules: a matching ``deny`` blocks.
+          4. Read-only (plan mode): LEVEL_2+ refused.
+          5. Escalations (sudo, outside workspace): one-shot confirmation.
+          6. ``ask`` rule, Trust Ledger, ``allow`` rule and autonomy mode.
 
         Returns:
             True  if the action is approved and should proceed.
-            False if the user explicitly rejected a confirmation prompt.
+            False if the user (or plan mode) refused it.
 
         Raises:
-            ActionDenied  if the action is structurally blocked by policy
-                          (e.g. path outside workspace, safe holding violation,
-                           nuclear auth denied).
+            ActionDenied  if the action is structurally blocked (safe holding,
+                          nuclear auth denied, deny rule, escalation with no
+                          human available).
         """
         level = self._effective_level(action)
         params = dict(action.params)
 
-        # ── 1. Static safety invariants (never bypassed, zero prompt) ────
-        self._assert_no_sudo(action, level)
-        self._assert_path_scope(action, level)
-
-        # ── 2. SAFE_HOLDING check (HIGHEST priority for code safety) ────
-        # Only blocks if SAFE_HOLDING was caused by an external model failure,
-        # NOT if the user intentionally chose a light model as their daily driver.
         self._assert_safe_holding(action, level)
-
-        # ── 3. Nuclear Safety Gate (always enforced in all modes) ───────
-        # NUCLEAR_DESTRUCTIVE commands require OS authentication in ALL modes.
         await self._assert_nuclear_safe(action, level)
 
-        # ── 4. LEVEL_0: pure informative — no audit, no gate ─────────────
-        if level == ActionLevel.LEVEL_0:
-            return True
-
-        # ── 5. LEVEL_1: passive read — audit only ────────────────────────
-        if level == ActionLevel.LEVEL_1:
-            self._audit.log(
+        match = self._match_rule(action)
+        if match is not None and match.effect == "deny":
+            self._audit.log_denied(
                 action_id=action.event_id,
                 tool=action.tool,
                 params=params,
                 level=level,
-                user_authorized=False,
-                result_status="success",
+                reason=f"rule_deny:{match.rule}",
+                decision_source="rule",
             )
+            raise ActionDenied(
+                action.event_id, action.tool, f"blocked by deny rule '{match.rule}'"
+            )
+
+        if self._read_only and level >= ActionLevel.LEVEL_2:
+            self._rejection_reasons[action.event_id] = (
+                "plan mode is read-only; this is not a user rejection. "
+                "Call exit_plan_mode with a plan to get approval before mutating."
+            )
+            self._audit.log_denied(
+                action_id=action.event_id,
+                tool=action.tool,
+                params=params,
+                level=level,
+                reason="plan_mode_read_only",
+                decision_source="mode",
+            )
+            return False
+
+        escalations = self._escalations(action, level)
+        forced_ask = match is not None and match.effect == "ask"
+
+        if level <= ActionLevel.LEVEL_1 and not forced_ask:
+            if level == ActionLevel.LEVEL_1:
+                self._audit.log(
+                    action_id=action.event_id,
+                    tool=action.tool,
+                    params=params,
+                    level=level,
+                    user_authorized=False,
+                    result_status="success",
+                    decision_source="mode",
+                )
             return True
 
-        # ── 6. LEVEL_2 / LEVEL_3: apply autonomy mode + trust ledger ────
-        approved = await self._gate(action, level)
+        if escalations:
+            approved = await self._escalate(action, level, escalations)
+            source = "user_escalation"
+        elif forced_ask:
+            approved = await self._ask_user(action, level)
+            source = "user"
+        else:
+            approved, source = await self._gate(action, level, match)
 
         if not approved:
             self._audit.log_denied(
@@ -255,6 +324,7 @@ class PolicyEnforcementPoint:
                 params=params,
                 level=level,
                 reason="user_rejected",
+                decision_source=source,
             )
             return False
 
@@ -263,10 +333,31 @@ class PolicyEnforcementPoint:
             tool=action.tool,
             params=params,
             level=level,
-            user_authorized=(level >= ActionLevel.LEVEL_2),
+            user_authorized=(source.startswith("user")),
             result_status="pending",
+            decision_source=source,
         )
         return True
+
+    def record_hook_denial(self, action: Action, reason: str) -> None:
+        """Audit a PreToolUse hook that blocked *action* before it reached the PEP."""
+        self._audit.log_denied(
+            action_id=action.event_id,
+            tool=action.tool,
+            params=dict(action.params),
+            level=self._effective_level(action),
+            reason=f"hook_block:{reason[:200]}",
+            decision_source="hook",
+        )
+
+    def record_result(self, action_id: str, tool: str, success: bool, detail: str = "") -> None:
+        """Close the "pending" audit record with the execution outcome."""
+        self._audit.log_result(
+            action_id=action_id,
+            tool=tool,
+            status="success" if success else "error",
+            detail=detail,
+        )
 
     def take_rejection_reason(self, action_id: str) -> str | None:
         """Motivo de uma recusa não-humana (consumido uma vez)."""
@@ -432,40 +523,74 @@ class PolicyEnforcementPoint:
             cmd[:80],
         )
 
-    def _assert_no_sudo(self, action: Action, level: ActionLevel) -> None:
-        """Block sudo commands unless trusted or mode/level allows.
+    def _match_rule(self, action: Action) -> RuleMatch | None:
+        if self._rules is None:
+            return None
+        return self._rules.match(action.tool, dict(action.params), self._scope.roots)
 
-        In SUPERVISED mode: sudo always denied (must use FULLY_AUTO).
-        In WORKSPACE_AUTO: sudo at LEVEL_3 goes to confirmation prompt.
-        In FULLY_AUTO: sudo is allowed (gated by trust ledger / user confirm).
-        """
-        cmd: str = str(action.params.get("command", ""))
-        if "sudo" in cmd.split() or cmd.strip().startswith("sudo"):
-            if self._mode != AutonomyMode.FULLY_AUTO:
-                raise ActionDenied(
-                    action.event_id,
-                    action.tool,
-                    "sudo usage requires FULLY_AUTO mode with explicit human confirmation.",
-                )
+    def _escalations(self, action: Action, level: ActionLevel) -> list[Escalation]:
+        """Reasons this action needs the Senhor's explicit, one-shot confirmation."""
+        found: list[Escalation] = []
+        cmd = str(action.params.get("command", ""))
+        if cmd and _SUDO_RE.search(cmd) and self._mode != AutonomyMode.FULLY_AUTO:
+            found.append(Escalation("sudo", "usa sudo (privilégios de administrador)"))
+        if level >= ActionLevel.LEVEL_2:
+            path = str(action.params.get("path", "")) or None
+            if path:
+                try:
+                    self._scope.assert_allowed(path)
+                except PermissionError:
+                    covered = self._rules is not None and self._rules.allows_outside(
+                        action.tool, dict(action.params), self._scope.roots
+                    )
+                    if not covered:
+                        found.append(
+                            Escalation("outside_workspace", f"caminho fora do workspace: {path}")
+                        )
+        return found
 
-    def _assert_path_scope(self, action: Action, level: ActionLevel) -> None:
-        """Deny mutating actions targeting paths outside the workspace."""
-        if level < ActionLevel.LEVEL_2:
-            return  # reads are not restricted to workspace
-        path: str | None = str(action.params.get("path", "")) or None
-        if path:
-            try:
-                self._scope.assert_allowed(path)
-            except PermissionError as exc:
-                raise ActionDenied(action.event_id, action.tool, str(exc)) from exc
+    async def _escalate(
+        self, action: Action, level: ActionLevel, escalations: list[Escalation]
+    ) -> bool:
+        """Ask the Senhor once; with nobody to ask, deny (never approve by default)."""
+        reasons = "; ".join(e.reason for e in escalations)
+        if not self._interactive:
+            self._audit.log_denied(
+                action_id=action.event_id,
+                tool=action.tool,
+                params=dict(action.params),
+                level=level,
+                reason=f"escalation_no_human:{reasons}",
+                decision_source="mode",
+            )
+            raise ActionDenied(
+                action.event_id,
+                action.tool,
+                f"requires the Senhor's confirmation ({reasons}) but no human is available",
+            )
+        self._pending_escalations[action.event_id] = reasons
+        try:
+            approved = await self._ask_user(action, level)
+        finally:
+            self._pending_escalations.pop(action.event_id, None)
+        if not approved and action.event_id not in self._rejection_reasons:
+            self._rejection_reasons[action.event_id] = (
+                f"the Senhor declined the escalation ({reasons}). Explain what you needed it "
+                "for and propose an alternative that does not require it."
+            )
+        return approved
 
-    async def _gate(self, action: Action, level: ActionLevel) -> bool:
-        """Apply autonomy-mode gating logic for LEVEL_2 / LEVEL_3.
+    async def _gate(
+        self, action: Action, level: ActionLevel, match: RuleMatch | None
+    ) -> tuple[bool, str]:
+        """Apply rule/trust/autonomy-mode gating for LEVEL_2 / LEVEL_3.
 
-        In auto modes, consults the Trust Ledger before prompting.
-        Known-safe commands run without user interruption.
+        Returns ``(approved, decision_source)``.
         """
         cmd: str = str(action.params.get("command", "")) if action.tool == "run_command" else ""
+
+        if match is not None and match.effect == "allow":
+            return True, "rule"
 
         # ── Trust Ledger shortcut (WORKSPACE_AUTO / FULLY_AUTO only) ────
         if self._trust_ledger and cmd and self._mode != AutonomyMode.SUPERVISED:
@@ -475,18 +600,18 @@ class PolicyEnforcementPoint:
                     "PEP: TrustLedger HIT — '%s' is trusted, skipping prompt.",
                     cmd[:60],
                 )
-                return True
+                return True, "ledger"
 
         if self._mode == AutonomyMode.SUPERVISED:
-            return await self._ask_user(action, level)
+            return await self._ask_user(action, level), "user"
 
         if self._mode == AutonomyMode.WORKSPACE_AUTO:
             if level == ActionLevel.LEVEL_2:
-                return True  # auto-approved inside workspace
-            return await self._ask_user(action, level)  # LEVEL_3 still gated
+                return True, "mode"  # auto-approved inside workspace
+            return await self._ask_user(action, level), "user"  # LEVEL_3 still gated
 
         # FULLY_AUTO
-        return True
+        return True, "mode"
 
     async def _ask_user(self, action: Action, level: ActionLevel) -> bool:
         """Display confirmation prompt and return the human's decision."""
@@ -498,22 +623,49 @@ class PolicyEnforcementPoint:
                 self._rejection_reasons[action.event_id] = decision.reason
                 return False
             if isinstance(decision, dict):
-                edited = action.model_copy(update={"params": decision})
-                self._assert_no_sudo(edited, level)
-                self._assert_path_scope(edited, level)
-                await self._assert_nuclear_safe(edited, level)
-                self._edited_params[action.event_id] = decision
-                return True
+                return await self._accept_edit(action, level, decision)
             return bool(decision)
 
         level_label = f"LEVEL_{level}"
+        why = self._pending_escalations.get(action.event_id)
         prompt = (
             f"\n!  O.R.I.O.N wants to execute a {level_label} action:\n"
             f"   Tool   : {action.tool}\n"
             f"   Params : {action.params}\n"
-            f"Approve?"
+            + (f"   Escalation: {why}\n" if why else "")
+            + "Approve?"
         )
         result = self._confirm(prompt)
         if asyncio.iscoroutine(result):
             return bool(await result)
         return bool(result)
+
+    async def _accept_edit(
+        self, action: Action, level: ActionLevel, decision: dict[str, Any]
+    ) -> bool:
+        """Re-check parameters the human edited while approving.
+
+        Deny rules and the nuclear gate apply again. A NEW escalation introduced
+        by the edit (e.g. adding sudo) asks again with its reason shown.
+        """
+        edited = action.model_copy(update={"params": decision})
+        edited_match = self._match_rule(edited)
+        if edited_match is not None and edited_match.effect == "deny":
+            self._audit.log_denied(
+                action_id=action.event_id,
+                tool=action.tool,
+                params=dict(decision),
+                level=level,
+                reason=f"rule_deny:{edited_match.rule}",
+                decision_source="rule",
+            )
+            raise ActionDenied(
+                action.event_id, action.tool, f"blocked by deny rule '{edited_match.rule}'"
+            )
+        await self._assert_nuclear_safe(edited, level)
+        known = {e.kind for e in self._escalations(action, level)}
+        fresh = [e for e in self._escalations(edited, level) if e.kind not in known]
+        if fresh and not await self._escalate(edited, level, fresh):
+            return False
+        self._edited_params[action.event_id] = decision
+        return True

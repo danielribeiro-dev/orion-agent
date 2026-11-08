@@ -55,8 +55,11 @@ from orion.gateway.router import (
 from orion.governance.audit import AuditLogger
 from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint, Rejection
 from orion.governance.permissions import ActionLevel, WorkspaceScope
+from orion.governance.rules import RuleSet, is_complex_command, rule_text_for
+from orion.hooks import HookRunner
 from orion.memory.auto_recall import AutoRecall
 from orion.memory.timeline import TimelineManager
+from orion.plugins import discover_plugins
 from orion.runtime.local_provider import LocalRuntimeProvider
 from orion.runtime.tools.ask_user import AskUserTool
 from orion.runtime.tools.plan_mode import EnterPlanModeTool, ExitPlanModeTool
@@ -74,6 +77,14 @@ from orion.sessions import (
     restore_files,
     user_turns,
 )
+from orion.settings import (
+    LoadedSettings,
+    ProjectTrust,
+    append_local_rule,
+    load_settings,
+    save_user_settings,
+    user_settings_path,
+)
 from orion.timeline.autocompact import (
     SUMMARY_PROMPT,
     AutoCompactor,
@@ -82,7 +93,8 @@ from orion.timeline.autocompact import (
 )
 from orion.timeline.branch_manager import BranchManager
 from orion.timeline.compactor import ContextCompactor, estimate_tokens
-from orion.tui.completer import resolve_mentions
+from orion.tui.commands.custom import CustomCommandSpec, load_custom_commands
+from orion.tui.completer import OFFICIAL_SLASH_COMMANDS, SlashCommandInfo, resolve_mentions
 from orion.tui.diff_viewer import FileDiff, diff_texts
 from orion.tui.status_bar import ReasoningEffort, SessionStatusBar
 from orion.tui.stream_renderer import StreamRenderer
@@ -92,6 +104,7 @@ logger = logging.getLogger(__name__)
 _MAX_MENTION_CHARS = 20_000
 _MUTATING_TOOLS = {"write_file", "edit_file", "notebook_edit"}
 _MEMORY_TOOLS = {"memorize", "deprecate_fact", "record_decision"}
+_PERSISTABLE_TOOLS = {"run_command", "write_file", "edit_file", "notebook_edit", "web_fetch"}
 _PROJECT_FILES = ("CLAUDE.md", "ORION.md")
 _MAX_PROJECT_CONTEXT_CHARS = 16_000
 PLAN_MODE_NOTE = "\nPlan mode is active: read only. Every mutation is denied. Finish with a plan for approval."
@@ -207,7 +220,16 @@ class AgentSession:
         self.workspace = (workspace or Path.cwd()).resolve()
         self.home = home or Path.home() / ".orion"
         self.session_id = str(uuid.uuid4())
-        self.config_path = self.home / "config.json"
+        self.config_path = user_settings_path(self.home)
+        self.project_trust = ProjectTrust(self.home)
+        self.plugins = discover_plugins(self.home)
+        self.settings = load_settings(
+            self.home,
+            self.workspace,
+            trust=self.project_trust,
+            extra_layers=[p.settings_layer() for p in self.plugins],
+        )
+        self.custom_commands = self._load_custom_commands()
         self.max_turns = max_turns
         self._provider_factory = provider_factory or self._default_provider
         self._ask_pep = ask_pep
@@ -249,10 +271,17 @@ class AgentSession:
         self.bus.subscribe(Observation)(self._on_observation)
 
         scope = WorkspaceScope([self.workspace])
+        self.audit = AuditLogger(self.home / "audit.log")
         self.pep = PolicyEnforcementPoint(
             scope=scope,
             action_confirm=self._confirm,
-            audit_logger=AuditLogger(self.home / "audit.log"),
+            audit_logger=self.audit,
+        )
+        self.hooks = HookRunner(
+            lambda: self.settings.effective.hooks,
+            cwd=self.workspace,
+            audit=self.audit,
+            session_id=lambda: self.session_id,
         )
         self.facts = self._open_facts()
         self.recall = recall or AutoRecall(
@@ -267,6 +296,7 @@ class AgentSession:
         self._pre_plan_mode = AgentMode.ACCEPT_EDITS
         self._turn_images: list[dict[str, str]] = []
         self.runtime = self._build_runtime(scope)
+        self.runtime.set_hooks(self.hooks)
         self.identity = self._open_identity()
         self.manifest = self._build_manifest()
         self.sessions = JsonlSessionStore(self.home / "sessions", self.workspace)
@@ -286,6 +316,7 @@ class AgentSession:
         status_bar.session_tokens_in = status_bar.session_tokens_out = 0
         status_bar.session_cost_usd = 0.0
         self.pep.attach_circuit_breaker(self.breaker)
+        self._apply_rules()
         self.online = bool(os.environ.get("OPENROUTER_API_KEY") or self.anthropic_key)
         status_bar.is_online = self.online
         self.selected_model: str | None = None
@@ -313,7 +344,11 @@ class AgentSession:
             from orion.skills.engine import SkillsEngine
             from orion.skills.loader import SkillsLoader
 
-            engine = SkillsEngine(SkillsLoader(workspace_dir=self.workspace, global_dir=self.home / "skills"))
+            engine = SkillsEngine(SkillsLoader(
+                    workspace_dir=self.workspace,
+                    global_dir=self.home / "skills",
+                    extra_dirs=[p.skills_dir for p in self.plugins],
+                ))
             engine.reload()
             return engine
         except Exception as exc:
@@ -392,29 +427,71 @@ class AgentSession:
     # ── Preferências persistidas ────────────────────────────────────
 
     def _load_settings(self) -> None:
-        try:
-            data = json.loads(self.config_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return
-        if isinstance(data.get("model"), str) and data["model"] in self.registry:
-            self.set_model(data["model"])
-        with contextlib.suppress(ValueError, KeyError):
-            self.status_bar.reasoning_effort = ReasoningEffort(data["effort"])
-        with contextlib.suppress(ValueError, KeyError):
-            self.mode = AgentMode(data["mode"])
-        with contextlib.suppress(ValueError, KeyError, TypeError):
-            self.budget.update_budget(float(data["daily_budget_usd"]))
+        eff = self.settings.effective
+        if eff.model and eff.model in self.registry:
+            self.set_model(eff.model)
+        if eff.effort:
+            with contextlib.suppress(ValueError):
+                self.status_bar.reasoning_effort = ReasoningEffort(eff.effort)
+        if eff.mode:
+            with contextlib.suppress(ValueError):
+                self.mode = AgentMode(eff.mode)
+        if eff.daily_budget_usd is not None:
+            with contextlib.suppress(ValueError, TypeError):
+                self.budget.update_budget(float(eff.daily_budget_usd))
 
     def save_settings(self) -> None:
-        """Grava as preferências em ~/.orion/config.json."""
-        self.config_path.parent.mkdir(parents=True, exist_ok=True)
-        data = {
-            "model": self.selected_model,
-            "effort": self.status_bar.reasoning_effort.value,
-            "mode": self.mode.value,
-            "daily_budget_usd": self.budget.daily_budget_usd,
-        }
-        self.config_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        """Grava as preferências na camada user (``~/.orion/settings.json``)."""
+        save_user_settings(
+            self.home,
+            {
+                "model": self.selected_model,
+                "effort": self.status_bar.reasoning_effort.value,
+                "mode": self.mode.value,
+                "daily_budget_usd": self.budget.daily_budget_usd,
+            },
+        )
+
+    def _load_custom_commands(self) -> list[CustomCommandSpec]:
+        reserved = {c.name for c in OFFICIAL_SLASH_COMMANDS}
+        return load_custom_commands(self.home, self.workspace, self.plugins, reserved)
+
+    def dynamic_slash_infos(self) -> list[SlashCommandInfo]:
+        """Metadados (completer e /help) dos comandos que não são nativos."""
+        return [
+            SlashCommandInfo(
+                spec.name,
+                f"{spec.description} {spec.argument_hint}".strip(),
+                icon="●",
+                category=spec.source,
+            )
+            for spec in self.custom_commands
+        ]
+
+    def _apply_rules(self) -> None:
+        """Entrega ao PEP as regras de permissão dos settings efetivos."""
+        perms = self.settings.effective.permissions
+        self.pep.set_rules(RuleSet.from_lists(allow=perms.allow, deny=perms.deny, ask=perms.ask))
+
+    def reload_settings(self) -> LoadedSettings:
+        """Relê as camadas (após confiar no projeto ou editar arquivos)."""
+        self.settings = load_settings(
+            self.home,
+            self.workspace,
+            trust=self.project_trust,
+            extra_layers=[p.settings_layer() for p in self.plugins],
+        )
+        self._apply_rules()
+        return self.settings
+
+    def trust_project(self) -> None:
+        """Registra a confiança no settings.json do projeto atual e o reaplica."""
+        digest = self.settings.project_digest
+        if digest:
+            self.project_trust.trust(self.workspace, digest)
+            self.reload_settings()
+            self._load_settings()
+            self.set_mode(self.mode)
 
     # ── Controles da sessão ─────────────────────────────────────────
 
@@ -423,6 +500,7 @@ class AgentSession:
         self.mode = mode
         autonomy, level = _MODE_RULES[mode]
         self.pep.set_mode(autonomy)
+        self.pep.set_read_only(mode == AgentMode.PLAN)
         self.status_bar.agent_mode = mode.value
         self.status_bar.pep_level = level
 
@@ -763,6 +841,31 @@ class AgentSession:
             key=event.action_id,
         )
 
+    # ── Hooks ───────────────────────────────────────────────────────
+
+    async def fire_hook(self, event: str, payload: dict[str, Any] | None = None) -> Any:
+        """Dispara hooks de *event*; falha de hook nunca derruba a sessão."""
+        try:
+            outcome = await self.hooks.run(event, payload)
+        except Exception:
+            logger.exception("AgentSession: falha ao executar hooks de %s", event)
+            return None
+        for warning in outcome.warnings:
+            self.renderer.warn(warning)
+        return outcome
+
+    def fire_hook_sync(self, event: str, payload: dict[str, Any] | None = None) -> None:
+        """Versão síncrona para o REPL (SessionStart/SessionEnd)."""
+        if self.hooks.has_hooks(event):
+            asyncio.run(self.fire_hook(event, payload))
+
+    def shutdown(self) -> None:
+        """Encerra a sessão: hook SessionEnd e fechamento do cliente MCP."""
+        self.fire_hook_sync("SessionEnd", {"reason": "exit"})
+        if self.mcp is not None:
+            with contextlib.suppress(Exception):
+                asyncio.run(asyncio.wait_for(self.mcp.close(), timeout=8.0))
+
     # ── Interação do agente com o Senhor (ask_user / plan mode) ─────
 
     async def _ask_user(
@@ -770,6 +873,7 @@ class AgentSession:
     ) -> list[str] | None:
         from orion.tui.modal import ask_user_choice
 
+        await self.fire_hook("Notification", {"message": question, "kind": "ask_user"})
         self.renderer.pause()
         try:
             return await ask_user_choice(self.console, question, options, multi)
@@ -785,6 +889,7 @@ class AgentSession:
         from orion.tui.modal import approve_plan
 
         target = self._pre_plan_mode if self._pre_plan_mode != AgentMode.PLAN else AgentMode.ACCEPT_EDITS
+        await self.fire_hook("Notification", {"message": "plano aguardando aprovação", "kind": "plan"})
         self.renderer.pause()
         try:
             approved = await approve_plan(self.console, plan, target.value)
@@ -802,15 +907,20 @@ class AgentSession:
                 "plan mode is read-only; this is not a user rejection. "
                 "Call exit_plan_mode with a plan to get approval before mutating."
             )
+        reason = self.pep.peek_escalation(action.event_id)  # sudo / fora do workspace
         key = (action.tool, str(action.params.get("command", action.params.get("path", ""))))
-        if key in self.always_allowed:
+        if not reason and key in self.always_allowed:
             return True
+        await self.fire_hook(
+            "Notification",
+            {"message": f"{action.tool} aguardando autorização", "kind": "permission"},
+        )
         asker = self._ask_pep
         if asker is None:
             from orion.tui.modal import ask_pep_decision
 
             async def asker(act: Action, lvl: ActionLevel) -> Any:
-                return await ask_pep_decision(self.console, act, lvl)
+                return await ask_pep_decision(self.console, act, lvl, reason)
 
         self.renderer.pause()
         try:
@@ -818,11 +928,30 @@ class AgentSession:
         finally:
             self.renderer.resume()
         if decision == "a":
-            self.always_allowed.add(key)
+            if not reason:  # escalada vale uma vez: "a" equivale a "y"
+                self._remember_allow(action, key)
             return True
         if isinstance(decision, dict):
             return decision
         return decision == "y"
+
+    def _remember_allow(self, action: Action, key: tuple[str, str]) -> None:
+        """"Sempre permitir": grava regra allow exata na camada local, se expressável."""
+        subject = key[1]
+        persistable = bool(subject) and not any(ch in subject for ch in "*?[")
+        if action.tool == "run_command" and is_complex_command(subject):
+            persistable = False
+        if persistable and action.tool in _PERSISTABLE_TOOLS:
+            try:
+                append_local_rule(
+                    self.workspace, "allow", rule_text_for(action.tool, dict(action.params))
+                )
+            except OSError as exc:
+                logger.warning("AgentSession: regra local não gravada: %s", exc)
+            else:
+                self.reload_settings()
+                return
+        self.always_allowed.add(key)  # só nesta sessão
 
     # ── Turnos ──────────────────────────────────────────────────────
 
@@ -853,6 +982,10 @@ class AgentSession:
     async def run_turn(self, text: str) -> str | None:
         """Executa um turno completo; erros operacionais viram mensagem, nunca traceback."""
         self._active_user_text = text
+        submit = await self.fire_hook("UserPromptSubmit", {"prompt": text})
+        if submit is not None and submit.blocked:
+            self.renderer.warn(f"Hook UserPromptSubmit bloqueou o pedido: {submit.message}")
+            return None
         self.refresh_mcp()
         content = self._with_mentions(text)
         if self._turn_images and self._resolve_model()[0].provider != ProviderName.ANTHROPIC:
@@ -875,10 +1008,12 @@ class AgentSession:
         )
         self.status_bar.is_busy = True
         await self._log_timeline("user", "user", text)
+        succeeded = False
         try:
             answer = await engine.run(
                 content, history=self.history, context=recalled, images=self._turn_images
             )
+            succeeded = True
         except asyncio.CancelledError:
             # A conversa permanece válida (tool_use pendentes foram fechados): preserva o contexto.
             self.history = engine.messages
@@ -902,6 +1037,7 @@ class AgentSession:
         finally:
             self.renderer.close()
             self.status_bar.is_busy = False
+            await self.fire_hook("Stop", {"success": succeeded})
 
         self.history = engine.messages
         self.branches.record_event(answer[:200], event_type="observation")
@@ -1064,6 +1200,7 @@ class AgentSession:
 
     async def _summarize(self, transcript: str, focus: str | None) -> str:
         """Resumo por um modelo barato (tier FAST); vazio quando offline (usa o determinístico)."""
+        await self.fire_hook("PreCompact", {"focus": focus or ""})
         if not self.online:
             return ""
         spec = self.registry.require(self.router.tier_model(ComplexityTier.FAST))

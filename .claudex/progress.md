@@ -187,7 +187,16 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
   - [x] **Startup:** stderr do MCP e logs da CLI redirecionados para `~/.orion/logs/`; tela limpa no boot e prompt ancorado no rodapé
   - [x] Testes: `test_tools_read_search`, `test_tools_web`, `test_tools_shell_flow`, `test_sprint4_integration`; cobertura global 94%; mypy 30 → 26 erros (backlog pré-existente, nenhum novo)
   - Pendente: executar o portão com chave real; colar imagem da área de transferência (adiado); modais verificados por teste de lógica, não em TTY interativo real
-- [ ] Sprint 5: Extensibilidade & MCP Completo
+- [ ] **Sprint 5: Extensibilidade & MCP Completo** — 🔄 **5A implementada (2026-11-08; commit local)**, 5B (MCP) pendente
+  - [x] 5A `settings/` (user < projeto < local; migração do `config.json`; escrita atômica 0600; confiança TOFU por hash em `~/.orion/trusted_projects.json`)
+  - [x] 5A regras `allow/ask/deny` no PEP (`governance/rules.py`; deny > ask > allow; allow não casa comando composto); "sempre permitir" persiste na camada local
+  - [x] 5A **sudo e fora do workspace viram pergunta** com motivo (uso único; sem humano = negado; nuclear e safe-holding seguem bloqueio duro); modo plano somente leitura no PEP
+  - [x] 5A auditoria: `decision_source`, negações completas, `pending` fechado, `action_id` do engine propagado (`CURRENT_ACTION_ID`)
+  - [x] 5A `hooks/` (8 eventos; exit 2 bloqueia; hook nunca aprova; auditados; saída neutralizada), comandos custom `.md`, `/skills`, plugin mínimo
+  - [x] 5A testes: `test_settings`, `test_permission_rules`, `test_hooks`, `test_custom_commands`; suíte inteira verde, cobertura 94%, mypy sem erros novos (26 de backlog)
+  - [x] ADR-023/024/025; `CLI_AGENT_RULES.md` seção 2
+  - [x] Segurança de teste: fixture autouse em `tests/conftest.py` impede abrir o desafio nuclear real (zenity/kdialog/tty) — um teste chegou a abrir um popup real durante o desenvolvimento
+  - [ ] 5B MCP: HTTP, OAuth, resources, prompts, `list_changed`, reconexão, `/mcp add|remove|auth`
 - [ ] Sprint 6: Subagents & Tasks
 - [ ] Sprint 7: Daemon, Jobs & Schedules
 - [ ] Sprint 8: Hardening & Release

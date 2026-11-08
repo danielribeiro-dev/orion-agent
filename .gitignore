@@ -66,6 +66,9 @@ runtime_data/
 *.log
 local_cache/
 
+# Camada local de settings do ORION (preferências e regras "sempre permitir" da máquina)
+.orion/settings.local.json
+
 # Token & API keys local overrides
 .env.local
 .env.*.local

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -82,7 +83,9 @@ class SkillsLoader:
         workspace_dir: Path | None = None,
         global_dir: Path | None = None,
         builtin_dir: Any = _UNSET,
+        extra_dirs: Sequence[Path] = (),
     ) -> None:
+        self.extra_dirs = tuple(extra_dirs)
         self.workspace_dir = (
             workspace_dir / ".orion" / "skills" if workspace_dir else None
         )
@@ -94,13 +97,18 @@ class SkillsLoader:
         Scan all skill locations and return a dictionary of discovered skills
         keyed by skill name.
 
-        Precedence (highest wins): Workspace > Global > Builtin.
+        Precedence (highest wins): Workspace > Global > Plugins > Builtin.
         """
         discovered: dict[str, SkillBundle] = {}
 
         # 1. Builtin (lowest precedence)
         if self.builtin_dir and self.builtin_dir.is_dir():
             self._scan_directory(self.builtin_dir, source="builtin", target=discovered)
+
+        # 1b. Plugins (above builtin, below the user's own skills)
+        for extra in self.extra_dirs:
+            if extra.is_dir():
+                self._scan_directory(extra, source="plugin", target=discovered)
 
         # 2. Global
         if self.global_dir and self.global_dir.is_dir():

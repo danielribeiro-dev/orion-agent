@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 from orion.core.errors import PromptInjectionSuspected, TurnBudgetExceeded
 from orion.core.event_bus import EventBus
 from orion.core.events import (
+    CURRENT_ACTION_ID,
     Action,
     ActionEmitted,
     FinalAnswer,
@@ -534,6 +535,7 @@ class ReActEngine:
                 success=True,
                 output=f"[stub] executed {action.tool} with params {action.params}",
             )
+        token = CURRENT_ACTION_ID.set(action.event_id)
         try:
             result = await self._runtime.execute(action.tool, dict(action.params))
         except asyncio.CancelledError:
@@ -546,6 +548,8 @@ class ReActEngine:
                 output=f"'{action.tool}' falhou: {exc}",
                 error=str(exc),
             )
+        finally:
+            CURRENT_ACTION_ID.reset(token)
         return Observation(
             action_id=action.event_id,
             success=result.success,

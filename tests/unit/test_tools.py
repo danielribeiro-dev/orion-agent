@@ -507,9 +507,11 @@ class TestLocalRuntimeProvider:
         assert "pep_test" in result.output
 
     @pytest.mark.asyncio
-    async def test_pep_denies_path_outside_workspace(
+    async def test_pep_denies_path_outside_workspace_without_human(
         self, fully_auto_provider: LocalRuntimeProvider
     ) -> None:
+        """Fora do workspace é escalada; sem humano para confirmar, é negada."""
+        fully_auto_provider.pep.set_interactive(False)
         result = await fully_auto_provider.execute(
             "write_file", {"path": "/etc/orion_test.conf", "content": "x"}
         )

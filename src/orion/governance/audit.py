@@ -57,6 +57,7 @@ class AuditLogger:
         level: int,
         user_authorized: bool,
         result_status: str,
+        decision_source: str | None = None,
     ) -> None:
         """Write a single audit record.
 
@@ -69,6 +70,8 @@ class AuditLogger:
             level           : ActionLevel integer value.
             user_authorized : Whether a human explicitly approved this action.
             result_status   : One of "pending", "success", "denied", "error".
+            decision_source : Who decided: "mode", "rule", "ledger", "user",
+                              "user_escalation" or "hook".
         """
         record = {
             "timestamp": datetime.now(UTC).isoformat(),
@@ -79,7 +82,32 @@ class AuditLogger:
             "user_authorized": user_authorized,
             "result_status": result_status,
         }
+        if decision_source:
+            record["decision_source"] = decision_source
         self._append(record)
+
+    def log_result(self, *, action_id: str, tool: str, status: str, detail: str = "") -> None:
+        """Close a "pending" record with the execution outcome (append-only)."""
+        record = {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "action_id": action_id,
+            "tool": tool,
+            "event": "result",
+            "result_status": status,
+        }
+        if detail:
+            record["detail"] = detail[:500]
+        self._append(record)
+
+    def log_event(self, *, kind: str, detail: dict[str, Any]) -> None:
+        """Record a non-action event (e.g. a hook execution)."""
+        self._append(
+            {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "event": kind,
+                "detail": _safe_json(detail),
+            }
+        )
 
     def log_denied(
         self,
@@ -89,6 +117,7 @@ class AuditLogger:
         params: dict[str, Any],
         level: int,
         reason: str,
+        decision_source: str | None = None,
     ) -> None:
         """Convenience helper for recording a PEP denial."""
         record = {
@@ -101,6 +130,8 @@ class AuditLogger:
             "result_status": "denied",
             "denial_reason": reason,
         }
+        if decision_source:
+            record["decision_source"] = decision_source
         self._append(record)
 
     # ------------------------------------------------------------------
