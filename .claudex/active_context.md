@@ -1,9 +1,9 @@
 # O.R.I.O.N — Active Context (Memória de Sessão de Desenvolvimento)
 
-> **Data de Atualização:** 07/11/2026  
+> **Data de Atualização:** 09/11/2026  
 > **Status Atual:** v0.4.0 implementada. v0.5.0 em execução: Sprints 0–5 concluídas; **Sprint 6 (Subagents & Tasks) implementada (6A + 6B)** (ADR-028 a 031, estudo em `sprint-6-study.md`). Visão ADR-027 (memória viva, protocolos = skills dinâmicas) documentada em `docs/planning/vision/`. Portão de dogfooding pendente; cobertura 94%.  
 > **Fase Ativa:** v0.5.0 "Claude-Grade Agent" — meta: programar com Claude rodando pelo ORION (`ANTHROPIC_API_KEY`), com tools, memória, MCPs, decisões, loops, schedules, subagents e jobs em segundo plano.  
-> **Branch Ativo:** `ccr-a47cd494-1hj1wu` (a partir de `feat/v0.5.0-sprint-6`)  
+> **Branch Ativo:** `feat/v0.5.0-sprint-6` (6A + 6B trazidos de `ccr-a47cd494-1hj1wu` por fast-forward; enviada ao remoto em 09/11/2026)  
 > **Regra Suprema:** Nenhuma linha de código em `src/` é escrita sem o comando explícito de início da Sprint correspondente (Doc-First).
 
 ---
@@ -21,8 +21,8 @@ Sem hooks, plugins, settings/regras, comandos custom, subagents, tasks, schedule
 Merge de `version/v0.4.0` em `main` e tags `v0.3.0`/`v0.4.0`.
 
 ## Próximo Passo (retomar aqui)
-**Sprint 6 concluída (6A + 6B)** em 09/11/2026: dois commits locais em `ccr-a47cd494-1hj1wu` (a partir de `feat/v0.5.0-sprint-6`), **não enviados/mergeados**. Entregue: subagents sob teto de privilégio no PEP e orçamento com reserva (6A); background em thread dedicada, `tasks.db`, `task_*`/`send_message`, notificação por evento entre turnos, worktree que falha fechado e `/loop` com triagem (6B). Detalhes e desvios: `progress.md` e `sprints/sprint-6.md` §8.1/§8.2. **Próximo: Sprint 7** (daemon systemd --user, IPC, scheduler durável/cron, jobs, notificações desktop/Telegram, idle = 0 tokens), com comando explícito do Senhor; ela reaproveita `TaskStorePort`/`NotifierPort`/`ExecutorPort` e o envelope `AgentEventEnvelope`.
-Pendências que dependem do Senhor: (1) push/merge de `feat/v0.5.0-sprint-5`, `feat/v0.5.0-sprint-6` e `gate/dogfooding-v0.5.0`; (2) validar em TTY real o modal de escalada, o pedido de confiança do projeto, `/mcp auth`, `/agents`, as linhas de progresso dos filhos, a toolbar `tasks N ● · M ✔` e `/tasks`/`/loop`; (3) rodada live no `explore` (`ORION_LIVE=1`, `ANTHROPIC_API_KEY`, teto no `BudgetGuard`).
+**Sprint 6 concluída (6A + 6B)** em 09/11/2026: dois commits locais em `feat/v0.5.0-sprint-6` (6A + 6B trazidos de `ccr-a47cd494-1hj1wu` por fast-forward; enviada ao remoto em 09/11/2026), **não enviados/mergeados**. Entregue: subagents sob teto de privilégio no PEP e orçamento com reserva (6A); background em thread dedicada, `tasks.db`, `task_*`/`send_message`, notificação por evento entre turnos, worktree que falha fechado e `/loop` com triagem (6B). Detalhes e desvios: `progress.md` e `sprints/sprint-6.md` §8.1/§8.2. **Próximo: Sprint 7** (daemon systemd --user, IPC, scheduler durável/cron, jobs, notificações desktop/Telegram, idle = 0 tokens), com comando explícito do Senhor; ela reaproveita `TaskStorePort`/`NotifierPort`/`ExecutorPort` e o envelope `AgentEventEnvelope`.
+Pendências que dependem do Senhor: (1) merge de `feat/v0.5.0-sprint-5`, `feat/v0.5.0-sprint-6` e `gate/dogfooding-v0.5.0` (a de sprint-6 já está no remoto); (2) validar em TTY real o modal de escalada, o pedido de confiança do projeto, `/mcp auth`, `/agents`, as linhas de progresso dos filhos, a toolbar `tasks N ● · M ✔` e `/tasks`/`/loop`; (3) rodada live no `explore` (`ORION_LIVE=1`, `ANTHROPIC_API_KEY`, teto no `BudgetGuard`).
 Notas de ambiente: `aiohttp` é importado por `gateway/providers/local_ollama.py` mas não está declarado no `pyproject.toml` (2 arquivos de teste não coletam sem ele); `test_vector_store` baixa o modelo ONNX (precisa de rede).
 
 Histórico anterior (gate de dogfooding):

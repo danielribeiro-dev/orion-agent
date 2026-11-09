@@ -221,6 +221,7 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
     - [x] Correções de base achadas no caminho: `ShellManager` com `log_path` único por instância; `JsonlSessionStore.append` com lock (filhos em background gravam de outra thread); **`WorkspaceScope` agora expande `~`** (antes `~/x` era tratado como subpasta literal do cwd e tools que expandem, como `notebook_edit`, escapavam do escopo)
     - [x] Testes (+137): `test_agent_executor`, `test_tasks`, `test_worktree` (git real; mutação confirmou que os testes quebram sem a ancoragem/confinação), `test_loop`, `test_background_session`, `test_agent_infra`; 1747 passam, cobertura 92%, ruff 73 (= baseline), mypy sem erros novos além do ruído `BaseModel: Any`
     - Pendente (exige o Senhor): TTY real (notificação entre turnos, toolbar, `/tasks`, `/loop`) e rodada live com `ORION_LIVE=1`; persistência durável de `/loop` e cron real ficam para a Sprint 7
+  - [x] **Gates zerados (2026-11-09)** — `1ae924f` (ruff 73 → 0; `StrEnum`, `per-file-ignores` de `SIM117`/`B017` em `tests/**`) e `3e9d210` (mypy strict 21 → 0); 1815 testes, cobertura 94,19%; branch enviada ao remoto
 - [ ] Sprint 7: Daemon, Jobs & Schedules
 - [ ] Sprint 8: Hardening & Release
 - [ ] Pendências herdadas da v0.4.0: tags `v0.3.0`/`v0.4.0` e merge em `main`; validar turno com provedor real; repetir A/B de MCP com modelo pago
