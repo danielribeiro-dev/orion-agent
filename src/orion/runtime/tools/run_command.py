@@ -18,6 +18,7 @@ Output:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from typing import Any
@@ -108,7 +109,7 @@ class RunCommandTool(BaseTool):
             )
 
             try:
-                raw, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+                raw, _stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
             except TimeoutError:
                 timed_out = True
                 _kill_process_group(proc)
@@ -156,10 +157,8 @@ def _kill_process_group(proc: asyncio.subprocess.Process) -> None:
         os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
     except (ProcessLookupError, PermissionError, OSError):
         # Process may have already exited
-        try:
+        with contextlib.suppress(Exception):
             proc.kill()
-        except Exception:
-            pass
 
 
 def _decode_output(raw: bytes) -> str:

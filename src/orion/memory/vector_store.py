@@ -75,7 +75,8 @@ def _cosine_similarity_batch(query: np.ndarray, matrix: np.ndarray) -> np.ndarra
     row_norms = np.linalg.norm(matrix, axis=1)
     # Avoid division by zero for zero-magnitude rows
     row_norms = np.where(row_norms == 0.0, 1.0, row_norms)
-    return (matrix @ query) / (row_norms * query_norm)
+    scores: np.ndarray = (matrix @ query) / (row_norms * query_norm)
+    return scores
 
 
 class VectorStore:
@@ -110,7 +111,7 @@ class VectorStore:
     def _get_model(self) -> Any:
         """Lazy-load the FastEmbed model on first use (downloads on first call)."""
         if self._model is None:
-            from fastembed import TextEmbedding  # type: ignore[import-untyped]
+            from fastembed import TextEmbedding
 
             self._model = TextEmbedding(model_name=_EMBED_MODEL)
         return self._model
@@ -237,7 +238,7 @@ class VectorStore:
             raise RuntimeError("VectorStore not initialized.")
 
         rows = await self._conn.execute_fetchall("SELECT COUNT(*) AS cnt FROM vector_embeddings")
-        return rows[0]["cnt"]  # type: ignore[index]
+        return int(rows[0]["cnt"])  # type: ignore[index]
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -257,8 +258,10 @@ class VectorStore:
         if self._conn is None:
             raise RuntimeError("VectorStore not initialized.")
 
-        rows = await self._conn.execute_fetchall(
-            "SELECT id, text, embedding, metadata_json, created_at, last_seen_at FROM vector_embeddings"
+        rows = list(
+            await self._conn.execute_fetchall(
+                "SELECT id, text, embedding, metadata_json, created_at, last_seen_at FROM vector_embeddings"
+            )
         )
         if not rows:
             return None

@@ -6,6 +6,7 @@ local (.orion/artifacts/) paths, keeps an in-memory registry per session.
 
 from __future__ import annotations
 
+import builtins
 import logging
 from pathlib import Path
 
@@ -84,13 +85,13 @@ class ArtifactStore:
         try:
             return self._registry[artifact_id]
         except KeyError:
-            raise ArtifactNotFoundError(artifact_id)
+            raise ArtifactNotFoundError(artifact_id) from None
 
     def list(self) -> list[Artifact]:
         """Return all artifacts registered in this session (newest first)."""
         return list(reversed(list(self._registry.values())))
 
-    def list_user_facing(self) -> list[Artifact]:
+    def list_user_facing(self) -> builtins.list[Artifact]:
         """Return only artifacts that should be surfaced in the CLI."""
         return [a for a in self.list() if a.metadata.user_facing]
 

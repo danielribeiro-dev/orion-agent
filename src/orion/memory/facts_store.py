@@ -287,15 +287,17 @@ class FactsStore:
         """Return the total number of facts stored."""
         self._ensure_open()
         assert self._conn is not None
-        return self._conn.execute("SELECT COUNT(*) FROM facts").fetchone()[0]
+        return int(self._conn.execute("SELECT COUNT(*) FROM facts").fetchone()[0])
 
     def count_confirmed(self) -> int:
         """Return the number of CONFIRMED facts."""
         self._ensure_open()
         assert self._conn is not None
-        return self._conn.execute(
-            "SELECT COUNT(*) FROM facts WHERE status = 'CONFIRMED'"
-        ).fetchone()[0]
+        return int(
+            self._conn.execute(
+                "SELECT COUNT(*) FROM facts WHERE status = 'CONFIRMED'"
+            ).fetchone()[0]
+        )
 
     # ------------------------------------------------------------------
     # Helpers

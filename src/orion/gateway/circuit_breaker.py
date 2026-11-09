@@ -44,7 +44,7 @@ import random
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from orion.gateway.models import ComplexityTier
 
@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     """Estados possíveis do Circuit Breaker.
 
     CLOSED        — Operação normal. Chamadas passam livremente.
@@ -85,7 +85,7 @@ class CircuitState(str, Enum):
 # ---------------------------------------------------------------------------
 
 
-class FailureReason(str, Enum):
+class FailureReason(StrEnum):
     """Causa raiz da transição para um estado de falha."""
 
     RATE_LIMIT = "rate_limit"        # HTTP 429
@@ -755,7 +755,7 @@ class CircuitBreaker:
         base = self._config.base_delay_s * (2**attempt)
         capped = min(base, self._config.max_delay_s)
         jitter = random.uniform(0, self._config.jitter_factor * capped)  # noqa: S311
-        return capped + jitter
+        return float(capped + jitter)
 
     def _seconds_until_retry(self) -> float:
         """Calcula quantos segundos faltam para a próxima tentativa."""

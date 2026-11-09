@@ -148,7 +148,7 @@ class TimelineManager:
             """,
             (session_id, ts, event_type, source, content, meta_json),
         ) as cursor:
-            row_id = cursor.lastrowid  # type: ignore[assignment]
+            row_id = cursor.lastrowid
 
         await self._conn.commit()
         await self.ensure_day_marker(event_date)
@@ -223,7 +223,7 @@ class TimelineManager:
             raise RuntimeError("TimelineManager not initialized.")
 
         row = await self._conn.execute_fetchall("SELECT COUNT(*) AS cnt FROM timeline_events")
-        return row[0]["cnt"]  # type: ignore[index]
+        return int(row[0]["cnt"])  # type: ignore[index]
 
     async def get_day_markers(self) -> list[DayMarkerRecord]:
         """Return all Day Markers in chronological order."""

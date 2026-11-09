@@ -526,7 +526,7 @@ class CostLedger:
             row = conn.execute(
                 "SELECT COALESCE(SUM(cost_usd), 0.0) AS total FROM token_ledger"
             ).fetchone()
-        return row["total"]
+        return float(row["total"])
 
     # ── Por agente / origem (Sprint 6) ───────────────────────────────────────
 

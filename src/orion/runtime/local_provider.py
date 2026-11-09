@@ -287,12 +287,12 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
         """Dispatch parameters to tool implementation supporting either run or execute."""
         if hasattr(impl, "run"):
             res = impl.run(**params)
-            return await res if asyncio.iscoroutine(res) else res
-        if hasattr(impl, "execute"):
+        elif hasattr(impl, "execute"):
             res = impl.execute(params)
-            return await res if asyncio.iscoroutine(res) else res
-        res = impl(**params)
-        return await res if asyncio.iscoroutine(res) else res
+        else:
+            res = impl(**params)
+        result: RuntimeResult = await res if asyncio.iscoroutine(res) else res
+        return result
 
     @property
     def pep(self) -> PolicyEnforcementPoint:

@@ -13,6 +13,7 @@ Dependência: ``httpx`` (já no pyproject.toml como dep de produção).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import time
@@ -180,10 +181,8 @@ class OpenRouterProvider(BaseLLMProvider):
             retry_after: float | None = None
             ra_header = response.headers.get("Retry-After")
             if ra_header is not None:
-                try:
+                with contextlib.suppress(ValueError):
                     retry_after = float(ra_header)
-                except ValueError:
-                    pass
             raise RateLimitError(
                 f"OpenRouter rate limit exceeded. Retry-After: {retry_after}s",
                 retry_after=retry_after,
@@ -272,7 +271,7 @@ class OpenRouterProvider(BaseLLMProvider):
 
     # ── stream() ──────────────────────────────────────────────────────────────
 
-    async def stream(self, request: LLMRequest) -> AsyncIterator[LLMResponseChunk]:  # type: ignore[override]
+    async def stream(self, request: LLMRequest) -> AsyncIterator[LLMResponseChunk]:
         """Streaming com retry/reconexão antes do primeiro chunk (``base.stream_with_retry``)."""
         async for chunk in stream_with_retry(
             lambda: self._stream_once(request), self._retry_policy(), "OpenRouter"
@@ -293,8 +292,10 @@ class OpenRouterProvider(BaseLLMProvider):
         assembler = ToolCallAssembler()
         flushed = False
         try:
-            async with httpx.AsyncClient(timeout=self._timeout_s) as client:
-                async with client.stream("POST", url, headers=headers, json=payload) as response:
+            async with httpx.AsyncClient(timeout=self._timeout_s) as client:  # noqa: SIM117
+                async with client.stream(
+                    "POST", url, headers=headers, json=payload
+                ) as response:
                     # Trata erros HTTP antes de iniciar o streaming
                     if response.status_code != 200:
                         await response.aread()  # consome o body para poder ler o texto
@@ -349,7 +350,7 @@ class OpenRouterProvider(BaseLLMProvider):
 
                         # Usage pode vir no chunk final
                         usage_dict = chunk_data.get("usage")
-                        usage = self._parse_usage(usage_dict) if (is_final and usage_dict) else None
+                        final_usage = self._parse_usage(usage_dict) if (is_final and usage_dict) else None
 
                         if is_final:
                             tool_blocks = assembler.finish()
@@ -360,7 +361,7 @@ class OpenRouterProvider(BaseLLMProvider):
                                 delta=text_delta,
                                 reasoning_delta=reasoning_delta,
                                 is_final=True,
-                                usage=usage,
+                                usage=final_usage,
                                 stop_reason=map_finish_reason(finish_reason, bool(tool_blocks)),
                             )
                         else:

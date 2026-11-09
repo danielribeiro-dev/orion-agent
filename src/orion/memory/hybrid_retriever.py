@@ -95,9 +95,9 @@ class HybridRetriever:
             record_map[key] = record
             rrf_scores[key] = rrf_scores.get(key, 0.0) + _rrf_score(rank, self._rrf_k)
 
-        for rank, record in enumerate(semantic_results):
-            key = f"vs_{record.id}"
-            record_map[key] = record
+        for rank, vec_record in enumerate(semantic_results):
+            key = f"vs_{vec_record.id}"
+            record_map[key] = vec_record
             rrf_scores[key] = rrf_scores.get(key, 0.0) + _rrf_score(rank, self._rrf_k)
 
         # Sort by descending RRF score
@@ -110,15 +110,15 @@ class HybridRetriever:
         truncated = False
 
         for key in sorted_keys:
-            record = record_map[key]
-            content = record.content if isinstance(record, TimelineRecord) else record.text
+            picked = record_map[key]
+            content = picked.content if isinstance(picked, TimelineRecord) else picked.text
             tokens = _estimate_tokens(content)
 
             if total_tokens + tokens > budget:
                 truncated = True
                 break
 
-            selected_records.append(record)
+            selected_records.append(picked)
             selected_keys.append(key)
             total_tokens += tokens
 

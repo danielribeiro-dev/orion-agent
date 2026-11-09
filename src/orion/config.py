@@ -5,7 +5,7 @@ Pydantic v2 typed configuration contracts for runtime, providers and paths.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated
 
@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 # ---------------------------------------------------------------------------
 
 
-class RoutingMode(str, Enum):
+class RoutingMode(StrEnum):
     """Controls how the Model Gateway selects LLM providers per turn.
 
     AUTO  — Dynamic routing: ORION autonomously switches between heavy-reasoning
@@ -29,7 +29,7 @@ class RoutingMode(str, Enum):
     FIXED = "fixed"
 
 
-class AutonomyLevel(str, Enum):
+class AutonomyLevel(StrEnum):
     """Maps to PEP governance levels.
 
     SUPERVISED — Requires explicit [Y/n] confirmation for every mutating action.
@@ -43,7 +43,7 @@ class AutonomyLevel(str, Enum):
     AUTONOMOUS = "autonomous"
 
 
-class ProviderName(str, Enum):
+class ProviderName(StrEnum):
     """Supported LLM providers."""
 
     OPENROUTER = "openrouter"
@@ -122,7 +122,7 @@ class PathsConfig(BaseModel):
             return Path(v).expanduser()
         if isinstance(v, Path):
             return v.expanduser()
-        return Path(str(v)).expanduser()  # type: ignore[arg-type]
+        return Path(str(v)).expanduser()
 
 
 # ---------------------------------------------------------------------------

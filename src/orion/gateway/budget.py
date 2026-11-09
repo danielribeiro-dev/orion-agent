@@ -241,7 +241,7 @@ class BudgetGuard:
                     threshold_pct=self.warning_threshold_pct,
                 )
                 if self.on_warning and callable(self.on_warning):
-                    self.on_warning(event)  # type: ignore[operator]
+                    self.on_warning(event)
 
         return bs
 
