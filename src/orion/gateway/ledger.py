@@ -50,6 +50,10 @@ class CostRecord(BaseModel):
     cost_brl: float = Field(ge=0.0, description="Custo total convertido em BRL")
     task_id: str | None = Field(default=None, description="ID externo do turno/task")
     latency_ms: float = Field(default=0.0, ge=0.0, description="Latência da chamada em ms")
+    origin: str = Field(
+        default="user", description="Quem originou: user | subagent | loop | cron | daemon"
+    )
+    agent_id: str | None = Field(default=None, description="Subagent que gastou (None = principal)")
 
 
 class DailySummary(BaseModel):
@@ -180,7 +184,9 @@ CREATE TABLE IF NOT EXISTS token_ledger (
     cost_usd         REAL    NOT NULL DEFAULT 0.0,
     cost_brl         REAL    NOT NULL DEFAULT 0.0,
     task_id          TEXT,
-    latency_ms       REAL    NOT NULL DEFAULT 0.0
+    latency_ms       REAL    NOT NULL DEFAULT 0.0,
+    origin           TEXT    NOT NULL DEFAULT 'user',
+    agent_id         TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_ledger_timestamp ON token_ledger(timestamp);
 CREATE INDEX IF NOT EXISTS idx_ledger_model     ON token_ledger(model);
@@ -248,6 +254,16 @@ class CostLedger:
                         "ALTER TABLE token_ledger ADD COLUMN "
                         "cache_write_tokens INTEGER NOT NULL DEFAULT 0"
                     )
+                # Migração v0.5.0 Sprint 6: quem gastou (origem e subagent). Idempotente.
+                if "origin" not in cols:
+                    conn.execute(
+                        "ALTER TABLE token_ledger ADD COLUMN origin TEXT NOT NULL DEFAULT 'user'"
+                    )
+                if "agent_id" not in cols:
+                    conn.execute("ALTER TABLE token_ledger ADD COLUMN agent_id TEXT")
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_ledger_agent ON token_ledger(agent_id)"
+                )
                 conn.commit()
             finally:
                 conn.close()
@@ -293,6 +309,8 @@ class CostLedger:
         complexity: ComplexityTier | str = ComplexityTier.BALANCED,
         task_id: str | None = None,
         latency_ms: float = 0.0,
+        origin: str = "user",
+        agent_id: str | None = None,
     ) -> CostRecord:
         """Grava uma linha atômica no livro-razão e retorna o registro criado.
 
@@ -307,6 +325,8 @@ class CostLedger:
             complexity: Tier de complexidade do turno.
             task_id: Identificador externo do turno/task (opcional).
             latency_ms: Latência da chamada em milissegundos.
+            origin: Quem originou o gasto (user, subagent, loop, cron, daemon).
+            agent_id: Subagent que gastou (None para o agente principal).
 
         Returns:
             CostRecord com os dados gravados.
@@ -328,6 +348,8 @@ class CostLedger:
             cost_brl=cost_brl,
             task_id=task_id,
             latency_ms=latency_ms,
+            origin=origin,
+            agent_id=agent_id,
         )
         self._insert(record)
         return record
@@ -341,6 +363,8 @@ class CostLedger:
         complexity: ComplexityTier | str = ComplexityTier.BALANCED,
         task_id: str | None = None,
         latency_ms: float = 0.0,
+        origin: str = "user",
+        agent_id: str | None = None,
     ) -> CostRecord:
         """Versão assíncrona de record_turn_cost (executa em thread pool)."""
         loop = asyncio.get_event_loop()
@@ -354,6 +378,8 @@ class CostLedger:
                 complexity=complexity,
                 task_id=task_id,
                 latency_ms=latency_ms,
+                origin=origin,
+                agent_id=agent_id,
             ),
         )
 
@@ -365,11 +391,11 @@ class CostLedger:
                 INSERT INTO token_ledger (
                     id, timestamp, provider, model, routing_mode, complexity_level,
                     prompt_tokens, completion_tokens, cached_tokens, cache_write_tokens,
-                    cost_usd, cost_brl, task_id, latency_ms
+                    cost_usd, cost_brl, task_id, latency_ms, origin, agent_id
                 ) VALUES (
                     :id, :timestamp, :provider, :model, :routing_mode, :complexity_level,
                     :prompt_tokens, :completion_tokens, :cached_tokens, :cache_write_tokens,
-                    :cost_usd, :cost_brl, :task_id, :latency_ms
+                    :cost_usd, :cost_brl, :task_id, :latency_ms, :origin, :agent_id
                 )
                 """,
                 {
@@ -387,6 +413,8 @@ class CostLedger:
                     "cost_brl": record.cost_brl,
                     "task_id": record.task_id,
                     "latency_ms": record.latency_ms,
+                    "origin": record.origin,
+                    "agent_id": record.agent_id,
                 },
             )
 
@@ -486,6 +514,8 @@ class CostLedger:
                 cost_brl=row["cost_brl"],
                 task_id=row["task_id"],
                 latency_ms=row["latency_ms"],
+                origin=row["origin"],
+                agent_id=row["agent_id"],
             )
             for row in rows
         ]
@@ -497,3 +527,44 @@ class CostLedger:
                 "SELECT COALESCE(SUM(cost_usd), 0.0) AS total FROM token_ledger"
             ).fetchone()
         return row["total"]
+
+    # ── Por agente / origem (Sprint 6) ───────────────────────────────────────
+
+    def spent_by_agent(self, agent_id: str) -> float:
+        """Custo total, em USD, gasto por um subagent."""
+        with self._connection() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(SUM(cost_usd), 0.0) AS total FROM token_ledger WHERE agent_id = ?",
+                (agent_id,),
+            ).fetchone()
+        return float(row["total"])
+
+    def spent_by_origin(self, day: date_type | None = None) -> dict[str, float]:
+        """Custo do dia (padrão: hoje) agrupado por origem (user, subagent, loop...)."""
+        prefix = (day or datetime.now(UTC).date()).isoformat()
+        with self._connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT origin, COALESCE(SUM(cost_usd), 0.0) AS total
+                FROM token_ledger
+                WHERE substr(timestamp, 1, 10) = ?
+                GROUP BY origin
+                """,
+                (prefix,),
+            ).fetchall()
+        return {str(r["origin"]): float(r["total"]) for r in rows}
+
+    def spent_by_agents(self, day: date_type | None = None) -> dict[str, float]:
+        """Custo do dia por ``agent_id`` (somente linhas de subagents)."""
+        prefix = (day or datetime.now(UTC).date()).isoformat()
+        with self._connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT agent_id, COALESCE(SUM(cost_usd), 0.0) AS total
+                FROM token_ledger
+                WHERE substr(timestamp, 1, 10) = ? AND agent_id IS NOT NULL
+                GROUP BY agent_id
+                """,
+                (prefix,),
+            ).fetchall()
+        return {str(r["agent_id"]): float(r["total"]) for r in rows}

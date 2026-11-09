@@ -12,7 +12,7 @@ from collections.abc import Iterable
 
 from orion.tui.commands.base import BaseSlashCommand, CommandContext, CommandResult
 
-_MODULES = ("cognitive", "memory", "context", "operation", "mcp", "session", "extend")
+_MODULES = ("cognitive", "memory", "context", "operation", "mcp", "session", "extend", "agents")
 
 
 def _concrete_subclasses(root: type[BaseSlashCommand]) -> list[type[BaseSlashCommand]]:

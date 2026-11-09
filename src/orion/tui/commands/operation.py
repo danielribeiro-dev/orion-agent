@@ -126,6 +126,8 @@ class CostCommand(BaseSlashCommand):
                 session.cost_out,
                 session.cost_total,
                 session.status_bar.format_cost_brl(),
+                agents_tokens=session.agent_usage.prompt_tokens + session.agent_usage.completion_tokens,
+                agents_cost=session.agent_usage.cost_usd,
             )
         )
         return CommandResult(success=True)

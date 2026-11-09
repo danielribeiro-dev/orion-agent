@@ -403,6 +403,14 @@ class ModelSpec(BaseModel):
         default=None,
         description="Slug equivalente no OpenRouter (failover do mesmo modelo, sem downgrade)",
     )
+    supports_prompt_cache: bool = Field(
+        default=False,
+        description="O provedor aplica cache de prefixo do prompt (ADR-031: capability flag)",
+    )
+    supports_tool_use: bool = Field(
+        default=True,
+        description="Aceita tool use estruturado; sem isso o modelo não serve a subagents",
+    )
     cache_read_cost_m: float | None = Field(
         default=None,
         ge=0.0,

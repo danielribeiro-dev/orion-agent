@@ -1,9 +1,9 @@
 # Sprint — v0.5.0 Sprint 6: Subagents & Tasks
 
-> **Status:** 📋 Spec congelada para execução (2026-11-08) · 6A e 6B ainda não iniciadas  
+> **Status:** 🟡 6A implementada (2026-11-09) · 6B pendente  
 > **Versão Relacionada:** v0.5.0  
 > **Responsável / Agente:** Daniel Dev & Claude (via ORION / Claude Code)  
-> **Data de Início:** —  
+> **Data de Início:** 2026-11-09  
 > **Data de Conclusão:** —  
 > **Estudo de base:** [`../sprint-6-study.md`](../sprint-6-study.md)
 
@@ -66,18 +66,18 @@
 ## 4. Escopo da Sprint
 
 ### ✅ No Escopo — Commit 6A (núcleo foreground)
-- [ ] `agents/definitions.py`: `AgentDefinition` versionado; carregamento de `.md` com frontmatter de `.orion/agents/`, `~/.orion/agents/` e `agents_dir` de plugin (precedência projeto > usuário > plugin, como os comandos custom). Agente de projeto **não confiável** só pode **restringir** (padrão `restricted()` do TOFU, ADR-023). Leitor também aceita `.claude/agents/*.md` (campos desconhecidos ignorados com aviso).
-- [ ] Tipos embutidos: `explore` (read-only, tier fast), `plan` (read-only), `general-purpose`, `code-review`.
-- [ ] `agents/runner.py`: engine isolado por filho (bus, `session_id`, transcript em arquivo próprio, `AutoCompactor`, PEP e `HookRunner` próprios); system mínimo (regras base + prompt do agente); sem identidade, manifest, memória, skills ou MCP por padrão.
-- [ ] `make_llm(tier, on_usage)` extraído de `AgentSession._llm`, **sem tocar** em breaker, renderer, status bar nem contadores da sessão.
-- [ ] **Teto de privilégio no PEP** (`ceiling`/`parent_pep`): modo do filho `min(pai, filho)`; `deny` e `ask` do pai unidos; `allow` não herdado; `interactive=False` passa a negar **todo** `ask`; filho nunca grava regra (`append_local_rule`) nem usa trust ledger; wrapper de runtime filtra `tool_specs/supports/execute` (interseção).
-- [ ] Filho **nunca** recebe `task`, `ask_user`, `enter/exit_plan_mode`, `record_decision`, `memorize`, `deprecate_fact` (profundidade 1; configurável com teto).
-- [ ] Tool `task` (`runtime/tools/task.py`) com nível PEP definido (≤ 1, paralela) e parâmetros `agent`, `goal`, `context`, `output_schema?`, `tasks?` (lote).
-- [ ] Orçamento: `AgentBudget` + `AggregateBudget`, reserva antecipada (estimativa por `max_tokens` × preço do `CostCalculator`); estouro devolve parcial marcado e retomável.
-- [ ] Ledger: colunas `origin` e `agent_id` (migração `ALTER`, padrão de `cache_write_tokens`), soma por agente; auditoria com `agent_id`; eventos `SubagentStarted/Completed`; hooks `SubagentStart/SubagentStop` (só bloqueiam, ADR-024).
-- [ ] Router: `models.tiers` (lista ordenada de candidatos por tier) e *capability flags* (ADR-031).
-- [ ] TUI: `/agents` (módulo novo em `_MODULES`, `OFFICIAL_SLASH_COMMANDS` e teste de contagem); progresso compacto por filho (uma linha, sem `Live` próprio); custo dos filhos em `/cost` e na status bar; `/review` reescrito sobre o agente `code-review`.
-- [ ] Mutações de filhos entram no `ChangeTracker` (`/undo`, `/rewind`) com `agent_id`.
+- [x] `agents/definitions.py`: `AgentDefinition` versionado; carregamento de `.md` com frontmatter de `.orion/agents/`, `~/.orion/agents/` e `agents_dir` de plugin (precedência projeto > usuário > plugin, como os comandos custom). Agente de projeto **não confiável** só pode **restringir** (padrão `restricted()` do TOFU, ADR-023). Leitor também aceita `.claude/agents/*.md` (campos desconhecidos ignorados com aviso).
+- [x] Tipos embutidos: `explore` (read-only, tier fast), `plan` (read-only), `general-purpose`, `code-review`.
+- [x] `agents/runner.py`: engine isolado por filho (bus, `session_id`, transcript em arquivo próprio, `AutoCompactor`, PEP e `HookRunner` próprios); system mínimo (regras base + prompt do agente); sem identidade, manifest, memória, skills ou MCP por padrão.
+- [x] `make_llm(tier, on_usage)` extraído de `AgentSession._llm`, **sem tocar** em breaker, renderer, status bar nem contadores da sessão.
+- [x] **Teto de privilégio no PEP** (`ceiling`/`parent_pep`): modo do filho `min(pai, filho)`; `deny` e `ask` do pai unidos; `allow` não herdado; `interactive=False` passa a negar **todo** `ask`; filho nunca grava regra (`append_local_rule`) nem usa trust ledger; wrapper de runtime filtra `tool_specs/supports/execute` (interseção).
+- [x] Filho **nunca** recebe `task`, `ask_user`, `enter/exit_plan_mode`, `record_decision`, `memorize`, `deprecate_fact` (profundidade 1; configurável com teto).
+- [x] Tool `task` (`runtime/tools/task.py`) com nível PEP definido (≤ 1, paralela) e parâmetros `agent`, `goal`, `context`, `output_schema?`, `tasks?` (lote).
+- [x] Orçamento: `AgentBudget` + `AggregateBudget`, reserva antecipada (estimativa por `max_tokens` × preço do `CostCalculator`); estouro devolve parcial marcado e retomável.
+- [x] Ledger: colunas `origin` e `agent_id` (migração `ALTER`, padrão de `cache_write_tokens`), soma por agente; auditoria com `agent_id`; eventos `SubagentStarted/Completed`; hooks `SubagentStart/SubagentStop` (só bloqueiam, ADR-024).
+- [x] Router: `models.tiers` (lista ordenada de candidatos por tier) e *capability flags* (ADR-031).
+- [x] TUI: `/agents` (módulo novo em `_MODULES`, `OFFICIAL_SLASH_COMMANDS` e teste de contagem); progresso compacto por filho (uma linha, sem `Live` próprio); custo dos filhos em `/cost` e na status bar; `/review` reescrito sobre o agente `code-review`.
+- [x] Mutações de filhos entram no `ChangeTracker` (`/undo`, `/rewind`) com `agent_id`.
 
 ### ✅ No Escopo — Commit 6B (background, tasks, worktree, loop)
 - [ ] `agents/loop_thread.py` + `ExecutorPort`: loop persistente em thread, `copy_context` ao despachar, fila thread-safe de notificações drenada antes de cada prompt e na toolbar.
@@ -257,6 +257,21 @@ Todos com `ScriptedLLM`/`ScriptedProvider` (custo zero; nenhuma chamada paga em 
 
 - [ ] `ruff` e `mypy` sem erros novos nos arquivos tocados (backlog pré-existente: 26 mypy); cobertura global ≥ 85%; `tests/e2e/test_security_audit.py` verde; `.claudex/progress.md`, `active_context.md` e `VERSION.md` atualizados.
 - [ ] Validação manual em TTY real (modal, `/agents`, `/tasks`, notificação) e, só com `ORION_LIVE=1` e teto no `BudgetGuard`, uma rodada live no `explore`.
+
+---
+
+## 8.1 Registro de implementação da 6A (2026-11-09)
+
+Desvios e decisões tomadas na execução (a spec congelada continua válida):
+
+* **Porta extra:** `ModelGatewayPort` (resolve tier→modelo e entrega o `llm` isolado) completa as 6 portas da spec; `LLMPort` usa a assinatura real do engine (`system: str`), não `list[SystemBlock]`.
+* **`make_llm`:** em vez de um método da sessão, o código comum virou `gateway/agent_gateway.py` (`build_llm_request`, `consume_stream`, `AgentGateway`); `AgentSession._llm` passou a usá-lo (comportamento idêntico, coberto por `test_agent_session`).
+* **Nuclear sem humano:** com `interactive=False` o desafio do SO **não abre**; o comando nuclear é negado (consistente com "sem humano = nega" e com o critério de parada 3).
+* **`task` é LEVEL_1:** delegar não muda nada; o risco real é decidido a cada tool do filho sob o teto do pai.
+* **Reserva = pior caso:** prompt estimado + `max_tokens` (8192 por chamada de filho). Com tarifa alta e orçamento baixo, a reserva pode impedir uma chamada que custaria menos; é a troca deliberada por teto verificável.
+* **Mutante exige tier ≥ balanced:** agente com tools mutantes e `model_tier: fast` falha explicando (não sobe de tier em silêncio).
+* **`/review`:** o diff vai como `context` do subagent `code-review` (somente leitura); o resumo entra no histórico do pai com a `ref://`.
+* **Fora desta etapa, na 6B:** `ThreadExecutor`, `tasks.db`, `/tasks`, `/loop`, worktree (`isolation: worktree` já **falha fechado** na 6A), `send_message` e `Ctrl+C` ≠ tasks.
 
 ---
 

@@ -56,7 +56,7 @@ A v0.4.0 entregou TUI, PEP, memória e MCP, mas **nunca validou um turno com pro
 | **Sprint 3** | Contexto, Sessões & Memória | Auto-compactação, resume/rewind, wiring de memória/skills, decision log | [`sprint-3.md`](sprints/sprint-3.md) | ✅ Implementada |
 | **Sprint 4** | Paridade de Ferramentas | Web, glob/grep, todo, ask_user, plan mode, bash em background; **portão de dogfooding** | [`sprint-4.md`](sprints/sprint-4.md) | ✅ Implementada (portão pendente) |
 | **Sprint 5** | Extensibilidade & MCP Completo | Settings, regras, hooks, comandos custom, MCP HTTP/OAuth/resources/prompts | [`sprint-5.md`](sprints/sprint-5.md) | ✅ Implementada |
-| **Sprint 6** | Subagents & Tasks | 6A: runner, tool `task`, teto de privilégio, orçamento por agente, `/agents`; 6B: background, `/tasks`, worktree, `/loop` (ADR-028 a 031; [estudo](sprint-6-study.md)) | [`sprint-6.md`](sprints/sprint-6.md) | 📋 Spec congelada |
+| **Sprint 6** | Subagents & Tasks | 6A: runner, tool `task`, teto de privilégio, orçamento por agente, `/agents`; 6B: background, `/tasks`, worktree, `/loop` (ADR-028 a 031; [estudo](sprint-6-study.md)) | [`sprint-6.md`](sprints/sprint-6.md) | 🟡 6A ✅ implementada · 6B pendente |
 | **Sprint 7** | Daemon, Jobs & Schedules | systemd --user, IPC, scheduler, jobs, notificações, idle = 0 tokens | [`sprint-7.md`](sprints/sprint-7.md) | 📋 Planejando |
 | **Sprint 8** | Hardening & Release | Paridade, evals, segurança, doctor, tag `v0.5.0` | [`sprint-8.md`](sprints/sprint-8.md) | 📋 Planejando |
 

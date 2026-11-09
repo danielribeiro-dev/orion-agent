@@ -11,7 +11,13 @@ from typing import Any
 from pydantic import ValidationError
 
 from orion.settings.io import read_json_object, write_private_json
-from orion.settings.models import HookSpec, Permissions, Settings
+from orion.settings.models import (
+    AgentsSettings,
+    HookSpec,
+    ModelsSettings,
+    Permissions,
+    Settings,
+)
 from orion.settings.trust import ProjectTrust, digest_of
 
 logger = logging.getLogger(__name__)
@@ -111,8 +117,20 @@ def merge(layers: list[Settings]) -> Settings:
             hooks=hooks,
             mcp={**result.mcp, **layer.mcp},
             env={**result.env, **layer.env},
+            agents=_merge_agents(result.agents, layer.agents),
+            models=ModelsSettings(
+                tiers={**result.models.tiers, **layer.models.tiers},
+                profiles={**result.models.profiles, **layer.models.profiles},
+            ),
         )
     return result
+
+
+def _merge_agents(base: AgentsSettings, top: AgentsSettings) -> AgentsSettings:
+    """Escalares da camada mais alta sobrescrevem; campos não definidos herdam."""
+    merged = base.model_dump()
+    merged.update({k: v for k, v in top.model_dump().items() if v is not None})
+    return AgentsSettings(**merged)
 
 
 def _read_user_layer(home: Path, notices: list[str]) -> Settings:

@@ -61,6 +61,9 @@ TOOL_LEVELS: dict[str, ActionLevel] = {
     "ask_user": ActionLevel.LEVEL_0,
     "enter_plan_mode": ActionLevel.LEVEL_0,
     "exit_plan_mode": ActionLevel.LEVEL_0,
+    # Subagents (v0.5.0 Sprint 6): delegar não muda nada por si só. O filho roda com PEP próprio
+    # sob o teto do pai (ADR-028), então o risco real é decidido a cada tool que ele chamar.
+    "task": ActionLevel.LEVEL_1,
 }
 
 #: Tools que abrem modal no terminal: nunca rodam em paralelo com outras.

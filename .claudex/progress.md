@@ -5,7 +5,7 @@
 - **Repositório:** `orion-agent`
 - **Fase Atual:** Fase 5 (v0.5.0 Claude-Grade Agent) **EM ANDAMENTO** 🟡 (Sprint 0 concluída; v0.4.0 implementada, tags/merge pendentes)
 - **Linhas de Código em `src/`:** ~16.300 linhas de produção
-- **Testes:** 1119/1119 passando, cobertura global 93,70% (medido em 06/11/2026) ✅
+- **Testes:** 1670 passando, cobertura global 92% (medido em 09/11/2026 após a 6A; excluídos `test_vector_store` — baixa o modelo ONNX, sem rede aqui — e os 2 arquivos que importam `aiohttp`, dependência não declarada no `pyproject.toml`) ✅
 
 ---
 
@@ -200,7 +200,17 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
   - [x] 5B testes: `test_mcp_http_oauth` com servidor MCP real em subprocesso (`tests/fixtures/mcp_http_server.py`, inclui OAuth/PKCE); suíte inteira verde, cobertura 93,7%, mypy sem erros novos (26 de backlog)
   - [x] ADR-026; `docs/architecture/MCP_AND_CHANNELS.md` §1.1; `mcp>=2.3` + `httpx2` no `pyproject.toml` e `uv.lock` atualizado offline
 - [ ] Sprint 6: Subagents & Tasks — **spec detalhada congelada (08/11/2026)**: 6A (núcleo foreground) e 6B (background/tasks/worktree/loop); ADR-028 a 031; estudo comparativo em `docs/planning/versions/v0.5.0/sprint-6-study.md`
-  - [ ] 6A
+  - [x] **6A ✅ IMPLEMENTADA (2026-11-09; commit local, sem push)** — núcleo foreground, seguro e medido
+    - [x] `agents/`: `definitions.py` (4 embutidos `explore|plan|general-purpose|code-review`; `.md` com frontmatter em `.orion/agents`, `~/.orion/agents`, plugin e `.claude/agents` com campos de privilégio descartados; TOFU por hash do conjunto — agente de projeto sem confiança só lê), `runner.py`, `budget.py`, `ports.py` (6 portas + `ModelGatewayPort`), `refs.py`, `models.py`
+    - [x] **Teto no PEP** (`PolicyEnforcementPoint.for_subagent`): `min(modo)` vivo, `deny`/`ask` do pai unidos (vivos), `allow` e trust ledger nunca herdados, plan mode e safe-holding do pai herdados, `cwd` confinado ao escopo; **`interactive=False` nega todo `ask` e o desafio nuclear** (nunca abre o prompt do SO); filho nunca é interativo nem grava regra
+    - [x] `AgentRunner`: engine/bus/transcript/`AutoCompactor`/`HookRunner`/PEP por filho; system mínimo; tools = interseção com o pai (+ `FORBIDDEN_FOR_CHILD`, `disallowed_tools`); profundidade 1 (`max_depth` configurável, neto nunca excede o filho); isolamento pedido sem `WorkspacePort` **falha fechado**; resultado completo em `~/.orion/agents/<id>/` e `ref://` legível por `read_file`; `output_schema` validado; retomada de parcial reutiliza o modelo gravado
+    - [x] Orçamento: `AgentBudget` → `AggregateBudget` → teto diário com **reserva antecipada** (pior caso = prompt + `max_tokens`); estouro/turnos/tempo/diário devolvem `partial_*` retomável; `ConcurrencyGate` (`max_concurrent`) vale no código
+    - [x] Tool `task` (LEVEL_1, paralela, lote `tasks`); `SubagentStarted/Completed`, hooks `SubagentStart/SubagentStop` (só bloqueiam), `agent_id` na auditoria e nos eventos
+    - [x] Gateway: `gateway/agent_gateway.py` (`build_llm_request`/`consume_stream` agora também usados por `AgentSession._llm`; `AgentGateway` sem tocar breaker/renderer/status bar/contadores; provider de filho com **breaker próprio** e sem downgrade); router com `models.tiers` (lista ordenada) e `resolve_for_agent` (sem downgrade silencioso: mutante exige tier ≥ balanced; só leitura pode cair para o local); `ModelSpec.supports_prompt_cache/supports_tool_use`
+    - [x] Ledger: colunas `origin` e `agent_id` (migração `ALTER` idempotente), `spent_by_agent/origin/agents`; settings `agents.*` e `models.{tiers,profiles}` (camada de projeto só vale confiada)
+    - [x] TUI: `/agents [list|show|runs|trust]` (catálogo 26 → 27), `/review` reescrito sobre `code-review` (diff vai como contexto do filho), `/cost` e status bar somam filhos, linha compacta por filho (sem `Live`), `ChangeTracker`/`/undo`/`/rewind` com `agent_id`
+    - [x] Testes (+185): `test_agent_definitions`, `test_agent_privilege` (inclui propriedade "filho nunca excede o pai" em 3 modos × plan × 10 ações), `test_agent_budget`, `test_subagents`, `test_subagents_session`, `test_agent_gateway`, `test_agent_settings`; 1670 passam, cobertura 92% (sem `test_vector_store`/`aiohttp`, ver nota), ruff 73 (= baseline), mypy sem erros novos além do ruído de ambiente `BaseModel: Any`
+    - Pendente (exige o Senhor): validação manual em TTY real (`/agents`, linhas de progresso) e rodada live no `explore` com `ORION_LIVE=1` + teto no `BudgetGuard`
   - [ ] 6B
 - [ ] Sprint 7: Daemon, Jobs & Schedules
 - [ ] Sprint 8: Hardening & Release

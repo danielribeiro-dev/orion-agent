@@ -11,13 +11,24 @@ from orion.settings.loader import (
     save_user_settings,
     user_settings_path,
 )
-from orion.settings.models import HOOK_EVENTS, HookSpec, Permissions, Settings
+from orion.settings.models import (
+    HOOK_EVENTS,
+    AgentsSettings,
+    HookSpec,
+    ModelProfile,
+    ModelsSettings,
+    Permissions,
+    Settings,
+)
 from orion.settings.trust import ProjectTrust, digest_of
 
 __all__ = [
     "HOOK_EVENTS",
+    "AgentsSettings",
     "HookSpec",
     "LoadedSettings",
+    "ModelProfile",
+    "ModelsSettings",
     "Permissions",
     "ProjectTrust",
     "Settings",

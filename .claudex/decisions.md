@@ -303,6 +303,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   4. O filho começa com contexto limpo (sem identidade, manifest, memória, skills ou MCP, salvo declarado); só o resumo curto volta ao pai. O completo fica em `~/.orion/agents/<id>/result.md` com `ref://`, sobrevivendo à compactação do pai. Resultado de filho é dado não confiável.
   5. Agente de projeto não confiável (TOFU, ADR-023) só pode **restringir**.
   6. O filho nunca altera o estado do circuit breaker do pai.
+  7. (Implementação 6A) Sem humano, o desafio nuclear do SO **não abre**: o comando nuclear é negado. `cwd` de `run_command/glob/grep/search_files` é confinado ao escopo do filho.
 * **Consequências:** Spec da Sprint 6 (6A). Auditoria e ledger ganham `agent_id`/`origin`.
 
 ### ADR-029: Tasks em Loop de Thread Dedicada, com Portas Executor/TaskStore/Notifier

@@ -15,11 +15,12 @@ para compor a decisão de roteamento de forma determinística e auditável.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
 from orion.gateway.classifier import ClassificationResult, ComplexityClassifier
-from orion.gateway.models import ComplexityTier, LLMMessage
+from orion.gateway.models import ComplexityTier, LLMMessage, ModelSpec
 from orion.gateway.registry import ModelRegistry
 
 # ---------------------------------------------------------------------------
@@ -84,6 +85,10 @@ ANTHROPIC_TIER_MODELS: dict[ComplexityTier, str] = {
     ComplexityTier.BALANCED: "claude-sonnet-5-5",
     ComplexityTier.HEAVY: "claude-opus-5-5",
 }
+
+
+class NoModelForTier(Exception):
+    """Nenhum candidato adequado para o tier (sem downgrade silencioso, ADR-031)."""
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +215,7 @@ class ModelRouter:
         )
         self._mode: RoutingMode = default_mode
         self._fixed_model: str | None = fixed_model
+        self._tier_candidates: dict[ComplexityTier, list[str]] = {}
 
         # Valida o modelo fixo inicial, se fornecido
         if self._fixed_model and self._fixed_model not in self._registry:
@@ -240,6 +246,78 @@ class ModelRouter:
     def tier_model(self, tier: ComplexityTier) -> str:
         """Modelo configurado para o tier."""
         return self._tier_models[tier]
+
+    # ── Tiers por capacidade (subagents, ADR-031) ───────────────────────────
+
+    def set_tier_candidates(self, tiers: dict[str, list[str]]) -> list[str]:
+        """Define a lista ordenada de candidatos por tier (``models.tiers`` dos settings).
+
+        Devolve os avisos (IDs desconhecidos são ignorados, nunca levantam).
+        """
+        notes: list[str] = []
+        parsed: dict[ComplexityTier, list[str]] = {}
+        for key, ids in tiers.items():
+            try:
+                tier = ComplexityTier(key)
+            except ValueError:
+                notes.append(f"tier desconhecido '{key}' em models.tiers")
+                continue
+            good = [i for i in ids if i in self._registry]
+            notes.extend(f"modelo '{i}' de models.tiers.{key} não existe no catálogo" for i in ids if i not in self._registry)
+            if good:
+                parsed[tier] = good
+        self._tier_candidates = parsed
+        return notes
+
+    def tier_candidates(self, tier: ComplexityTier) -> list[str]:
+        """Candidatos do tier em ordem: o configurado ou os padrões (nativo, depois o outro catálogo)."""
+        if tier in self._tier_candidates:
+            return list(self._tier_candidates[tier])
+        defaults = [self._tier_models[tier]]
+        for table in (ANTHROPIC_TIER_MODELS, DEFAULT_TIER_MODELS):
+            model_id = table[tier]
+            if model_id in self._registry and model_id not in defaults:
+                defaults.append(model_id)
+        return defaults
+
+    def resolve_for_agent(
+        self,
+        tier: ComplexityTier,
+        *,
+        mutating: bool,
+        available: Callable[[ModelSpec], bool],
+    ) -> ModelSpec:
+        """Primeiro candidato adequado para um subagent, sem downgrade silencioso (CA-11).
+
+        * Tools mutantes exigem tier efetivo >= ``balanced`` (modelo de tier FAST ou local não serve).
+        * Agentes somente leitura podem cair, por último, para o modelo local.
+        * Sem candidato adequado: :class:`NoModelForTier` explicando o que foi tentado.
+        """
+        if mutating and tier == ComplexityTier.FAST:
+            raise NoModelForTier(
+                "agents with mutating tools need tier balanced or heavy; "
+                "declare model_tier: balanced or drop the mutating tools"
+            )
+        tried: list[str] = []
+        for model_id in self.tier_candidates(tier):
+            spec = self._registry.get(model_id)
+            if spec is None or not spec.supports_tool_use:
+                continue
+            if not available(spec):
+                tried.append(f"{model_id} (unavailable)")
+                continue
+            if mutating and (spec.is_local or spec.default_tier == ComplexityTier.FAST):
+                tried.append(f"{model_id} (tier too low for mutating tools)")
+                continue
+            return spec
+        if not mutating:
+            for local in self._registry.local_models()[:1]:
+                if local.supports_tool_use and available(local):
+                    return local
+        raise NoModelForTier(
+            f"no suitable model for tier '{tier.value}'"
+            + (f" (tried: {', '.join(tried)})" if tried else "")
+        )
 
     # ── API Pública ─────────────────────────────────────────────────────────
 

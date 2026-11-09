@@ -118,6 +118,7 @@ class Observation(OrionEvent):
         exclude=True,
         description="Base64 image source produced by the tool (sent to the model, never logged).",
     )
+    agent_id: str | None = Field(default=None, description="Subagent that produced it (None = main).")
 
 
 # ---------------------------------------------------------------------------
@@ -151,6 +152,7 @@ class ActionEmitted(OrionEvent):
         default_factory=dict,
         description="Tool parameters, used by the CLI to render tool cards and diffs.",
     )
+    agent_id: str | None = Field(default=None, description="Subagent that emitted it (None = main).")
 
 
 class ObservationReceived(OrionEvent):
@@ -159,6 +161,7 @@ class ObservationReceived(OrionEvent):
     turn_index: int
     action_id: str
     success: bool
+    agent_id: str | None = None
 
 
 class FinalAnswer(OrionEvent):
@@ -187,6 +190,35 @@ class TurnCancelledEvent(OrionEvent):
     reason: str = Field(default="Interrupted by user (Ctrl+C / SIGINT)")
 
 
+class SubagentStarted(OrionEvent):
+    """Published on the PARENT bus when a subagent begins (Sprint 6)."""
+
+    agent_id: str
+    parent_id: str | None = None
+    session_id: str
+    agent: str
+    goal: str
+    model: str = ""
+    origin: str = "subagent"
+
+
+class SubagentCompleted(OrionEvent):
+    """Published on the PARENT bus when a subagent ends, whatever the status."""
+
+    agent_id: str
+    parent_id: str | None = None
+    session_id: str
+    agent: str
+    status: str
+    summary: str = ""
+    ref: str = ""
+    cost_usd: float = 0.0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    cached_tokens: int = 0
+    origin: str = "subagent"
+
+
 # Alias for backward/forward naming consistency
 TurnCancelled = TurnCancelledEvent
 
@@ -205,4 +237,6 @@ AnyEvent = (
     | FinalAnswer
     | TurnCompleted
     | TurnCancelledEvent
+    | SubagentStarted
+    | SubagentCompleted
 )

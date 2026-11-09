@@ -21,6 +21,13 @@ command and the reason. They are never persisted as "always allow" (sudo) and
 never approved by a rule or hook. With no human available (``interactive=False``:
 hooks, subagents, scheduled jobs, daemon) an escalation is DENIED.
 
+Subagents (v0.5.0 Sprint 6, ADR-028): a child PEP is built with ``for_subagent`` and
+runs UNDER the parent's ceiling. Privilege only decreases: the effective mode is
+``min(parent, child)``, the parent's ``deny`` and ``ask`` rules also apply to the child,
+``allow`` rules and the Trust Ledger are never inherited, the child can never ask a human
+(every ``ask`` and every nuclear challenge is DENIED) and the parent's SAFE_HOLDING and
+plan-mode restrictions apply live.
+
 Declarative rules (``governance/rules.py``): deny > ask > allow. A deny rule
 blocks; an ask rule forces a confirmation; an allow rule only skips the prompt
 where the mode would have asked, never overriding the invariants above.
@@ -72,6 +79,22 @@ class AutonomyMode(str, Enum):
     SUPERVISED = "supervised"
     WORKSPACE_AUTO = "workspace_auto"
     FULLY_AUTO = "fully_auto"
+
+
+_MODE_RANK: dict[AutonomyMode, int] = {
+    AutonomyMode.SUPERVISED: 0,
+    AutonomyMode.WORKSPACE_AUTO: 1,
+    AutonomyMode.FULLY_AUTO: 2,
+}
+
+
+def min_mode(a: AutonomyMode, b: AutonomyMode) -> AutonomyMode:
+    """The less autonomous of two modes (privilege only decreases)."""
+    return a if _MODE_RANK[a] <= _MODE_RANK[b] else b
+
+
+#: Tools whose ``cwd``/``path`` must stay inside the scope of a confined (subagent) PEP.
+_CWD_SCOPED_TOOLS = frozenset({"run_command", "glob", "grep", "search_files"})
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +186,11 @@ class PolicyEnforcementPoint:
         circuit_breaker: Any | None = None,  # CircuitBreaker (avoid circular import)
         rules: RuleSet | None = None,
         interactive: bool = True,
+        ceiling: PolicyEnforcementPoint | None = None,
+        agent_id: str | None = None,
     ) -> None:
+        self._ceiling = ceiling
+        self._agent_id = agent_id
         self._scope = scope or WorkspaceScope.default()
         self._mode = mode
         self._audit = audit_logger or AuditLogger()
@@ -177,15 +204,65 @@ class PolicyEnforcementPoint:
         self._blast_classifier = BlastRadiusClassifier()
         self._rules = rules
         self._interactive = interactive
+        if ceiling is not None:
+            # Sob teto: nunca há humano, nunca há trust ledger (nada de "allow" herdado) e o
+            # safe-holding do pai vale para o filho.
+            self._interactive = False
+            self._trust_ledger = None
+            if self._circuit_breaker is None:
+                self._circuit_breaker = ceiling._circuit_breaker
         self._read_only = False
+        self._cwd_confined = False
         self._pending_escalations: dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
+    @classmethod
+    def for_subagent(
+        cls,
+        parent: PolicyEnforcementPoint,
+        *,
+        agent_id: str,
+        scope: WorkspaceScope | None = None,
+        mode: AutonomyMode | None = None,
+        audit_logger: AuditLogger | None = None,
+    ) -> PolicyEnforcementPoint:
+        """PEP of a child agent, under *parent*'s ceiling (ADR-028).
+
+        ``mode`` can only lower the autonomy: the stored mode is ``min(parent, mode)``
+        and the parent's CURRENT mode keeps capping it afterwards.
+        """
+        requested = parent.mode if mode is None else min_mode(mode, parent.mode)
+        pep = cls(
+            scope=scope or parent.scope,
+            mode=requested,
+            audit_logger=audit_logger or parent._audit.with_agent(agent_id),
+            confirm=lambda _prompt: False,  # defesa em profundidade: nunca aprova
+            ceiling=parent,
+            agent_id=agent_id,
+        )
+        pep._cwd_confined = True
+        return pep
+
+    @property
+    def agent_id(self) -> str | None:
+        return self._agent_id
+
+    @property
+    def ceiling(self) -> PolicyEnforcementPoint | None:
+        return self._ceiling
+
+    @property
+    def interactive(self) -> bool:
+        return self._interactive
+
     @property
     def mode(self) -> AutonomyMode:
+        """Effective mode: the child can never exceed its parent's current mode."""
+        if self._ceiling is not None:
+            return min_mode(self._mode, self._ceiling.mode)
         return self._mode
 
     @property
@@ -193,7 +270,7 @@ class PolicyEnforcementPoint:
         return self._scope
 
     def set_mode(self, mode: AutonomyMode) -> None:
-        """Switch autonomy mode at runtime."""
+        """Switch autonomy mode at runtime (a child is still capped by its parent)."""
         logger.info("PEP: autonomy mode changed %s → %s", self._mode, mode)
         self._mode = mode
 
@@ -207,7 +284,14 @@ class PolicyEnforcementPoint:
 
     def set_interactive(self, interactive: bool) -> None:
         """False when no human can answer (hooks, subagents, jobs, daemon)."""
+        if self._ceiling is not None and interactive:
+            raise ValueError("a subagent PEP can never be interactive")
         self._interactive = interactive
+
+    @property
+    def read_only(self) -> bool:
+        """Plan mode, own or inherited from the parent (live)."""
+        return self._read_only or (self._ceiling is not None and self._ceiling.read_only)
 
     def set_read_only(self, read_only: bool) -> None:
         """Plan mode: every LEVEL_2+ action is refused, whatever the rules say."""
@@ -277,7 +361,7 @@ class PolicyEnforcementPoint:
                 action.event_id, action.tool, f"blocked by deny rule '{match.rule}'"
             )
 
-        if self._read_only and level >= ActionLevel.LEVEL_2:
+        if self.read_only and level >= ActionLevel.LEVEL_2:
             self._rejection_reasons[action.event_id] = (
                 "plan mode is read-only; this is not a user rejection. "
                 "Call exit_plan_mode with a plan to get approval before mutating."
@@ -294,6 +378,10 @@ class PolicyEnforcementPoint:
 
         escalations = self._escalations(action, level)
         forced_ask = match is not None and match.effect == "ask"
+
+        if escalations and level <= ActionLevel.LEVEL_1 and self._cwd_confined:
+            # Tools de leitura de um subagent com ``cwd`` fora do escopo: sem humano, nega.
+            await self._escalate(action, level, escalations)
 
         if level <= ActionLevel.LEVEL_1 and not forced_ask:
             if level == ActionLevel.LEVEL_1:
@@ -481,6 +569,23 @@ class PolicyEnforcementPoint:
         if blast != BlastRadius.NUCLEAR_DESTRUCTIVE:
             return
 
+        if not self._interactive:
+            # Sem humano para o desafio do SO: nuclear nunca é contornado, é negado.
+            self._audit.log_denied(
+                action_id=action.event_id,
+                tool=action.tool,
+                params=dict(action.params),
+                level=level,
+                reason="nuclear_no_human",
+                decision_source="mode",
+            )
+            raise ActionDenied(
+                action.event_id,
+                action.tool,
+                "nuclear operation requires the Senhor's OS authentication but no human is "
+                f"available. Command: {cmd[:80]}",
+            )
+
         # Nuclear command detected — run OS authentication challenge
         logger.warning(
             "PEP: NUCLEAR command detected — '%s'. Launching OS auth challenge.",
@@ -524,16 +629,38 @@ class PolicyEnforcementPoint:
         )
 
     def _match_rule(self, action: Action) -> RuleMatch | None:
-        if self._rules is None:
-            return None
-        return self._rules.match(action.tool, dict(action.params), self._scope.roots)
+        own = (
+            self._rules.match(action.tool, dict(action.params), self._scope.roots)
+            if self._rules is not None
+            else None
+        )
+        if self._ceiling is None:
+            return own
+        # Sob teto: deny/ask do pai se somam; allow do pai NUNCA é herdado.
+        inherited = self._ceiling._match_rule(action)
+        if inherited is not None and inherited.effect == "allow":
+            inherited = None
+        for candidate in (own, inherited):
+            if candidate is not None and candidate.effect == "deny":
+                return candidate
+        for candidate in (own, inherited):
+            if candidate is not None and candidate.effect == "ask":
+                return candidate
+        return own
 
     def _escalations(self, action: Action, level: ActionLevel) -> list[Escalation]:
         """Reasons this action needs the Senhor's explicit, one-shot confirmation."""
         found: list[Escalation] = []
         cmd = str(action.params.get("command", ""))
-        if cmd and _SUDO_RE.search(cmd) and self._mode != AutonomyMode.FULLY_AUTO:
+        if cmd and _SUDO_RE.search(cmd) and self.mode != AutonomyMode.FULLY_AUTO:
             found.append(Escalation("sudo", "usa sudo (privilégios de administrador)"))
+        if self._cwd_confined and action.tool in _CWD_SCOPED_TOOLS:
+            cwd = str(action.params.get("cwd", "")) or None
+            if cwd:
+                try:
+                    self._scope.assert_allowed(cwd)
+                except PermissionError:
+                    found.append(Escalation("outside_workspace", f"cwd fora do workspace: {cwd}"))
         if level >= ActionLevel.LEVEL_2:
             path = str(action.params.get("path", "")) or None
             if path:
@@ -593,7 +720,8 @@ class PolicyEnforcementPoint:
             return True, "rule"
 
         # ── Trust Ledger shortcut (WORKSPACE_AUTO / FULLY_AUTO only) ────
-        if self._trust_ledger and cmd and self._mode != AutonomyMode.SUPERVISED:
+        mode = self.mode
+        if self._trust_ledger and cmd and mode != AutonomyMode.SUPERVISED:
             lookup = self._trust_ledger.lookup(cmd)
             if lookup.is_trusted:
                 logger.debug(
@@ -602,10 +730,10 @@ class PolicyEnforcementPoint:
                 )
                 return True, "ledger"
 
-        if self._mode == AutonomyMode.SUPERVISED:
+        if mode == AutonomyMode.SUPERVISED:
             return await self._ask_user(action, level), "user"
 
-        if self._mode == AutonomyMode.WORKSPACE_AUTO:
+        if mode == AutonomyMode.WORKSPACE_AUTO:
             if level == ActionLevel.LEVEL_2:
                 return True, "mode"  # auto-approved inside workspace
             return await self._ask_user(action, level), "user"  # LEVEL_3 still gated
@@ -614,7 +742,27 @@ class PolicyEnforcementPoint:
         return True, "mode"
 
     async def _ask_user(self, action: Action, level: ActionLevel) -> bool:
-        """Display confirmation prompt and return the human's decision."""
+        """Display confirmation prompt and return the human's decision.
+
+        With no human available (subagents, jobs, daemon) EVERY ask is denied (ADR-028):
+        the denial reaches the model as an ordinary tool error, so the child carries on.
+        """
+        if not self._interactive:
+            self._audit.log_denied(
+                action_id=action.event_id,
+                tool=action.tool,
+                params=dict(action.params),
+                level=level,
+                reason="ask_no_human",
+                decision_source="mode",
+            )
+            raise ActionDenied(
+                action.event_id,
+                action.tool,
+                "requires the Senhor's confirmation but no human is available "
+                "(parent may not grant it to subagents); use a read-only alternative "
+                "or report back what you needed",
+            )
         if self._action_confirm is not None:
             decision = self._action_confirm(action, level)
             if inspect.isawaitable(decision):

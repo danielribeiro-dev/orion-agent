@@ -209,16 +209,21 @@ def render_cost(
     cost_out: float,
     cost_total: float,
     cost_brl: str,
+    *,
+    agents_tokens: int = 0,
+    agents_cost: float = 0.0,
 ) -> Panel:
-    """Blueprint F: livro-razão da sessão."""
+    """Blueprint F: livro-razão da sessão (``agents_*``: soma dos subagents, já fora de ``cost_total``)."""
     table = _grid(("Tipo", 18, "left"), ("Tokens", 10, "right"), ("USD", 12, "right"), ("", None, "left"))
     table.add_row("Entrada", f"{tokens_in:,}", f"${cost_in:.4f}", "")
     table.add_row("Saída", f"{tokens_out:,}", f"${cost_out:.4f}", "")
     table.add_row("Cache", f"{tokens_cached:,}", "incluso", "")
+    if agents_cost or agents_tokens:
+        table.add_row("Subagents", f"{agents_tokens:,}", f"${agents_cost:.4f}", "")
     table.add_row(
         Text("Total", style="accent_cyan"),
-        Text(f"{tokens_in + tokens_out:,}", style="accent_cyan"),
-        Text(f"${cost_total:.4f}", style="accent_cyan"),
+        Text(f"{tokens_in + tokens_out + agents_tokens:,}", style="accent_cyan"),
+        Text(f"${cost_total + agents_cost:.4f}", style="accent_cyan"),
         Text(f"  R$ {cost_brl}", style="text_dim"),
     )
     return orion_panel(table, plain_title("Livro-Razão da Sessão"))

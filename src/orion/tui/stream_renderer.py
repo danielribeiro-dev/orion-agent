@@ -335,6 +335,13 @@ class StreamRenderer:
         for text in self.last_output.rstrip().splitlines():
             self._guide(text)
 
+    def agent_line(self, text: str, *, style: str = "text_dim") -> None:
+        """Uma linha compacta de progresso de subagent (sem Live próprio)."""
+        line = Text(no_wrap=True, overflow="ellipsis")
+        line.append("› ", style="accent_cyan")
+        line.append(text, style=style)
+        self.console.print(line)
+
     def warn(self, message: str) -> None:
         """Aviso não fatal (ex.: failover de provedor); não encerra o Live."""
         line = Text()

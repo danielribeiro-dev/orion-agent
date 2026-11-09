@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from jsonschema import Draft202012Validator
@@ -146,6 +147,16 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
         self._tools[tool_name] = tool_inst
         if risk is not None:
             register_tool_level(tool_name, risk_to_action_level(risk))
+
+    def get_tool(self, name: str) -> Any | None:
+        """Tool instance by name (subagents share declared tools with their parent)."""
+        return self._tools.get(name)
+
+    def set_ref_resolver(self, resolver: Callable[[str], Path | None] | None) -> None:
+        """Let ``read_file`` open ``ref://agents/...`` results of subagents."""
+        for impl in self._tools.values():
+            if hasattr(impl, "ref_resolver"):
+                impl.ref_resolver = resolver
 
     # ------------------------------------------------------------------
     # BaseRuntimeProvider contract

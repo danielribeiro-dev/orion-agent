@@ -5,6 +5,7 @@ from __future__ import annotations
 import subprocess
 
 from orion.tui.commands.base import BaseSlashCommand, CommandContext, CommandResult
+from orion.tui.stream_renderer import OrionMarkdown
 
 _MAX_DIFF_CHARS = 40_000
 
@@ -77,8 +78,21 @@ class ReviewCommand(BaseSlashCommand):
         diff = done.stdout.strip()
         if not diff:
             return CommandResult(success=True, output_message="Nenhuma alteração para revisar.")
-        await context.session.run_turn(
-            "Revise criticamente este diff (corretude, arquitetura, segurança):\n"
-            f"```diff\n{diff[:_MAX_DIFF_CHARS]}\n```"
+        focus = f" Foco: {args}." if args else ""
+        goal = (
+            "Revise criticamente o diff entregue no contexto (corretude, arquitetura, segurança)."
+            f"{focus} Leia os arquivos citados quando precisar de contexto."
         )
-        return CommandResult(success=True)
+        # O diff vai como contexto do subagent `code-review` (somente leitura, sob o teto do pai),
+        # em vez de inflar o contexto do agente principal.
+        result = await context.session.run_subagent(
+            "code-review", goal, f"```diff\n{diff[:_MAX_DIFF_CHARS]}\n```"
+        )
+        context.console.print(OrionMarkdown(result.summary))
+        context.console.print(
+            f"[text_dim]code-review · {result.status} · ${result.usage.cost_usd:.4f} · {result.ref}[/]"
+        )
+        context.session.note_exchange(
+            "/review", f"{result.summary}\n\n(resultado completo: {result.ref})"
+        )
+        return CommandResult(success=result.ok)

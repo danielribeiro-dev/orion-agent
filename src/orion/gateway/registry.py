@@ -22,6 +22,7 @@ _CATALOG: list[ModelSpec] = [
     # Haiku 5.5: preço vale para prompts até 100K tokens ($0.50/$2.50 acima).
     ModelSpec(
         id="claude-fable-5-1",
+        supports_prompt_cache=True,
         name="Claude Fable 5.1",
         provider=ProviderName.ANTHROPIC,
         context_window=1_000_000,
@@ -34,6 +35,7 @@ _CATALOG: list[ModelSpec] = [
     ),
     ModelSpec(
         id="claude-opus-5-5",
+        supports_prompt_cache=True,
         name="Claude Opus 5.5",
         provider=ProviderName.ANTHROPIC,
         context_window=1_000_000,
@@ -46,6 +48,7 @@ _CATALOG: list[ModelSpec] = [
     ),
     ModelSpec(
         id="claude-sonnet-5-5",
+        supports_prompt_cache=True,
         name="Claude Sonnet 5.5",
         provider=ProviderName.ANTHROPIC,
         context_window=1_000_000,
@@ -58,6 +61,7 @@ _CATALOG: list[ModelSpec] = [
     ),
     ModelSpec(
         id="claude-haiku-5-5",
+        supports_prompt_cache=True,
         name="Claude Haiku 5.5",
         provider=ProviderName.ANTHROPIC,
         context_window=1_000_000,

@@ -29,7 +29,7 @@ orion-agent            # CLI interativa (entrypoint oficial); `orion` está rese
 ```
 
 ## Mapa rápido de `src/orion/`
-`core/` engine ReAct, FSM, eventos · `gateway/` providers, router, ledger, circuit breaker · `runtime/` tools e provider local · `governance/` PEP, auditoria, trust ledger, nuclear · `memory/` timeline, vetores, fatos, manifesto · `timeline/` compactor e branches · `skills/` · `mcp/` cliente MCP · `tui/` sessão, prompt, renderer, comandos.
+`core/` engine ReAct, FSM, eventos · `agents/` subagents (runner, orçamento, definições, portas) · `gateway/` providers, router, ledger, circuit breaker · `runtime/` tools e provider local · `governance/` PEP, auditoria, trust ledger, nuclear · `memory/` timeline, vetores, fatos, manifesto · `timeline/` compactor e branches · `skills/` · `mcp/` cliente MCP · `tui/` sessão, prompt, renderer, comandos.
 
 ## Estado
 v0.4.0 implementada; v0.5.0 "Claude-Grade Agent" em execução (ver `active_context.md`). Numeração de ADRs duplicada entre versões é desambiguada por sufixo `[vX.Y.Z]`.

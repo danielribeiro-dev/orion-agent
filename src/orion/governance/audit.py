@@ -36,9 +36,18 @@ class AuditLogger:
     restarts and avoid file-descriptor leaks in daemon mode.
     """
 
-    def __init__(self, log_path: Path | None = None) -> None:
+    def __init__(self, log_path: Path | None = None, agent_id: str | None = None) -> None:
         self._path: Path = log_path or _DEFAULT_LOG_PATH
         self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._agent_id = agent_id
+
+    @property
+    def agent_id(self) -> str | None:
+        return self._agent_id
+
+    def with_agent(self, agent_id: str) -> AuditLogger:
+        """Logger sobre o mesmo arquivo cujos registros carregam *agent_id* (subagents)."""
+        return AuditLogger(self._path, agent_id=agent_id)
 
     @property
     def log_path(self) -> Path:
@@ -140,6 +149,8 @@ class AuditLogger:
 
     def _append(self, record: dict[str, Any]) -> None:
         """Write *record* as a single JSON-Lines entry."""
+        if self._agent_id:
+            record = {**record, "agent_id": self._agent_id}
         line = json.dumps(record, ensure_ascii=False)
         try:
             with self._path.open("a", encoding="utf-8") as fh:

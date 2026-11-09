@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from rich.console import Console
 
+from orion.agents.models import AgentResult
 from orion.core.events import Action, RiskLevel
 from orion.governance.permissions import ActionLevel
 from orion.tui.commands import CommandContext, CommandRegistry
@@ -46,7 +47,7 @@ class TestCatalog:
         assert {c.name for c in OFFICIAL_SLASH_COMMANDS} == set(registry.names)
 
     def test_catalog_size(self, registry: CommandRegistry) -> None:
-        assert len(registry.names) == 26
+        assert len(registry.names) == 27
 
     def test_no_emoji_in_catalog(self) -> None:
         for command in OFFICIAL_SLASH_COMMANDS:
@@ -71,7 +72,7 @@ class TestDispatch:
         "line",
         ["/memory", "/timeline", "/recall teste", "/compact", "/context", "/merge", "/diff",
          "/undo", "/doctor", "/cost", "/mcp", "/voice", "/help", "/clear", "/grill-me", "/learn",
-         "/review", "/plan x", "/goal x", "/branch b1"],
+         "/review", "/plan x", "/goal x", "/branch b1", "/agents", "/agents runs"],
     )
     async def test_commands_do_not_raise(
         self, registry: CommandRegistry, context: CommandContext, line: str
@@ -315,5 +316,10 @@ class TestDataCommands:
         run("add", ".")
         run("commit", "-m", "x")
         (cwd / "f").write_text("b\n")
+        context.session.run_subagent = AsyncMock(  # type: ignore[method-assign]
+            return_value=AgentResult(agent_id="agent_1", status="ok", summary="ok", ref="ref://agents/agent_1/result.md")
+        )
         await registry.dispatch("/review", context)
-        assert "+b" in context.session.run_turn.await_args.args[0]
+        agent, _goal, diff = context.session.run_subagent.await_args.args
+        assert agent == "code-review" and "+b" in diff
+        context.session.run_turn.assert_not_awaited()  # o diff não entra no contexto do agente principal

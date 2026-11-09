@@ -31,6 +31,7 @@ class FileSnapshot(BaseModel):
     path: str
     before_sha: str | None = None
     after_sha: str
+    agent_id: str | None = None  # subagent que mutou o arquivo (None = agente principal)
 
 
 class TranscriptEntry(BaseModel):

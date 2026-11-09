@@ -218,6 +218,7 @@ class ReActEngine:
                     ``tool_use``/``tool_result``.
         on_message: observa cada mensagem anexada à conversa (persistência da sessão).
         tool_output_limit: teto de caracteres por saída de tool.
+        agent_id:   identifica um subagent nos eventos publicados (``None`` = agente principal).
     """
 
     def __init__(
@@ -236,7 +237,9 @@ class ReActEngine:
         prepare_messages: PrepareMessages | None = None,
         on_message: Callable[[LLMMessage], None] | None = None,
         tool_output_limit: int = DEFAULT_TOOL_OUTPUT_LIMIT,
+        agent_id: str | None = None,
     ) -> None:
+        self._agent_id = agent_id
         self._bus = event_bus
         self._llm = llm
         self._max_turns = max_turns
@@ -487,6 +490,7 @@ class ReActEngine:
                         tool=call.action.tool,
                         risk_level=call.action.risk_level,
                         params=call.action.params,
+                        agent_id=self._agent_id,
                     )
                 )
             if len(batch) == 1:
@@ -510,6 +514,7 @@ class ReActEngine:
                 turn_index=turn_index,
                 action_id=call.action.event_id,
                 success=observation.success,
+                agent_id=self._agent_id,
             )
         )
         await self._bus.publish(observation)
@@ -547,6 +552,7 @@ class ReActEngine:
                 success=False,
                 output=f"'{action.tool}' falhou: {exc}",
                 error=str(exc),
+                agent_id=self._agent_id,
             )
         finally:
             CURRENT_ACTION_ID.reset(token)
@@ -557,6 +563,7 @@ class ReActEngine:
             error=result.error or None,
             metadata={k: v for k, v in result.metadata.items() if k != "image"},
             image=result.metadata.get("image"),
+            agent_id=self._agent_id,
         )
 
     # ------------------------------------------------------------------

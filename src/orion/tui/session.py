@@ -24,19 +24,34 @@ from typing import Any
 
 from rich.console import Console, RenderableType
 
-from orion.core.engine import LAYER_BREAK, ModelTurn, ReActEngine, compose_system, split_layers
+from orion.agents.budget import DailyBudget
+from orion.agents.definitions import AgentCatalog, load_agents, trust_project_agents
+from orion.agents.models import AgentResult, Origin, UsageTotals
+from orion.agents.refs import resolve_ref
+from orion.agents.runner import AgentRunner, ParentHandle, RunnerDeps, TaskRequest
+from orion.core.engine import ModelTurn, ReActEngine, compose_system
 from orion.core.errors import PromptInjectionSuspected, TurnBudgetExceeded
 from orion.core.event_bus import EventBus
-from orion.core.events import Action, ActionEmitted, Observation
+from orion.core.events import (
+    Action,
+    ActionEmitted,
+    Observation,
+    SubagentCompleted,
+    SubagentStarted,
+)
+from orion.gateway.agent_gateway import (
+    AgentGateway,
+    build_llm_request,
+    consume_stream,
+    estimate_stream_usage,
+)
 from orion.gateway.budget import BudgetExceededError, BudgetGuard
 from orion.gateway.circuit_breaker import CircuitBreaker
 from orion.gateway.credentials import load_anthropic_key
 from orion.gateway.failover import FailoverEvent, FailoverProvider, build_candidates
 from orion.gateway.ledger import CostLedger
 from orion.gateway.models import (
-    CacheControl,
     ComplexityTier,
-    ContentBlock,
     LLMMessage,
     LLMRequest,
     MessageRole,
@@ -66,6 +81,7 @@ from orion.runtime.tools.ask_user import AskUserTool
 from orion.runtime.tools.plan_mode import EnterPlanModeTool, ExitPlanModeTool
 from orion.runtime.tools.read_file import IMAGE_TYPES, MAX_IMAGE_BYTES, encode_image
 from orion.runtime.tools.shells import ShellManager
+from orion.runtime.tools.task import TaskTool
 from orion.runtime.tools.todo_write import TodoList, TodoWriteTool
 from orion.runtime.tools.web_policy import UNTRUSTED_NOTE
 from orion.sessions import (
@@ -150,6 +166,7 @@ class FileChange:
     path: Path
     before: str | None
     after: str
+    agent_id: str | None = None
 
 
 class ChangeTracker:
@@ -157,7 +174,7 @@ class ChangeTracker:
 
     def __init__(self) -> None:
         self.changes: list[FileChange] = []
-        self._pending: dict[str, tuple[Path, str | None]] = {}
+        self._pending: dict[str, tuple[Path, str | None, str | None]] = {}
 
     @staticmethod
     def _read(path: Path) -> str | None:
@@ -166,20 +183,20 @@ class ChangeTracker:
         except (OSError, UnicodeDecodeError):
             return None
 
-    def begin(self, action_id: str, path: Path) -> None:
-        """Guarda o conteúdo anterior do arquivo."""
-        self._pending[action_id] = (path, self._read(path))
+    def begin(self, action_id: str, path: Path, agent_id: str | None = None) -> None:
+        """Guarda o conteúdo anterior do arquivo (``agent_id``: subagent autor, se houver)."""
+        self._pending[action_id] = (path, self._read(path), agent_id)
 
     def finish(self, action_id: str) -> FileChange | None:
         """Compara com o disco e registra a mudança, se houver."""
         entry = self._pending.pop(action_id, None)
         if entry is None:
             return None
-        path, before = entry
+        path, before, agent_id = entry
         after = self._read(path)
         if after is None or after == before:
             return None
-        change = FileChange(path, before, after)
+        change = FileChange(path, before, after, agent_id)
         self.changes.append(change)
         return change
 
@@ -301,8 +318,11 @@ class AgentSession:
         self.shells = ShellManager(self.home / "shells")
         self._pre_plan_mode = AgentMode.ACCEPT_EDITS
         self._turn_images: list[dict[str, str]] = []
+        self._setup_agents()
         self.runtime = self._build_runtime(scope)
         self.runtime.set_hooks(self.hooks)
+        self.runtime.set_ref_resolver(lambda ref: resolve_ref(ref, self.home))
+        self._parent_handle.runtime = self.runtime
         self.identity = self._open_identity()
         self.manifest = self._build_manifest()
         self.sessions = JsonlSessionStore(self.home / "sessions", self.workspace)
@@ -331,6 +351,141 @@ class AgentSession:
         if self.selected_model is None and not self.online:
             self.set_model(self._local_default())
         self.status_bar.model_name = self.selected_model or self.router.tier_model(ComplexityTier.HEAVY)
+
+    # ── Subagents (Sprint 6) ────────────────────────────────────────
+
+    def _setup_agents(self) -> None:
+        """Monta catálogo, gateway de modelos e runner dos subagents."""
+        self.agent_usage = UsageTotals()
+        self.agent_costs: dict[str, float] = {}
+        self.agent_names: dict[str, str] = {}
+        # Breaker próprio: uma falha de provedor num filho nunca arma o safe-holding do pai.
+        self.agent_breaker = CircuitBreaker(
+            primary_model_id=self.router.tier_model(ComplexityTier.HEAVY),
+            primary_model_tier=ComplexityTier.HEAVY,
+        )
+        self.router.set_tier_candidates(self.settings.effective.models.tiers)
+        self.agent_catalog: AgentCatalog = self._load_agents()
+        self.agent_gateway = AgentGateway(
+            registry=self.registry,
+            router=self.router,
+            provider_factory=self._agent_provider,
+            ledger=self.ledger,
+            budget=self.budget,
+            available=self._model_available,
+            profiles=lambda: {
+                name: p.tier for name, p in self.settings.effective.models.profiles.items()
+            },
+            session_id=lambda: self.session_id,
+        )
+        self.agent_runner = AgentRunner(
+            RunnerDeps(
+                home=self.home,
+                workspace=self.workspace,
+                session_id=self.session_id,
+                gateway=self.agent_gateway,
+                catalog=lambda: self.agent_catalog,
+                limits=self.agent_limits,
+                hook_specs=lambda: self.settings.effective.hooks,
+                audit=self.audit,
+                daily=DailyBudget(self._daily_headroom),
+                bus=self.bus,
+                on_child_bus=self._on_child_bus,
+                allow_pinned_model=lambda: bool(self.settings.user.agents.allow_pinned_model),
+            )
+        )
+        self._parent_handle = ParentHandle(pep=self.pep, runtime=None)
+        self._spawner = self.agent_runner.bind(self._parent_handle)
+        self.bus.subscribe_handler(SubagentStarted, self._on_subagent_started)
+        self.bus.subscribe_handler(SubagentCompleted, self._on_subagent_completed)
+
+    def agent_limits(self) -> Any:
+        return self.settings.effective.agents.resolved()
+
+    def _load_agents(self) -> AgentCatalog:
+        return load_agents(
+            self.home,
+            self.workspace,
+            limits=self.agent_limits(),
+            plugins=self.plugins,
+            trust=self.project_trust,
+        )
+
+    def reload_agents(self) -> AgentCatalog:
+        """Relê os agentes (após confiar no projeto ou editar ``.orion/agents``)."""
+        self.router.set_tier_candidates(self.settings.effective.models.tiers)
+        self.agent_catalog = self._load_agents()
+        return self.agent_catalog
+
+    def trust_project_agents(self) -> bool:
+        """Confia nos agentes de projeto atuais (hash do conjunto) e os recarrega."""
+        if not trust_project_agents(self.agent_catalog, self.project_trust):
+            return False
+        self.reload_agents()
+        return True
+
+    def _daily_headroom(self) -> float | None:
+        """Quanto ainda cabe no teto diário (``None`` = sem teto)."""
+        cap = self.budget.daily_budget_usd
+        if cap <= 0:
+            return None
+        return max(0.0, cap - self.ledger.spent_today_usd())
+
+    def _model_available(self, spec: ModelSpec) -> bool:
+        if spec.is_local:
+            return True
+        if spec.provider == ProviderName.ANTHROPIC:
+            return bool(self.anthropic_key)
+        if spec.provider == ProviderName.OPENROUTER:
+            return bool(os.environ.get("OPENROUTER_API_KEY"))
+        return False
+
+    def _agent_provider(self, spec: ModelSpec) -> BaseLLMProvider:
+        """Provider de um filho: com a fábrica padrão, usa o breaker próprio e nunca faz downgrade."""
+        if self._provider_factory == self._default_provider:
+            return self._default_provider(
+                spec, breaker=self.agent_breaker, allow_downgrade=False, on_event=None
+            )
+        return self._provider_factory(spec)
+
+    def _on_child_bus(self, agent_id: str, bus: EventBus, definition: Any, root: Path) -> None:
+        """Pendura no bus do filho o ChangeTracker (``/undo``, ``/rewind``) com o ``agent_id``."""
+        self.agent_names[agent_id] = definition.name
+
+        async def on_action(event: ActionEmitted) -> None:
+            if event.tool in _MUTATING_TOOLS:
+                self.tracker.begin(
+                    event.action_id, (root / str(event.params.get("path", ""))).resolve(), agent_id
+                )
+
+        async def on_observation(event: Observation) -> None:
+            change = self.tracker.finish(event.action_id)
+            if change is not None:
+                self._record_file_change(change)
+
+        bus.subscribe_handler(ActionEmitted, on_action)
+        bus.subscribe_handler(Observation, on_observation)
+
+    async def _on_subagent_started(self, event: SubagentStarted) -> None:
+        goal = " ".join(event.goal.split())
+        self.renderer.agent_line(f"{event.agent} · {event.agent_id} · {goal[:70]}")
+
+    async def _on_subagent_completed(self, event: SubagentCompleted) -> None:
+        self.agent_usage.add(
+            prompt=event.prompt_tokens,
+            completion=event.completion_tokens,
+            cached=event.cached_tokens,
+            cost_usd=event.cost_usd,
+        )
+        self.agent_costs[event.agent_id] = self.agent_costs.get(event.agent_id, 0.0) + event.cost_usd
+        self.agent_names.setdefault(event.agent_id, event.agent)
+        self._refresh_cost_display()
+        self.renderer.agent_line(
+            f"{event.agent} · {event.agent_id} · {event.status} · ${event.cost_usd:.4f}"
+        )
+
+    def _refresh_cost_display(self) -> None:
+        self.status_bar.session_cost_usd = self.cost_total + self.agent_usage.cost_usd
 
     # ── Inicialização tolerante a falhas ────────────────────────────
 
@@ -388,6 +543,7 @@ class AgentSession:
             AskUserTool(self._ask_user),
             EnterPlanModeTool(self._enter_plan_mode),
             ExitPlanModeTool(self._approve_plan, lambda: self.mode == AgentMode.PLAN),
+            TaskTool(self._spawner),
         ]
         return LocalRuntimeProvider(
             shells=self.shells,
@@ -520,6 +676,7 @@ class AgentSession:
             extra_layers=[p.settings_layer() for p in self.plugins],
         )
         self._apply_rules()
+        self.reload_agents()
         return self.settings
 
     def trust_project(self) -> None:
@@ -570,7 +727,14 @@ class AgentSession:
 
     # ── Provedores ──────────────────────────────────────────────────
 
-    def _default_provider(self, spec: ModelSpec) -> BaseLLMProvider:
+    def _default_provider(
+        self,
+        spec: ModelSpec,
+        *,
+        breaker: CircuitBreaker | None = None,
+        allow_downgrade: bool | None = None,
+        on_event: Callable[[FailoverEvent], None] | None | bool = True,
+    ) -> BaseLLMProvider:
         if spec.provider == ProviderName.OLLAMA:
             from orion.gateway.providers.local_ollama import LocalOllamaProvider
 
@@ -597,9 +761,9 @@ class AgentSession:
             )
             return FailoverProvider(
                 chain,
-                breaker=self.breaker,
-                allow_downgrade=self.allow_downgrade,
-                on_event=self._on_failover,
+                breaker=breaker or self.breaker,
+                allow_downgrade=self.allow_downgrade if allow_downgrade is None else allow_downgrade,
+                on_event=self._on_failover if on_event is True else (on_event or None),
             )
         from orion.gateway.providers.openrouter import OpenRouterProvider
 
@@ -747,58 +911,31 @@ class AgentSession:
         self.breaker.set_intentional_lite_mode(tier != ComplexityTier.HEAVY)
 
         anthropic = spec.provider == ProviderName.ANTHROPIC
-        if anthropic:
-            # Breakpoint de cache no fim das camadas estáveis; avisos de sessão (modo plano) ficam fora.
-            layers = split_layers(system)
-            volatile = 1 if self.system_extra() and len(layers) > 1 else 0
-            stable = len(layers) - 1 - volatile
-            system_blocks = [
-                ContentBlock.of_text(layer, CacheControl() if i == stable else None)
-                for i, layer in enumerate(layers)
-            ]
-            wire = list(messages)
-        else:
-            system_blocks = None
-            wire = [
-                LLMMessage(role=MessageRole.SYSTEM, content=system.replace(LAYER_BREAK, "\n\n")),
-                *messages,
-            ]
-        request = LLMRequest(
-            model=spec.id,
-            messages=wire,
-            system=system_blocks,
-            tools=tools,
+        # Avisos de sessão (modo plano) ficam fora do breakpoint de cache.
+        request, wire = build_llm_request(
+            spec,
+            tier,
+            system,
+            messages,
+            tools,
             max_tokens=16_000 if anthropic else 4096,
-            complexity_tier=tier,
             extra_params=self._extra_params(spec),
             thinking=self._thinking(spec),
-            cache_control=CacheControl() if anthropic else None,
+            volatile_layers=1 if self.system_extra() else 0,
         )
 
         started = time.monotonic()
         self.renderer.begin_thinking()
-        usage: TokenUsage | None = None
-        stop_reason: str | None = None
-        blocks: list[ContentBlock] = []
-        text = ""
-        reasoning_chars = 0
         provider = self._provider_factory(spec)
-        async for chunk in provider.stream(request):
-            if chunk.reasoning_delta:
-                reasoning_chars += len(chunk.reasoning_delta)
-                self.renderer.add_reasoning(chunk.reasoning_delta)
-            if chunk.delta:
-                text += chunk.delta
-                self.renderer.add_text(chunk.delta)
-            if chunk.block is not None:
-                blocks.append(chunk.block)
-            if chunk.notice:
-                self.renderer.warn(chunk.notice)
-            if chunk.stop_reason:
-                stop_reason = chunk.stop_reason
-            if chunk.usage is not None:
-                usage = chunk.usage
+        streamed = await consume_stream(
+            provider,
+            request,
+            on_reasoning=self.renderer.add_reasoning,
+            on_text=self.renderer.add_text,
+            on_notice=self.renderer.warn,
+        )
         self.renderer.end_message()
+        usage = streamed.usage
         if usage is not None:
             self.autocompact.observe(usage.prompt_tokens)
 
@@ -812,31 +949,21 @@ class AgentSession:
         self._record_cost(
             spec,
             usage
-            or self._estimate_usage(
+            or estimate_stream_usage(
                 wire if not anthropic else [LLMMessage(role=MessageRole.SYSTEM, content=system), *wire],
-                text,
-                reasoning_chars,
+                streamed.text,
+                streamed.reasoning_chars,
             ),
             tier,
             routing,
             (time.monotonic() - started) * 1000,
             provider_name,
         )
-
-        if not any(b.type == "text" for b in blocks) and text.strip():
-            # Providers legados só emitem deltas: monta o bloco de texto a partir deles.
-            blocks.insert(0, ContentBlock.of_text(text))
-        return ModelTurn(blocks=blocks, stop_reason=stop_reason or "end_turn")
+        return streamed.to_model_turn()
 
     @staticmethod
     def _estimate_usage(messages: list[LLMMessage], text: str, reasoning_chars: int) -> TokenUsage:
-        prompt_tokens = sum(estimate_tokens(m.text) for m in messages)
-        completion = estimate_tokens(text) + reasoning_chars // 4
-        return TokenUsage(
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion,
-            total_tokens=prompt_tokens + completion,
-        )
+        return estimate_stream_usage(messages, text, reasoning_chars)
 
     def _record_cost(
         self,
@@ -864,7 +991,7 @@ class AgentSession:
         self.cost_total += record.cost_usd
         self.status_bar.session_tokens_in = self.tokens_in
         self.status_bar.session_tokens_out = self.tokens_out
-        self.status_bar.session_cost_usd = self.cost_total
+        self._refresh_cost_display()
 
     # ── Eventos do engine → interface ───────────────────────────────
 
@@ -1133,6 +1260,22 @@ class AgentSession:
         await self.recall.remember(f"Pedido: {text}\nResposta: {answer[:800]}", self.session_id)
         return answer
 
+    async def run_subagent(
+        self, agent: str, goal: str, context: str = "", *, origin: Origin = "subagent"
+    ) -> AgentResult:
+        """Delega *goal* a um subagent sob o teto de privilégio da sessão (usado por ``/review``)."""
+        results = await self._spawner.spawn(
+            [TaskRequest(agent=agent, goal=goal, context=context, origin=origin)]
+        )
+        return results[0]
+
+    def note_exchange(self, user_text: str, assistant_text: str) -> None:
+        """Registra na conversa um pedido resolvido fora do engine (ex.: ``/review``)."""
+        for role, text in ((MessageRole.USER, user_text), (MessageRole.ASSISTANT, assistant_text)):
+            message = LLMMessage(role=role, content=text)
+            self.history.append(message)
+            self._persist(TranscriptEntry.of_message(message))
+
     # ── Persistência da sessão (JSONL) ──────────────────────────────
 
     def _persist(self, entry: TranscriptEntry) -> None:
@@ -1153,7 +1296,7 @@ class AgentSession:
         except Exception:
             logger.exception("AgentSession: falha ao guardar o arquivo para /rewind")
             return
-        self._persist(TranscriptEntry.of_file(FileSnapshot(path=str(change.path), before_sha=before, after_sha=after)))
+        self._persist(TranscriptEntry.of_file(FileSnapshot(path=str(change.path), before_sha=before, after_sha=after, agent_id=change.agent_id)))
 
     def _sync_memory(self) -> None:
         """Mantém ``~/.orion/memory/MEMORY.md`` espelhando o FactsStore."""

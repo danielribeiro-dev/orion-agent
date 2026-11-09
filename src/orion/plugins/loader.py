@@ -4,6 +4,7 @@ Estrutura (tudo opcional exceto ``plugin.json``)::
 
     plugin.json        {"name": "...", "version": "..."}
     commands/*.md      comandos custom, expostos como ``/<plugin>:<comando>``
+    agents/*.md        subagents (mesmo formato de ``~/.orion/agents``)
     skills/            skills (mesmo formato de ``~/.orion/skills``)
     hooks.json         {"PreToolUse": [{"command": "...", "matcher": "..."}]}
     mcp.json           {"servers": {...}}  (consumido pelo cliente MCP)
@@ -48,6 +49,10 @@ class Plugin:
     @property
     def skills_dir(self) -> Path:
         return self.root / "skills"
+
+    @property
+    def agents_dir(self) -> Path:
+        return self.root / "agents"
 
     def settings_layer(self) -> Settings:
         """Hooks e servidores MCP do plugin, como camada de settings."""

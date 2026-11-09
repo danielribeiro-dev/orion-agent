@@ -229,6 +229,12 @@ OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
         category="operation",
     ),
     SlashCommandInfo(
+        "/agents",
+        "Listar subagents, ver execuções e confiar nos agentes do projeto",
+        icon="❯",
+        category="operation",
+    ),
+    SlashCommandInfo(
         "/voice",
         "Ativar ou silenciar o daemon de voz e presença ambiente",
         icon="❯",

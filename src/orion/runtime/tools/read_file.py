@@ -22,6 +22,7 @@ import base64
 import re
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -63,7 +64,8 @@ class ReadFileTool(BaseTool):
         "Read a file. Text is returned with line numbers (N→); use offset/limit for large files "
         f"(default {DEFAULT_LINE_LIMIT} lines). Images (png, jpg, gif, webp) are shown to you "
         "visually. PDFs are converted to text; use 'pages' (e.g. '1-5') for long ones. "
-        "Always read a file before editing it."
+        "Always read a file before editing it. Also opens 'ref://agents/<id>/result.md' references "
+        "returned by the task tool (the full result of a subagent)."
     )
     input_schema = {
         "type": "object",
@@ -81,6 +83,7 @@ class ReadFileTool(BaseTool):
         "required": ["path"],
     }
     read_only = True
+    ref_resolver: Callable[[str], Path | None] | None = None
 
     async def run(
         self,
@@ -98,7 +101,13 @@ class ReadFileTool(BaseTool):
         if not path:
             return RuntimeResult.fail("read_file: 'path' parameter is required.")
 
-        file_path = Path(path).expanduser()
+        if path.startswith("ref://"):
+            resolved = self.ref_resolver(path) if self.ref_resolver is not None else None
+            if resolved is None:
+                return RuntimeResult.fail(f"read_file: unknown or invalid reference: '{path}'")
+            file_path = resolved
+        else:
+            file_path = Path(path).expanduser()
         if not file_path.exists():
             return RuntimeResult.fail(f"read_file: file not found: '{path}'")
         if not file_path.is_file():
