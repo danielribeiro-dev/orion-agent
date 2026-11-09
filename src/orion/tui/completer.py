@@ -235,6 +235,18 @@ OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
         category="operation",
     ),
     SlashCommandInfo(
+        "/tasks",
+        "Tasks e shells em segundo plano: listar, ver resultado e cancelar",
+        icon="❯",
+        category="operation",
+    ),
+    SlashCommandInfo(
+        "/loop",
+        "Verificação recorrente em segundo plano, com triagem antes de gastar tokens",
+        icon="❯",
+        category="operation",
+    ),
+    SlashCommandInfo(
         "/voice",
         "Ativar ou silenciar o daemon de voz e presença ambiente",
         icon="❯",

@@ -130,6 +130,7 @@ class TaskRecord(BaseModel):
     task_id: str
     owner: str  # session_id dono
     agent: str
+    agent_id: str = ""
     goal: str
     status: TaskStatus = TaskStatus.PENDING
     origin: Origin = "subagent"
@@ -142,6 +143,7 @@ class TaskRecord(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     error: str | None = None
     resumable: bool = False
+    pid: int = 0  # processo dono: tasks de processos mortos viram "interrupted"
 
 
 class WorkspaceOutcome(BaseModel):

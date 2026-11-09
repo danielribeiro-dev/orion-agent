@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,10 +10,12 @@ from typing import Any
 
 from orion.agents.budget import DailyBudget
 from orion.agents.definitions import AgentCatalog, load_agents
-from orion.agents.models import ResolvedModel
+from orion.agents.loop_thread import NotificationQueue, ThreadExecutor
+from orion.agents.models import AgentResult, ResolvedModel, TaskRecord
 from orion.agents.ports import LLMPort, NoSuitableModel
 from orion.agents.refs import resolve_ref
 from orion.agents.runner import AgentRunner, ParentHandle, RunnerDeps
+from orion.agents.tasks import SqliteTaskStore, TaskManager
 from orion.core.engine import ModelTurn
 from orion.core.event_bus import EventBus
 from orion.gateway.models import LLMMessage, TokenUsage, ToolSpec
@@ -21,6 +24,13 @@ from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint
 from orion.governance.permissions import WorkspaceScope
 from orion.runtime.local_provider import LocalRuntimeProvider
 from orion.runtime.tools.task import TaskTool
+from orion.runtime.tools.tasks import (
+    SendMessageTool,
+    TaskCreateTool,
+    TaskGetTool,
+    TaskListTool,
+    TaskStopTool,
+)
 from orion.settings.models import AgentsSettings, HookSpec, ResolvedAgents
 from tests.llm_script import ScriptedLLM, say
 
@@ -152,3 +162,55 @@ def make_rig(
     parent = ParentHandle(pep=pep, runtime=runtime)
     runtime.register_tool(TaskTool(runner.bind(parent)))
     return Rig(home, workspace, pep, runtime, gw, runner, parent, audit, catalog)
+
+
+# ── Segundo plano (Sprint 6B) ───────────────────────────────────────────────
+
+
+@dataclass
+class TaskRig:
+    """Rig + executor em thread, store SQLite, fila de notificações e TaskManager."""
+
+    rig: Rig
+    manager: TaskManager
+    queue: NotificationQueue
+    executor: ThreadExecutor
+    store: SqliteTaskStore
+    results: list[tuple[AgentResult, TaskRecord]] = field(default_factory=list)
+
+    def close(self) -> None:
+        self.executor.shutdown(timeout=3)
+
+
+def make_task_rig(tmp_path: Path, scripts: list[ScriptedLLM] | None = None, **kwargs: Any) -> TaskRig:
+    rig = make_rig(tmp_path, scripts, **kwargs)
+    queue = NotificationQueue()
+    executor = ThreadExecutor()
+    store = SqliteTaskStore(rig.home / "tasks.db")
+    results: list[tuple[AgentResult, TaskRecord]] = []
+    manager = TaskManager(
+        store=store,
+        executor=executor,
+        runner=rig.runner,
+        notifier=queue,
+        owner="sess-test",
+        on_result=lambda result, rec: results.append((result, rec)),
+    )
+    for tool in (
+        TaskCreateTool(manager, rig.parent),
+        TaskListTool(manager),
+        TaskGetTool(manager),
+        TaskStopTool(manager),
+        SendMessageTool(manager),
+    ):
+        rig.runtime.register_tool(tool)
+    return TaskRig(rig, manager, queue, executor, store, results)
+
+
+async def wait_until(predicate: Callable[[], bool], timeout: float = 5.0) -> None:
+    """Espera ativa (assíncrona) por uma condição produzida por outra thread."""
+    deadline = asyncio.get_running_loop().time() + timeout
+    while not predicate():
+        if asyncio.get_running_loop().time() > deadline:
+            raise AssertionError("condição não ocorreu a tempo")
+        await asyncio.sleep(0.01)

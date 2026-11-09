@@ -1,10 +1,10 @@
 # Sprint — v0.5.0 Sprint 6: Subagents & Tasks
 
-> **Status:** 🟡 6A implementada (2026-11-09) · 6B pendente  
+> **Status:** ✅ Implementada (6A e 6B, 2026-11-09)  
 > **Versão Relacionada:** v0.5.0  
 > **Responsável / Agente:** Daniel Dev & Claude (via ORION / Claude Code)  
 > **Data de Início:** 2026-11-09  
-> **Data de Conclusão:** —  
+> **Data de Conclusão:** 2026-11-09  
 > **Estudo de base:** [`../sprint-6-study.md`](../sprint-6-study.md)
 
 ---
@@ -80,12 +80,12 @@
 - [x] Mutações de filhos entram no `ChangeTracker` (`/undo`, `/rewind`) com `agent_id`.
 
 ### ✅ No Escopo — Commit 6B (background, tasks, worktree, loop)
-- [ ] `agents/loop_thread.py` + `ExecutorPort`: loop persistente em thread, `copy_context` ao despachar, fila thread-safe de notificações drenada antes de cada prompt e na toolbar.
-- [ ] `agents/tasks.py` + `TaskStorePort` (SQLite parametrizado em `~/.orion/tasks.db`): id, dono, status, tier/modelo efetivo, ref de saída; sobrevive a reinício. Tools `task_create/list/get/stop` e `/tasks` (lista também os shells do `ShellManager`, com `log_path` por instância corrigido).
-- [ ] `Ctrl+C` cancela o turno, **não** as tasks; `/tasks stop` e cascata ao encerrar a sessão.
-- [ ] Mensagens pai→filho (`send_message`: fila de entrada lida entre turnos do filho); retomada de filho parcial com o mesmo modelo.
-- [ ] Worktree (`isolation: worktree`) via `WorkspacePort`: `git worktree` temporário, `WorkspaceScope` próprio, `cwd` forçado e **validado no PEP** para `run_command/glob/grep`, limpeza automática se sem mudanças; **falha fechada** fora de repositório git.
-- [ ] `/loop` (intervalo fixo ou dinâmico) sobre tasks: disparo = subagent de orçamento limitado, gancho `TriagePort` (determinístico primeiro; tier fast só se inconclusivo, `max_tokens` mínimo), expiração padrão de 7 dias, teto de disparos, origem `loop`.
+- [x] `agents/loop_thread.py` + `ExecutorPort`: loop persistente em thread, `copy_context` ao despachar, fila thread-safe de notificações drenada antes de cada prompt e na toolbar.
+- [x] `agents/tasks.py` + `TaskStorePort` (SQLite parametrizado em `~/.orion/tasks.db`): id, dono, status, tier/modelo efetivo, ref de saída; sobrevive a reinício. Tools `task_create/list/get/stop` e `/tasks` (lista também os shells do `ShellManager`, com `log_path` por instância corrigido).
+- [x] `Ctrl+C` cancela o turno, **não** as tasks; `/tasks stop` e cascata ao encerrar a sessão.
+- [x] Mensagens pai→filho (`send_message`: fila de entrada lida entre turnos do filho); retomada de filho parcial com o mesmo modelo.
+- [x] Worktree (`isolation: worktree`) via `WorkspacePort`: `git worktree` temporário, `WorkspaceScope` próprio, `cwd` forçado e **validado no PEP** para `run_command/glob/grep`, limpeza automática se sem mudanças; **falha fechada** fora de repositório git.
+- [x] `/loop` (intervalo fixo ou dinâmico) sobre tasks: disparo = subagent de orçamento limitado, gancho `TriagePort` (determinístico primeiro; tier fast só se inconclusivo, `max_tokens` mínimo), expiração padrão de 7 dias, teto de disparos, origem `loop`.
 
 ### 🚫 Fora de Escopo
 - Agentes que se auto-criam (v1.5.0), agent teams (filhos conversando entre si), sandbox (v1.5.0).
@@ -271,7 +271,17 @@ Desvios e decisões tomadas na execução (a spec congelada continua válida):
 * **Reserva = pior caso:** prompt estimado + `max_tokens` (8192 por chamada de filho). Com tarifa alta e orçamento baixo, a reserva pode impedir uma chamada que custaria menos; é a troca deliberada por teto verificável.
 * **Mutante exige tier ≥ balanced:** agente com tools mutantes e `model_tier: fast` falha explicando (não sobe de tier em silêncio).
 * **`/review`:** o diff vai como `context` do subagent `code-review` (somente leitura); o resumo entra no histórico do pai com a `ref://`.
-* **Fora desta etapa, na 6B:** `ThreadExecutor`, `tasks.db`, `/tasks`, `/loop`, worktree (`isolation: worktree` já **falha fechado** na 6A), `send_message` e `Ctrl+C` ≠ tasks.
+* **6B entregue depois:** `ThreadExecutor`, `tasks.db`, `/tasks`, `/loop`, worktree (`isolation: worktree` falhava fechado na 6A), `send_message` e `Ctrl+C` ≠ tasks.
+
+## 8.2 Registro de implementação da 6B (2026-11-09)
+
+* **Agentes isolados só por definição:** `isolation: worktree` vem do `.md` do agente; o pedido (`task`/`task_create`/`/loop`) não consegue ligar ou desligar isolamento.
+* **Worktree parte do `HEAD`:** não enxerga mudanças não commitadas do pai (limite documentado). Mantido quando houve mudança; o resumo do filho começa com o caminho e a lista de arquivos.
+* **Contabilidade de background:** tasks não publicam no `EventBus` do pai (outra thread); o `TaskManager` chama `on_result` e enfileira a notificação. O texto vai ao modelo no próximo turno via `<recalled_context>` (isento do filtro de injeção, delimitadores forjados desarmados).
+* **Triagem:** a impressão digital é `HEAD` + `status --porcelain` + `diff HEAD`; fora de git é inconclusiva, então cai no estágio `fast` (`max_tokens` 8) e, sem modelo, acorda (o teto de disparos continua valendo). Meta em linguagem natural sem sinal no repositório sempre acorda no primeiro disparo.
+* **Estado dos loops:** em memória, vive e morre com a sessão (Sprint 7 traz persistência e cron).
+* **Tasks de outra sessão viva** (outro `pid`) não são tocadas pelo `recover()`; só aparecem em `list(mine=False)`.
+* **Achado de segurança tratado:** `WorkspaceScope` não expandia `~`; corrigido (ver `progress.md`).
 
 ---
 

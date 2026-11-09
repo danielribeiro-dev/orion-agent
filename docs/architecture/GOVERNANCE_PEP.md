@@ -51,3 +51,23 @@ Todas as ações sensíveis são gravadas de forma append-only no arquivo `~/.or
 - `params`: Parâmetros enviados (caminho do arquivo, comando shell).
 - `user_authorized`: Se houve confirmação humana explícita ou execução por política.
 - `result_status`: Sucesso ou código de erro retornado.
+
+---
+
+## 5. Subagents: o teto do pai (v0.5.0 Sprint 6, ADR-028)
+
+Um subagent roda com um PEP **próprio**, construído com `PolicyEnforcementPoint.for_subagent(pai, ...)`. Regra única: **privilégio só diminui**.
+
+| Dimensão | Regra do filho |
+| :--- | :--- |
+| Modo de autonomia | `min(modo do pai AGORA, modo pedido)`; se o Senhor muda o modo do pai, o filho acompanha na hora. |
+| Regras | `deny` e `ask` do pai valem no filho (vivas); `allow` do pai **nunca** é herdado; o filho nunca grava regra. |
+| Humano | Nenhum. `interactive=False`: **todo** `ask` é negado, assim como escalada (sudo, fora do workspace) e o desafio nuclear do SO (nunca abre o prompt). A recusa volta ao filho como erro de tool e ele continua. |
+| Trust Ledger | Não se aplica ao filho. |
+| Plan mode / safe-holding | Herdados do pai, ao vivo. |
+| Tools | Interseção do que o agente declara com o que o pai tem; nunca `task*`, `ask_user`, `send_message`, plan mode, `record_decision`, `memorize`, `deprecate_fact`, `todo_write`. MCP e memória só se declarados. |
+| Workspace | O do pai ou, com `isolation: worktree`, um `git worktree` temporário: `cwd`/`path` de `run_command/glob/grep/search_files/read_file` precisam ficar dentro dele (caminhos relativos e `cwd` padrão partem da raiz do worktree). Fora de git, o isolamento **falha fechado**. |
+| Projeto sem confiança | Agentes em `.orion/agents` só valem como escritos depois de `/agents trust` (hash do conjunto); antes, só leitura, tier ≤ balanced e orçamento nos padrões. |
+
+Auditoria: todo registro de um filho carrega `agent_id`; o ledger de custos tem `origin` (`user|subagent|loop|cron|daemon`) e `agent_id`. Orçamento: reserva antecipada do pior caso em `AgentBudget → AggregateBudget → teto diário`, sem "ilimitado" (ADR-030).
+

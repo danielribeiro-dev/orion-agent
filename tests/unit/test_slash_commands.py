@@ -47,7 +47,7 @@ class TestCatalog:
         assert {c.name for c in OFFICIAL_SLASH_COMMANDS} == set(registry.names)
 
     def test_catalog_size(self, registry: CommandRegistry) -> None:
-        assert len(registry.names) == 27
+        assert len(registry.names) == 29
 
     def test_no_emoji_in_catalog(self) -> None:
         for command in OFFICIAL_SLASH_COMMANDS:
@@ -72,7 +72,7 @@ class TestDispatch:
         "line",
         ["/memory", "/timeline", "/recall teste", "/compact", "/context", "/merge", "/diff",
          "/undo", "/doctor", "/cost", "/mcp", "/voice", "/help", "/clear", "/grill-me", "/learn",
-         "/review", "/plan x", "/goal x", "/branch b1", "/agents", "/agents runs"],
+         "/review", "/plan x", "/goal x", "/branch b1", "/agents", "/agents runs", "/tasks", "/loop list"],
     )
     async def test_commands_do_not_raise(
         self, registry: CommandRegistry, context: CommandContext, line: str

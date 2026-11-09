@@ -136,6 +136,7 @@ class InteractivePrompt:
             bottom_toolbar=self.get_bottom_toolbar,
             style=self.style,
             multiline=False,
+            refresh_interval=1.0,  # a toolbar mostra tasks em segundo plano concluídas
         )
 
         # 6. Reconfiguração do layout: Menu Flutuante acima do prompt, sem túnel rígido

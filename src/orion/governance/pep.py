@@ -213,6 +213,7 @@ class PolicyEnforcementPoint:
                 self._circuit_breaker = ceiling._circuit_breaker
         self._read_only = False
         self._cwd_confined = False
+        self._confine_reads = False
         self._pending_escalations: dict[str, str] = {}
 
     # ------------------------------------------------------------------
@@ -228,11 +229,13 @@ class PolicyEnforcementPoint:
         scope: WorkspaceScope | None = None,
         mode: AutonomyMode | None = None,
         audit_logger: AuditLogger | None = None,
+        confine_reads: bool = False,
     ) -> PolicyEnforcementPoint:
         """PEP of a child agent, under *parent*'s ceiling (ADR-028).
 
         ``mode`` can only lower the autonomy: the stored mode is ``min(parent, mode)``
-        and the parent's CURRENT mode keeps capping it afterwards.
+        and the parent's CURRENT mode keeps capping it afterwards. ``confine_reads`` (isolated
+        workspaces) also denies read tools whose ``path`` leaves the child's scope.
         """
         requested = parent.mode if mode is None else min_mode(mode, parent.mode)
         pep = cls(
@@ -244,6 +247,7 @@ class PolicyEnforcementPoint:
             agent_id=agent_id,
         )
         pep._cwd_confined = True
+        pep._confine_reads = confine_reads
         return pep
 
     @property
@@ -661,6 +665,15 @@ class PolicyEnforcementPoint:
                     self._scope.assert_allowed(cwd)
                 except PermissionError:
                     found.append(Escalation("outside_workspace", f"cwd fora do workspace: {cwd}"))
+        if self._confine_reads and (action.tool in _CWD_SCOPED_TOOLS or action.tool == "read_file"):
+            read_path = str(action.params.get("path", "")) or None
+            if read_path:
+                try:
+                    self._scope.assert_allowed(read_path)
+                except PermissionError:
+                    found.append(
+                        Escalation("outside_workspace", f"leitura fora do workspace isolado: {read_path}")
+                    )
         if level >= ActionLevel.LEVEL_2:
             path = str(action.params.get("path", "")) or None
             if path:

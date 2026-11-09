@@ -167,6 +167,9 @@ def run_interactive_repl(prompt: InteractivePrompt, session: AgentSession) -> No
 
     while True:
         try:
+            # Término de tasks em segundo plano chega por evento, entre os turnos.
+            for event in session.pop_notifications():
+                console.print(Text(f"● {session.format_notification(event)}", style="text_dim"))
             user_input = prompt.prompt(raise_on_interrupt=True)
             if not user_input or not user_input.strip():
                 continue

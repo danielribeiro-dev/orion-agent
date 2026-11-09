@@ -5,7 +5,7 @@
 - **Repositório:** `orion-agent`
 - **Fase Atual:** Fase 5 (v0.5.0 Claude-Grade Agent) **EM ANDAMENTO** 🟡 (Sprint 0 concluída; v0.4.0 implementada, tags/merge pendentes)
 - **Linhas de Código em `src/`:** ~16.300 linhas de produção
-- **Testes:** 1670 passando, cobertura global 92% (medido em 09/11/2026 após a 6A; excluídos `test_vector_store` — baixa o modelo ONNX, sem rede aqui — e os 2 arquivos que importam `aiohttp`, dependência não declarada no `pyproject.toml`) ✅
+- **Testes:** 1747 passando, cobertura global 92% (medido em 09/11/2026 após a 6B; excluídos `test_vector_store` — baixa o modelo ONNX, sem rede aqui — e os 2 arquivos que importam `aiohttp`, dependência não declarada no `pyproject.toml`) ✅
 
 ---
 
@@ -199,7 +199,7 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
   - [x] 5B MCP: streamable HTTP, headers `${VAR}`, OAuth PKCE (tokens 0600, login só sob demanda), resources (`@srv:uri`, tools LEVEL_1), prompts como slash commands, `list_changed`, keepalive e reconexão com backoff, `/mcp add|remove|auth|resources|prompts`
   - [x] 5B testes: `test_mcp_http_oauth` com servidor MCP real em subprocesso (`tests/fixtures/mcp_http_server.py`, inclui OAuth/PKCE); suíte inteira verde, cobertura 93,7%, mypy sem erros novos (26 de backlog)
   - [x] ADR-026; `docs/architecture/MCP_AND_CHANNELS.md` §1.1; `mcp>=2.3` + `httpx2` no `pyproject.toml` e `uv.lock` atualizado offline
-- [ ] Sprint 6: Subagents & Tasks — **spec detalhada congelada (08/11/2026)**: 6A (núcleo foreground) e 6B (background/tasks/worktree/loop); ADR-028 a 031; estudo comparativo em `docs/planning/versions/v0.5.0/sprint-6-study.md`
+- [x] Sprint 6: Subagents & Tasks ✅ IMPLEMENTADA (6A + 6B, 09/11/2026) — spec congelada em 08/11/2026: 6A (núcleo foreground) e 6B (background/tasks/worktree/loop); ADR-028 a 031; estudo comparativo em `docs/planning/versions/v0.5.0/sprint-6-study.md`
   - [x] **6A ✅ IMPLEMENTADA (2026-11-09; commit local, sem push)** — núcleo foreground, seguro e medido
     - [x] `agents/`: `definitions.py` (4 embutidos `explore|plan|general-purpose|code-review`; `.md` com frontmatter em `.orion/agents`, `~/.orion/agents`, plugin e `.claude/agents` com campos de privilégio descartados; TOFU por hash do conjunto — agente de projeto sem confiança só lê), `runner.py`, `budget.py`, `ports.py` (6 portas + `ModelGatewayPort`), `refs.py`, `models.py`
     - [x] **Teto no PEP** (`PolicyEnforcementPoint.for_subagent`): `min(modo)` vivo, `deny`/`ask` do pai unidos (vivos), `allow` e trust ledger nunca herdados, plan mode e safe-holding do pai herdados, `cwd` confinado ao escopo; **`interactive=False` nega todo `ask` e o desafio nuclear** (nunca abre o prompt do SO); filho nunca é interativo nem grava regra
@@ -211,7 +211,16 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
     - [x] TUI: `/agents [list|show|runs|trust]` (catálogo 26 → 27), `/review` reescrito sobre `code-review` (diff vai como contexto do filho), `/cost` e status bar somam filhos, linha compacta por filho (sem `Live`), `ChangeTracker`/`/undo`/`/rewind` com `agent_id`
     - [x] Testes (+185): `test_agent_definitions`, `test_agent_privilege` (inclui propriedade "filho nunca excede o pai" em 3 modos × plan × 10 ações), `test_agent_budget`, `test_subagents`, `test_subagents_session`, `test_agent_gateway`, `test_agent_settings`; 1670 passam, cobertura 92% (sem `test_vector_store`/`aiohttp`, ver nota), ruff 73 (= baseline), mypy sem erros novos além do ruído de ambiente `BaseModel: Any`
     - Pendente (exige o Senhor): validação manual em TTY real (`/agents`, linhas de progresso) e rodada live no `explore` com `ORION_LIVE=1` + teto no `BudgetGuard`
-  - [ ] 6B
+  - [x] **6B ✅ IMPLEMENTADA (2026-11-09; commit local, sem push)** — background, tasks, worktree, `/loop`
+    - [x] `agents/loop_thread.py`: `ThreadExecutor` (loop asyncio persistente em thread daemon; `copy_context` ao despachar; `cancel`/`cancel_all`/`shutdown` em cascata) e `NotificationQueue` (fila thread-safe, drenada antes de cada prompt; a toolbar mostra `tasks N ● · M ✔`); `Ctrl+C` cancela o turno, não as tasks
+    - [x] `agents/tasks.py`: `SqliteTaskStore` (`~/.orion/tasks.db`, WAL, parametrizado, 0600) e `TaskManager` (start/stop/stop_all/wait/send_message/recover; tasks de processos mortos viram `interrupted` pelo `pid`); tools `task_create/list/get/stop` e `send_message` (níveis no `TOOL_LEVELS`; nenhuma vai a subagents); término chega por evento e entra no PRÓXIMO turno do modelo como `Background events` (dado não confiável); zero token enquanto espera
+    - [x] `send_message`: caixa de entrada por filho (`AgentInbox`) lida entre as chamadas dele, anexada à última mensagem de usuário (papéis alternam); retomada de parcial reutiliza id e modelo
+    - [x] `agents/worktree.py`: `GitWorktreeWorkspace` (`git worktree add --detach` em `~/.orion/worktrees/`, removido se sem mudanças, mantido e reportado se com); caminhos relativos/`cwd` ancorados na raiz; PEP confina `cwd` e leituras; **falha fechada** fora de git/sem commit; liberado também ao cancelar
+    - [x] `agents/loops.py` + `/loop`: disparo = subagent de orçamento/turnos limitados com origem `loop`; **triagem** determinística (impressão digital do repo) antes do modelo, tier `fast` com `max_tokens` 8 só se inconclusiva; expiração 7 dias, teto de disparos (50), no máx. 5 loops, intervalo mínimo 30 s, intervalo dinâmico que se espaça sem novidade
+    - [x] TUI: `/tasks [list|get|stop]` (também lista/encerra shells), `/loop [intervalo] [flags] <meta> | list | stop`, status bar com tasks, catálogo 27 → 29, `refresh_interval` do prompt
+    - [x] Correções de base achadas no caminho: `ShellManager` com `log_path` único por instância; `JsonlSessionStore.append` com lock (filhos em background gravam de outra thread); **`WorkspaceScope` agora expande `~`** (antes `~/x` era tratado como subpasta literal do cwd e tools que expandem, como `notebook_edit`, escapavam do escopo)
+    - [x] Testes (+137): `test_agent_executor`, `test_tasks`, `test_worktree` (git real; mutação confirmou que os testes quebram sem a ancoragem/confinação), `test_loop`, `test_background_session`, `test_agent_infra`; 1747 passam, cobertura 92%, ruff 73 (= baseline), mypy sem erros novos além do ruído `BaseModel: Any`
+    - Pendente (exige o Senhor): TTY real (notificação entre turnos, toolbar, `/tasks`, `/loop`) e rodada live com `ORION_LIVE=1`; persistência durável de `/loop` e cron real ficam para a Sprint 7
 - [ ] Sprint 7: Daemon, Jobs & Schedules
 - [ ] Sprint 8: Hardening & Release
 - [ ] Pendências herdadas da v0.4.0: tags `v0.3.0`/`v0.4.0` e merge em `main`; validar turno com provedor real; repetir A/B de MCP com modelo pago

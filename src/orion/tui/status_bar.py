@@ -58,6 +58,9 @@ class SessionStatusBar(BaseModel):
     usd_to_brl_rate: float = 5.75
     agent_mode: str = "accept-edits"
     is_busy: bool = False
+    #: tasks em segundo plano em execução / notificações ainda não mostradas (Sprint 6B)
+    bg_running: int = 0
+    bg_unread: int = 0
     fast_mode: bool = False
 
     @property
@@ -258,6 +261,17 @@ class SessionStatusBar(BaseModel):
             Rule(style=ORION_COLORS["border_subtle"]),
         )
 
+    def _background_segment(self) -> list[tuple[str, str]]:
+        """``tasks 2 ● · 1 ✔``: em execução e concluídas ainda não vistas (vazio se nada)."""
+        if not (self.bg_running or self.bg_unread):
+            return []
+        parts = []
+        if self.bg_running:
+            parts.append(f"{self.bg_running} ●")
+        if self.bg_unread:
+            parts.append(f"{self.bg_unread} ✔")
+        return [("ok", "tasks " + " ".join(parts)), ("sep", " · ")]
+
     def status_segments(self, width: int = 80) -> list[tuple[str, str]]:
         """Monta a linha de status como pares (papel, texto) por faixa de largura.
 
@@ -273,6 +287,7 @@ class SessionStatusBar(BaseModel):
             return str(n)
 
         sep = ("sep", " · ")
+        bg = self._background_segment()
         cost = f"${self.session_cost_usd:.4f}"
         short_model = self.model_name.replace("-thinking", "")
         if self.fast_mode:
@@ -300,6 +315,7 @@ class SessionStatusBar(BaseModel):
                 sep,
                 ("pep", f"PEP: {self.pep_level}"),
                 sep,
+                *bg,
                 state,
             ]
 
@@ -313,9 +329,10 @@ class SessionStatusBar(BaseModel):
                 sep,
                 ("dim", cost),
                 sep,
+                *bg,
                 state,
             ]
-        return [("dim", abbreviated), sep, ("dim", cost), sep, state]
+        return [("dim", abbreviated), sep, ("dim", cost), sep, *bg, state]
 
     def render_bottom_bar(self, width: int = 80) -> RenderableType:
         """Gera a linha de status inferior sobre o fundo nativo do terminal."""

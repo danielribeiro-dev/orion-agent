@@ -64,6 +64,13 @@ TOOL_LEVELS: dict[str, ActionLevel] = {
     # Subagents (v0.5.0 Sprint 6): delegar não muda nada por si só. O filho roda com PEP próprio
     # sob o teto do pai (ADR-028), então o risco real é decidido a cada tool que ele chamar.
     "task": ActionLevel.LEVEL_1,
+    # Tasks em segundo plano (Sprint 6B): disparar/consultar não amplia privilégio (mesmo teto do
+    # pai); cancelar interfere no trabalho em andamento, então pede o mesmo que `kill_shell`.
+    "task_create": ActionLevel.LEVEL_1,
+    "task_list": ActionLevel.LEVEL_0,
+    "task_get": ActionLevel.LEVEL_1,
+    "task_stop": ActionLevel.LEVEL_2,
+    "send_message": ActionLevel.LEVEL_1,
 }
 
 #: Tools que abrem modal no terminal: nunca rodam em paralelo com outras.
@@ -151,7 +158,7 @@ class WorkspaceScope:
 
     def is_allowed(self, path: Path | str) -> bool:
         """Return True if *path* is inside at least one authorised root."""
-        target = Path(path).resolve()
+        target = Path(path).expanduser().resolve()
         return any(self._is_inside(target, root) for root in self._roots)
 
     @staticmethod

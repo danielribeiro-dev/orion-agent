@@ -16,11 +16,12 @@ import asyncio
 import contextlib
 import json
 import logging
+import queue
 import re
 import threading
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -50,7 +51,7 @@ from orion.core.errors import PromptInjectionSuspected, TurnBudgetExceeded
 from orion.core.event_bus import EventBus
 from orion.core.events import SubagentCompleted, SubagentStarted
 from orion.gateway.budget import BudgetExceededError
-from orion.gateway.models import LLMMessage, MessageRole, TokenUsage, ToolSpec
+from orion.gateway.models import ContentBlock, LLMMessage, MessageRole, TokenUsage, ToolSpec
 from orion.governance.audit import AuditLogger
 from orion.governance.pep import PolicyEnforcementPoint
 from orion.governance.permissions import ActionLevel, WorkspaceScope, tool_action_level
@@ -133,6 +134,63 @@ class ConcurrencyGate:
             await asyncio.sleep(0.05)
 
 
+class AgentInbox:
+    """Mensagens pai -> filho (``send_message``): lidas entre as chamadas ao modelo do filho."""
+
+    def __init__(self) -> None:
+        self._boxes: dict[str, queue.Queue[str]] = {}
+        self._lock = threading.Lock()
+
+    def open(self, agent_id: str) -> None:
+        with self._lock:
+            self._boxes.setdefault(agent_id, queue.Queue())
+
+    def close(self, agent_id: str) -> None:
+        with self._lock:
+            self._boxes.pop(agent_id, None)
+
+    def is_open(self, agent_id: str) -> bool:
+        with self._lock:
+            return agent_id in self._boxes
+
+    def post(self, agent_id: str, text: str) -> bool:
+        """``False`` se o filho não está em execução (nada é guardado para depois)."""
+        with self._lock:
+            box = self._boxes.get(agent_id)
+        if box is None:
+            return False
+        box.put(text)
+        return True
+
+    def drain(self, agent_id: str) -> list[str]:
+        with self._lock:
+            box = self._boxes.get(agent_id)
+        items: list[str] = []
+        while box is not None:
+            try:
+                items.append(box.get_nowait())
+            except queue.Empty:
+                break
+        return items
+
+
+def attach_parent_messages(messages: list[LLMMessage], notes: list[str]) -> list[LLMMessage]:
+    """Anexa as mensagens do pai à última mensagem de usuário (mantém a alternância de papéis)."""
+    text = "\n\n".join(
+        "<message_from_parent>\n" + note.replace("<<<ORION_", "<<_ORION_") + "\n</message_from_parent>"
+        for note in notes
+    )
+    last = messages[-1]
+    if last.role != MessageRole.USER:
+        return [*messages, LLMMessage(role=MessageRole.USER, content=text)]
+    content: str | list[ContentBlock]
+    if isinstance(last.content, str):
+        content = f"{last.content}\n\n{text}"
+    else:
+        content = [*last.content, ContentBlock.of_text(text)]
+    return [*messages[:-1], last.model_copy(update={"content": content})]
+
+
 @dataclass
 class RunnerDeps:
     """Tudo de que o runner precisa, injetado (nenhum I/O global)."""
@@ -154,14 +212,21 @@ class RunnerDeps:
     allow_pinned_model: Callable[[], bool] = lambda: False
     max_tokens: int = CHILD_MAX_TOKENS
     gate: ConcurrencyGate | None = None
+    inbox: AgentInbox = field(default_factory=AgentInbox)
 
 
 class RestrictedRuntime(BaseRuntimeProvider):
     """Runtime filtrado: só executa as tools da interseção (``tool_specs/supports/execute``)."""
 
-    def __init__(self, inner: LocalRuntimeProvider, allowed: frozenset[str] = frozenset()) -> None:
+    def __init__(
+        self,
+        inner: LocalRuntimeProvider,
+        allowed: frozenset[str] = frozenset(),
+        root: Path | None = None,
+    ) -> None:
         self._inner = inner
         self._allowed = allowed
+        self._root = root  # workspace isolado: caminhos relativos e o cwd padrão partem daqui
 
     @property
     def allowed(self) -> frozenset[str]:
@@ -194,7 +259,26 @@ class RestrictedRuntime(BaseRuntimeProvider):
                 f"tool '{tool}' is not available to this subagent. Available: {sorted(self._allowed)}",
                 denied=True,
             )
-        return await self._inner.execute(tool, params)
+        return await self._inner.execute(tool, self._anchor(tool, params))
+
+    def _anchor(self, tool: str, params: dict[str, Any]) -> dict[str, Any]:
+        """Num workspace isolado, força ``cwd``/``path`` a partir da raiz do worktree.
+
+        Sem isso, ``run_command``/``glob``/``grep`` sem caminho caem no diretório do processo,
+        ou seja, no workspace REAL do pai. O PEP ainda valida o resultado (``_cwd_confined``).
+        """
+        if self._root is None:
+            return params
+        fixed = dict(params)
+        for key in ("path", "cwd", "file_path", "notebook_path"):
+            value = fixed.get(key)
+            if isinstance(value, str) and value and not value.startswith(("/", "~")):
+                fixed[key] = str(self._root / value)
+        if tool == "run_command" and not fixed.get("cwd"):
+            fixed["cwd"] = str(self._root)
+        if tool in {"glob", "grep", "search_files"} and not fixed.get("path"):
+            fixed["path"] = str(self._root)
+        return fixed
 
 
 # ---------------------------------------------------------------------------
@@ -316,7 +400,10 @@ class AgentRunner:
         aggregate: AggregateBudget | None = None,
         *,
         agent_id: str | None = None,
+        publish: bool = True,
     ) -> AgentResult:
+        """Executa um filho. ``publish=False`` (tasks em segundo plano) não toca o bus do pai:
+        a contabilidade e o aviso ao Senhor ficam com quem chamou (outra thread)."""
         d = self._d
         limits = d.limits()
         child_id = agent_id or f"agent_{uuid.uuid4().hex[:10]}"
@@ -350,6 +437,7 @@ class AgentRunner:
         gate = d.gate
         assert gate is not None
         await gate.acquire()
+        d.inbox.open(child_id)
         prepared = False
         try:
             scope: WorkspaceScope = parent.pep.scope
@@ -363,13 +451,18 @@ class AgentRunner:
                         child_id, request, f"isolation unavailable ({exc}); refusing to run unisolated"
                     )
 
+            isolated = definition.isolation != "none"
             pep = PolicyEnforcementPoint.for_subagent(
-                parent.pep, agent_id=child_id, scope=scope, audit_logger=d.audit.with_agent(child_id)
+                parent.pep,
+                agent_id=child_id,
+                scope=scope,
+                audit_logger=d.audit.with_agent(child_id),
+                confine_reads=isolated,
             )
             local = LocalRuntimeProvider(
                 pep=pep, scope=scope, shells=ShellManager(agent_dir(d.home, child_id) / "shells")
             )
-            runtime = RestrictedRuntime(local)
+            runtime = RestrictedRuntime(local, root=scope.roots[0] if isolated else None)
             allowed = self._equip(definition, local, runtime, parent, pep, depth)
             runtime.restrict_to(allowed)
             mutating = any(tool_action_level(t) >= ActionLevel.LEVEL_2 for t in allowed)
@@ -428,12 +521,12 @@ class AgentRunner:
                 max_turns=budget.max_turns + 5,  # a trava de verdade é o AgentBudget
                 session_id=child_id,
                 runtime=runtime,
-                system_extra=lambda: f"{_SUBAGENT_NOTE}\n\n{definition.prompt}",
-                prepare_messages=self._compactor(model, runtime),
+                system_extra=lambda: self._system_note(definition, scope if isolated else None),
+                prepare_messages=self._prepare(child_id, self._compactor(model, runtime)),
                 on_message=self._transcript_writer(child_id, transcript),
                 agent_id=child_id,
             )
-            await self._announce_start(child_id, parent, definition, request, model)
+            await self._announce_start(child_id, parent, definition, request, model, publish)
 
             history = list(resume.messages) if resume else None
             if history and history[-1].role == MessageRole.USER:
@@ -465,11 +558,27 @@ class AgentRunner:
                     child_id, request, definition, "cancelled", engine, "", "cancelled",
                     current["model"], usage,
                 )
-                await self._announce_end(child_id, parent, definition, cancelled, request.origin)
+                await self._announce_end(
+                    child_id, parent, definition, cancelled, request.origin, publish
+                )
                 raise
             except Exception as exc:
                 logger.exception("AgentRunner: subagent %s falhou", child_id)
                 status, error = "error", f"{type(exc).__name__}: {exc}"
+
+            workspace_note = ""
+            if prepared and d.workspace_port is not None:
+                # Libera já, para o Senhor saber onde ficou o que o filho mudou no worktree.
+                prepared = False
+                outcome = await d.workspace_port.release(child_id, keep_if_changed=True)
+                if outcome.kept:
+                    shown = ", ".join(outcome.changed_files[:20]) or "(sem lista)"
+                    workspace_note = (
+                        f"\n\n[isolated workspace kept at {outcome.path}; changed: {shown}. "
+                        "Review it with git there and bring over what you want.]"
+                    )
+                else:
+                    workspace_note = "\n\n[isolated workspace had no changes and was removed]"
 
             if status == "ok" and request.output_schema:
                 problem = validate_output_schema(answer, request.output_schema)
@@ -477,9 +586,10 @@ class AgentRunner:
                     status, error = "schema_invalid", f"answer violates output_schema: {problem}"
 
             result = self._finalize(
-                child_id, request, definition, status, engine, answer, error, current["model"], usage
+                child_id, request, definition, status, engine, answer, error, current["model"], usage,
+                workspace_note,
             )
-            await self._announce_end(child_id, parent, definition, result, request.origin)
+            await self._announce_end(child_id, parent, definition, result, request.origin, publish)
             with contextlib.suppress(Exception):
                 await hooks.run(
                     "SubagentStop",
@@ -487,6 +597,7 @@ class AgentRunner:
                 )
             return result
         finally:
+            d.inbox.close(child_id)
             gate.release()
             if prepared and d.workspace_port is not None:
                 with contextlib.suppress(Exception):
@@ -539,6 +650,29 @@ class AgentRunner:
             local.register_tool(TaskTool(self.bind(handle)))
             wanted.add("task")
         return frozenset(wanted)
+
+    @staticmethod
+    def _system_note(definition: AgentDefinition, isolated: WorkspaceScope | None) -> str:
+        note = f"{_SUBAGENT_NOTE}\n\n{definition.prompt}"
+        if isolated is not None:
+            note += (
+                f"\n\nYour working directory is the isolated workspace {isolated.roots[0]}. "
+                "Relative paths resolve there; you cannot read or write outside it."
+            )
+        return note
+
+    def _prepare(
+        self, agent_id: str, compactor: AutoCompactor
+    ) -> Callable[[list[LLMMessage]], Awaitable[list[LLMMessage] | None]]:
+        """Gancho de antes de cada chamada: entrega mensagens do pai e depois poda/compacta."""
+
+        async def prepare(messages: list[LLMMessage]) -> list[LLMMessage] | None:
+            notes = self._d.inbox.drain(agent_id)
+            current = attach_parent_messages(messages, notes) if notes and messages else None
+            compacted = await compactor(current if current is not None else messages)
+            return compacted if compacted is not None else current
+
+        return prepare
 
     @staticmethod
     def _cap(definition_usd: float | None, request_usd: float | None, default: float) -> float:
@@ -674,9 +808,12 @@ class AgentRunner:
         error: str | None,
         model: ResolvedModel,
         usage: UsageTotals,
+        note: str = "",
     ) -> AgentResult:
         ref = make_ref(agent_id)
         text = answer.strip() or _last_assistant_text(engine.messages) or "(no output)"
+        if note:
+            text = f"{note.strip()}\n\n{text}"  # primeiro: o resumo é truncado pelo fim
         if status != "ok":
             text = f"[{status}: {error}]\n{text}" if error else f"[{status}]\n{text}"
         self._write_result(agent_id, request, status, text, model.model_id, usage, error)
@@ -701,6 +838,7 @@ class AgentRunner:
         definition: AgentDefinition,
         request: TaskRequest,
         model: ResolvedModel,
+        publish: bool = True,
     ) -> None:
         d = self._d
         d.audit.with_agent(agent_id).log_event(
@@ -708,7 +846,7 @@ class AgentRunner:
             detail={"agent": definition.name, "parent_id": parent.agent_id, "model": model.model_id,
                     "goal": request.goal[:300]},
         )
-        if d.bus is not None:
+        if publish and d.bus is not None:
             await d.bus.publish(
                 SubagentStarted(
                     agent_id=agent_id,
@@ -728,13 +866,14 @@ class AgentRunner:
         definition: AgentDefinition,
         result: AgentResult,
         origin: Origin = "subagent",
+        publish: bool = True,
     ) -> None:
         d = self._d
         d.audit.with_agent(agent_id).log_event(
             kind="subagent_end",
             detail={"agent": definition.name, "status": result.status, "cost_usd": result.usage.cost_usd},
         )
-        if d.bus is not None:
+        if publish and d.bus is not None:
             await d.bus.publish(
                 SubagentCompleted(
                     agent_id=agent_id,

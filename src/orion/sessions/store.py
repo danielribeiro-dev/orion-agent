@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import os
+import threading
 from pathlib import Path
 from typing import Protocol
 
@@ -55,6 +56,7 @@ class JsonlSessionStore:
         self._workspace = workspace.resolve()
         self._counts: dict[str, int] = {}
         self._paths: dict[str, Path] = {}
+        self._lock = threading.RLock()  # subagents em background gravam de outra thread
 
     # ── Caminhos ──
 
@@ -92,6 +94,10 @@ class JsonlSessionStore:
         return self._find(session_id) is not None
 
     def append(self, session_id: str, entry: TranscriptEntry) -> None:
+        with self._lock:
+            self._append(session_id, entry)
+
+    def _append(self, session_id: str, entry: TranscriptEntry) -> None:
         path = self._path(session_id)
         first = not path.exists()
         if first:

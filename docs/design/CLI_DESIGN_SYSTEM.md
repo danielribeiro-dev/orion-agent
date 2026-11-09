@@ -272,7 +272,7 @@ O agente possui 4 modos de operação comutáveis instantaneamente:
 | **`Alt + R`** | Expande o último bloco de raciocínio no fluxo | ORION |
 | **`Alt + E`** | Expande a última saída de ferramenta colapsada | ORION |
 | **`Alt + Enter`** ou `Shift + Enter` | Insere quebra de linha no prompt sem submeter (entrada multilinha) | Terminal Padrão / Claude Code |
-| **`Ctrl + C` (1 toque)** | Cancela a inferência/streaming ou ferramenta em execução, mantendo o processo e memórias abertos | Claude Code & Hermes Agent |
+| **`Ctrl + C` (1 toque)** | Cancela a inferência/streaming ou ferramenta em execução, mantendo o processo e memórias abertos. Tasks em segundo plano **não** são canceladas (`/tasks stop`) | Claude Code & Hermes Agent |
 | **`Ctrl + C` (2 toques)** | Encerra o processo da CLI com segurança | Padrão Linux / Claude Code |
 | **`Ctrl + L`** | Limpa e redesenha a tela de forma atômica sem perder o histórico do chat | Bash / Zsh / Claude Code |
 | **`Esc`** | Cancela menu de autocompletar, fecha telas modais (`/config`) ou limpa texto digitado | Vim / IDEs Modernas |
@@ -302,6 +302,9 @@ O agente possui 4 modos de operação comutáveis instantaneamente:
 | | `❯ /model` | Seletor interativo de modelos com filtro por digitação. |
 | | `❯ /config` | Painel interativo para alternar provedores, modelos, personas e governança PEP. |
 | | `❯ /mcp` | Gerencia conexões e ferramentas do Model Context Protocol (stdio / SSE). |
+| | `❯ /agents` | Subagents: lista, detalhes, execuções (custo por agente) e `trust` dos agentes do projeto. |
+| | `❯ /tasks` | Tasks e shells em segundo plano: lista, resultado (`get`) e cancelamento (`stop`). |
+| | `❯ /loop` | Verificação recorrente em segundo plano; a triagem decide se o modelo acorda (`list`, `stop`). |
 | | `❯ /voice` | Controla o daemon de presença ambiente e voz headless. |
 | | `❯ /clear` | Limpa a tela do terminal preservando o contexto e memórias. |
 | | `❯ /help` | Guia completo de comandos e catálogo de atalhos de teclado. |
