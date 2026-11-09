@@ -118,7 +118,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 ---
 
 ### ADR-014 [v0.4.0]: Comando Oficial `orion-agent` e Reserva de `orion` para eDEX/Desktop
-* **Status:** Aprovado (24/10/2026)
+* **Status:** Aprovado (24/10/2026); **emendado pelo ADR-033 (09/11/2026)**: `orion` e `orion-agent` ligam a mesma CLI
 * **Contexto:** Distinção clara entre o binário CLI de alta velocidade para o dia a dia e futuras interfaces visuais cinematográficas.
 * **Decisão:** O comando oficial para inicializar o CLI do agente no terminal é exclusivamente `orion-agent` (`[project.scripts] orion-agent = "orion.cli:main"`). O identificador `orion` fica formalmente reservado para a interface eDEX futurista / aplicativo desktop dedicado posterior.
 * **Consequências:** Nomenclatura limpa, clareza operacional para o usuário e proteção de marca para futuros aplicativos gráficos da plataforma.
@@ -327,3 +327,42 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   3. **Sem downgrade silencioso (CA-11):** agentes read-only podem cair para modelo local; agentes com tools mutantes exigem tier efetivo ≥ `balanced`; sem candidato adequado a task falha explicando. O modelo efetivo é gravado no registro e reutilizado na retomada.
   4. Formato do agente versionado (`schema_version`); leitor também aceita `.claude/agents/*.md`. `memory` é enum (`none|read|scoped:<escopo>`) para encaixar nos escopos da Memória Viva (ADR-027).
 * **Consequências:** Trocar ou adicionar provedor não altera `agents/`; novos executores (daemon, remoto) e agentes auto-criados (v1.5.0) usam o mesmo contrato.
+
+### ADR-032: Daemon Opt-in, IPC por Socket Unix e Roteador de Saída
+* **Status:** Aprovado (09/11/2026)
+* **Contexto:** A sessão vive e morre com a TUI; sem processo persistente não há agenda durável nem notificação com o terminal fechado. Mercado: Hermes usa um gateway único que embute o cron; Claude Code separa Routines, tarefas do Desktop e `/loop`; Antigravity centraliza aprovações num Inbox.
+* **Decisão:**
+  1. Um único daemon `systemd --user`, **desligado por padrão**. Níveis independentes: `install` (grava a unit), `enable` (sobe no login), `enable --boot` (exige `loginctl enable-linger` explícito). `disable` reverte tudo e preserva `~/.orion/`.
+  2. Controle dentro da CLI: `/daemon start|stop|status|enable|disable` e tool `daemon_control` (conversa natural), sempre com confirmação do PEP.
+  3. IPC JSON-RPC 2.0 em socket Unix `0600` em `$XDG_RUNTIME_DIR`, autenticação por `SO_PEERCRED`, sem TCP. Payload de eventos = `AgentEventEnvelope` (ADR-029).
+  4. Roteador de saída por prioridade: cliente anexado, notificação nativa com ações, Telegram, e voz (v0.6.0). A notificação nativa é o canal garantido sem terminal e sem áudio.
+  5. Idle = zero chamadas ao provider (ADR-022); `schedule_create` é nível confirmação; ação nuclear agendada nunca roda sem step-up local e não há aprovação nuclear remota.
+* **Consequências:** `AgentSession` precisa de um `SessionSink` (`RichSink`/`IpcSink`) e de `status_bar`/`console` opcionais. Teto de custo por origem (`cron|daemon|loop`) no `BudgetGuard`.
+
+### ADR-033: Emenda ao ADR-014 [v0.4.0] — `orion` e `orion-agent` ligam a mesma CLI
+* **Status:** Aprovado (09/11/2026)
+* **Contexto:** O ADR-014 reservava `orion` ao desktop. A spec da Sprint 7 usa `orion daemon ...`.
+* **Decisão:** `orion` e `orion-agent` apontam para a mesma CLI. O desktop (v0.7.0) será um **app instalável como qualquer outro**, nunca iniciado por terminal, portanto não disputa o nome. Ligar o ORION automaticamente e deixá-lo sempre ativo é configurado dentro da CLI (`/daemon` ou conversa).
+* **Consequências:** Atualizar `CLAUDE.md` e a documentação de comandos quando a emenda for aprovada.
+
+### ADR-034: Aba Flutuante e Voz São Clientes do IPC do Daemon
+* **Status:** Aprovado (09/11/2026)
+* **Contexto:** O Senhor quer uma aba que se estende no hover, arrastável e recolhível, com mensagens, botões e pensamentos opcionais. No GNOME/Wayland não há layer-shell nem janela "sempre no topo" por aplicação.
+* **Decisão:** A Sprint 7 entrega só o protocolo: stream de eventos, canal de pensamentos opt-in (`ui.show_thinking`, desligado por padrão), notificações com ação e Inbox de pendências. A aba e a voz são clientes do mesmo IPC, planejados para v0.6.0/v0.7.0 (ver `docs/planning/vision/ambient-panel-and-voice.md`).
+* **Consequências:** Nenhuma UI gráfica na v0.5.0; o contrato do IPC precisa ser estável o bastante para esses clientes.
+
+### ADR-035: Boot Escalonado e Dormência de Componentes por Pressão do Sistema
+* **Status:** Aprovado (09/11/2026)
+* **Contexto:** Em máquinas fracas, subir todos os componentes junto com o PC compete com o que o Senhor está fazendo. Máquinas fortes não precisam dessa cautela.
+* **Decisão:**
+  1. Sondagem de hardware sem LLM (RAM, núcleos, carga, PSI, bateria/tomada, disco) escolhe o perfil `minimal` (socket, scheduler, notificador), `standard` (acrescenta memória e MCPs sob demanda) ou `full` (tudo, inclusive embeddings). `daemon.boot_profile` aceita `auto` (padrão), `minimal` e `full`.
+  2. O daemon espera a máquina estabilizar (carga e pressão abaixo do limiar), com teto de espera, em vez de usar atraso fixo.
+  3. Um `PressureMonitor` determinístico observa a pressão, **descontando o consumo do próprio ORION**, e coloca em dormência os componentes `Sleepable` não essenciais. Usa limiares de entrada e de saída (histerese) e tempo mínimo por estado. Scheduler, IPC e auditoria são essenciais e nunca dormem.
+  4. A unit systemd define `Nice`, `CPUWeight`, `IOWeight` e `MemoryHigh`. Limiares são calibrados por medição e configuráveis.
+* **Consequências:** Componentes pesados (embeddings, MCPs, Telegram) precisam implementar `Sleepable` e carregar de forma preguiçosa. Zero token envolvido.
+
+### ADR-036: Política de Presença Guiada por Memória
+* **Status:** Aprovado (09/11/2026)
+* **Contexto:** Preferências como "notícias de manhã" ou "manhã silenciosa" não podem ficar em código fixo; devem vir da memória e mudar com o Senhor (ADR-027).
+* **Decisão:** O código oferece só mecanismos (janela de silêncio, teto de canal, resumo agrupado, briefing agendado). As regras vêm de fatos em `facts.db`, criadas por conversa (o modelo interpreta uma vez, o Senhor confirma) e avaliadas por um `PresencePolicy` determinístico antes de cada saída ou despertar. Janelas podem ser relativas ("primeira atividade do dia"). Só aprovação pendente e alertas críticos, conforme definido pelo Senhor, furam o silêncio. Sinais de feedback são registrados para a memória viva aprender depois.
+* **Consequências:** Briefings que usam o modelo e a web entram no teto de custo por origem. Aprendizado automático de preferências fica fora da Sprint 7.

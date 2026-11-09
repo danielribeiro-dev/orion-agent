@@ -38,6 +38,7 @@ A v0.4.0 entregou TUI, PEP, memória e MCP, mas **nunca validou um turno com pro
 - **ADR-020:** provider Anthropic nativo adiantado para a v0.5.0 (revoga gates da v1.6.0).
 - **ADR-021:** protocolo de mensagens estruturado (content blocks, `tool_use`/`tool_result`, schemas JSON) substitui `<tool_call>` em texto.
 - **ADR-022:** daemon event-driven; scheduler e watchers determinísticos; LLM só é chamado por gatilho (zero tokens em idle).
+- **ADR-032 a 036 (Sprint 7):** daemon opt-in com IPC e roteador de saída; `orion` = `orion-agent`; aba e voz como clientes do IPC; boot escalonado e dormência por pressão; política de presença guiada por memória.
 - **ADR-028 a 031 (Sprint 6):** privilégio só diminui nos subagents; tasks em loop de thread com portas; orçamento por agente com reserva; núcleo de agentes agnóstico de provedor.
 
 ### 2.3 Dependências e Relações
@@ -57,7 +58,7 @@ A v0.4.0 entregou TUI, PEP, memória e MCP, mas **nunca validou um turno com pro
 | **Sprint 4** | Paridade de Ferramentas | Web, glob/grep, todo, ask_user, plan mode, bash em background; **portão de dogfooding** | [`sprint-4.md`](sprints/sprint-4.md) | ✅ Implementada (portão pendente) |
 | **Sprint 5** | Extensibilidade & MCP Completo | Settings, regras, hooks, comandos custom, MCP HTTP/OAuth/resources/prompts | [`sprint-5.md`](sprints/sprint-5.md) | ✅ Implementada |
 | **Sprint 6** | Subagents & Tasks | 6A: runner, tool `task`, teto de privilégio, orçamento por agente, `/agents`; 6B: background, `/tasks`, worktree, `/loop` (ADR-028 a 031; [estudo](sprint-6-study.md)) | [`sprint-6.md`](sprints/sprint-6.md) | ✅ Implementada (6A + 6B) |
-| **Sprint 7** | Daemon, Jobs & Schedules | systemd --user, IPC, scheduler, jobs, notificações, idle = 0 tokens | [`sprint-7.md`](sprints/sprint-7.md) | 📋 Planejando |
+| **Sprint 7** | Daemon, Jobs & Schedules | systemd --user, IPC, scheduler, jobs, notificações, idle = 0 tokens | [`sprint-7.md`](sprints/sprint-7.md) | 🧊 Spec congelada |
 | **Sprint 8** | Hardening & Release | Paridade, evals, segurança, doctor, tag `v0.5.0` | [`sprint-8.md`](sprints/sprint-8.md) | 📋 Planejando |
 
 Dogfooding: a partir da conclusão da Sprint 4, as Sprints 5–8 são desenvolvidas usando o próprio ORION (Claude Code como rede de segurança).
