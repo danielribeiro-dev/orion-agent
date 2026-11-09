@@ -166,9 +166,11 @@ class LocalOllamaProvider(BaseLLMProvider):
         """
         try:
             timeout = aiohttp.ClientTimeout(total=_CHECK_TIMEOUT_S)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(f"{self._base_url}/api/tags") as resp:
-                    return resp.status == 200
+            async with (
+                aiohttp.ClientSession(timeout=timeout) as session,
+                session.get(f"{self._base_url}/api/tags") as resp,
+            ):
+                return resp.status == 200
         except Exception:  # noqa: BLE001
             return False
 
@@ -181,12 +183,14 @@ class LocalOllamaProvider(BaseLLMProvider):
         """
         try:
             timeout = aiohttp.ClientTimeout(total=_CHECK_TIMEOUT_S)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.get(f"{self._base_url}/api/tags") as resp:
-                    if resp.status != 200:
-                        return []
-                    data = await resp.json()
-                    return [m["name"] for m in data.get("models", [])]
+            async with (
+                aiohttp.ClientSession(timeout=timeout) as session,
+                session.get(f"{self._base_url}/api/tags") as resp,
+            ):
+                if resp.status != 200:
+                    return []
+                data = await resp.json()
+                return [m["name"] for m in data.get("models", [])]
         except Exception:  # noqa: BLE001
             return []
 

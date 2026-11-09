@@ -629,7 +629,7 @@ class TestModelRouterNaturalLanguageSwitching:
 
     def test_fix_to_sonnet_alias(self, registry: ModelRegistry) -> None:
         router = ModelRouter(registry=registry)
-        decision = router.route("fix on sonnet for this session")
+        router.route("fix on sonnet for this session")
         if router.mode == RoutingMode.FIXED:
             assert router.fixed_model == "anthropic/claude-sonnet-4-5"
 

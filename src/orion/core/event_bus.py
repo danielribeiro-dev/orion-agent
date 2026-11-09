@@ -10,6 +10,7 @@ deque to allow post-hoc inspection without memory growth.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from collections import deque
 from collections.abc import Callable, Coroutine
@@ -84,10 +85,9 @@ class EventBus:
     def unsubscribe(self, event_type: type[T], handler: AsyncHandler) -> None:
         """Remove a previously registered handler."""
         handlers = self._handlers.get(event_type, [])
-        try:
+        # Idempotent: no error if handler not found
+        with contextlib.suppress(ValueError):
             handlers.remove(handler)
-        except ValueError:
-            pass  # Idempotent: no error if handler not found
 
     # ------------------------------------------------------------------
     # Publishing

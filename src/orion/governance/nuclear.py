@@ -43,7 +43,7 @@ import re
 import shutil
 import subprocess
 import time
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
@@ -58,7 +58,7 @@ _open_tty = open
 # ---------------------------------------------------------------------------
 
 
-class BlastRadius(str, Enum):
+class BlastRadius(StrEnum):
     """Classificação de impacto destrutivo de um comando.
 
     BENIGN            — Leitura, build, testes, listagem. Sem efeitos colaterais.

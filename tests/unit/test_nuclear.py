@@ -256,7 +256,7 @@ class TestAuthMethodSelection:
         with patch.object(self.gate, "_has_display", return_value=True), \
              patch.object(self.gate, "_try_graphical_auth", return_value=("skipped", False)), \
              patch.object(self.gate, "_try_tty_auth", return_value=("tty_fallback", True)) as mock_tty:
-            result = self.gate._run_challenge("rm -rf /tmp", BlastRadius.NUCLEAR_DESTRUCTIVE)
+            self.gate._run_challenge("rm -rf /tmp", BlastRadius.NUCLEAR_DESTRUCTIVE)
             mock_tty.assert_called_once()
 
     def test_has_display_true_with_display_env(self):

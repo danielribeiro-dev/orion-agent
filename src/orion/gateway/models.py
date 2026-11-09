@@ -7,7 +7,7 @@ streaming e especificações de modelos no Model Registry.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, model_validator
 # ---------------------------------------------------------------------------
 
 
-class MessageRole(str, Enum):
+class MessageRole(StrEnum):
     """Papéis válidos de mensagem no contexto de inferência."""
 
     SYSTEM = "system"
@@ -26,7 +26,7 @@ class MessageRole(str, Enum):
     TOOL = "tool"
 
 
-class ProviderName(str, Enum):
+class ProviderName(StrEnum):
     """Provedores de inferência suportados pelo Gateway."""
 
     OPENROUTER = "openrouter"
@@ -36,7 +36,7 @@ class ProviderName(str, Enum):
     GOOGLE = "google"
 
 
-class ComplexityTier(str, Enum):
+class ComplexityTier(StrEnum):
     """Tiers de complexidade de turno para Dynamic Auto-Routing (Sprint 2)."""
 
     FAST = "fast"       # Comandos rotineiros, busca, resposta curta

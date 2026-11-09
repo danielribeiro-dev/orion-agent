@@ -324,7 +324,7 @@ class AsyncBytesIterator:
         try:
             return next(self._chunks)
         except StopIteration:
-            raise StopAsyncIteration
+            raise StopAsyncIteration from None
 
 
 class TestStream:

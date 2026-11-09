@@ -5,12 +5,12 @@ Defines legal agent states and the valid transition graph.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from orion.core.errors import EngineStateError
 
 
-class AgentState(str, Enum):
+class AgentState(StrEnum):
     """States in the ReAct engine finite state machine.
 
     Transition graph:

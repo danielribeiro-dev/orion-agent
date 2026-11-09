@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -76,7 +76,7 @@ class HybridSearchResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class FactStatus(str, Enum):
+class FactStatus(StrEnum):
     """Anti-poisoning state machine for structured facts."""
 
     CONFIRMED = "CONFIRMED"   # Explicitly validated by the user — immovable
@@ -84,7 +84,7 @@ class FactStatus(str, Enum):
     DEPRECATED = "DEPRECATED"  # Marked as obsolete — never promoted back
 
 
-class FactCategory(str, Enum):
+class FactCategory(StrEnum):
     """Semantic category for structured facts."""
 
     USER_PREFERENCE = "USER_PREFERENCE"
@@ -93,7 +93,7 @@ class FactCategory(str, Enum):
     INFRASTRUCTURE = "INFRASTRUCTURE"
 
 
-class ToolMasteryLevel(str, Enum):
+class ToolMasteryLevel(StrEnum):
     """Developer proficiency level per tool / technology."""
 
     EXPERT = "EXPERT"

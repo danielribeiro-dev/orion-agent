@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 from orion.gateway.classifier import ClassificationResult, ComplexityClassifier
 from orion.gateway.models import ComplexityTier, LLMMessage, ModelSpec
@@ -28,7 +28,7 @@ from orion.gateway.registry import ModelRegistry
 # ---------------------------------------------------------------------------
 
 
-class RoutingMode(str, Enum):
+class RoutingMode(StrEnum):
     """Modo de operação do roteador.
 
     AUTO: O roteador classifica automaticamente a complexidade e escolhe

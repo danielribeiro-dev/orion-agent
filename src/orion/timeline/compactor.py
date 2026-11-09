@@ -127,7 +127,7 @@ class ContextCompactor:
         if total_turns <= tail_count:
             # History is shorter than vital tail; nothing to prune
             full_text = "\n\n".join(t.to_full_text() for t in normalized)
-            tokens = estimate_tokens(full_text)
+            estimate_tokens(full_text)
             active_files = self._extract_active_files(normalized)
             return CompactionResult(
                 original_turns=total_turns,

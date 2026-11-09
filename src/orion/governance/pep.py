@@ -46,7 +46,7 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from orion.core.events import Action
@@ -73,7 +73,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-class AutonomyMode(str, Enum):
+class AutonomyMode(StrEnum):
     """Configurable autonomy level for the PEP."""
 
     SUPERVISED = "supervised"

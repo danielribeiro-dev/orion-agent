@@ -25,6 +25,7 @@ Output:
 
 from __future__ import annotations
 
+import contextlib
 import os
 import tempfile
 from pathlib import Path
@@ -120,10 +121,8 @@ class EditFileTool(BaseTool):
                     fh.write(encoded)
                 os.replace(tmp_path, file_path)
             except Exception:
-                try:
+                with contextlib.suppress(OSError):
                     os.unlink(tmp_path)
-                except OSError:
-                    pass
                 raise
         except OSError as exc:
             return RuntimeResult.fail(f"edit_file: cannot write to '{path}': {exc}")

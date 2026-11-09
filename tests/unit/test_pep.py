@@ -160,7 +160,7 @@ async def test_pep_level1_auto_approved_with_audit(
     approved = await pep.evaluate(action)
     assert approved is True
     # Audit record written
-    records = [json.loads(l) for l in tmp_audit.read_text().splitlines() if l]
+    records = [json.loads(line) for line in tmp_audit.read_text().splitlines() if line]
     assert len(records) == 1
     assert records[0]["tool"] == "read_file"
     assert records[0]["result_status"] == "success"
@@ -193,7 +193,7 @@ async def test_pep_level2_supervised_confirm_false(
     approved = await pep.evaluate(action)
     assert approved is False
     # Denial audit record
-    records = [json.loads(l) for l in tmp_audit.read_text().splitlines() if l]
+    records = [json.loads(line) for line in tmp_audit.read_text().splitlines() if line]
     assert records[-1]["result_status"] == "denied"
     assert records[-1]["denial_reason"] == "user_rejected"
 

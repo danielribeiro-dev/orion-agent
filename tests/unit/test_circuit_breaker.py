@@ -458,9 +458,9 @@ class TestSnapshot:
 
 class TestBackoffDelay:
     def test_delay_increases_with_attempt(self, heavy_cb):
-        d0 = heavy_cb._backoff_delay(0)
+        heavy_cb._backoff_delay(0)
         d1 = heavy_cb._backoff_delay(1)
-        d2 = heavy_cb._backoff_delay(2)
+        heavy_cb._backoff_delay(2)
         # With jitter, absolute ordering isn't guaranteed, but median should increase
         # Test that base values (without jitter) increase
         config = heavy_cb._config

@@ -11,6 +11,8 @@ Validates:
 
 from __future__ import annotations
 
+import contextlib
+
 import pytest
 
 from orion.memory.facts_store import FactPoisoningAttempt, FactsStore
@@ -146,10 +148,8 @@ class TestAntiPoisoning:
         store.upsert(_fact("critical_setting", "locked", status=FactStatus.CONFIRMED))
         initial_count = store.count()
 
-        try:
+        with contextlib.suppress(FactPoisoningAttempt):
             store.upsert(_fact("critical_setting", "unlocked", status=FactStatus.INFERRED))
-        except FactPoisoningAttempt:
-            pass
 
         assert store.count() == initial_count
         fact = store.get("critical_setting")
@@ -178,7 +178,7 @@ class TestDeprecation:
     def test_deprecate_idempotent(self, store):
         store.upsert(_fact("key"))
         store.deprecate("key")
-        result = store.deprecate("key")
+        store.deprecate("key")
         # Second call: row exists but rowcount may be 1 (no status change needed — still returns True)
         # The fact remains DEPRECATED
         fact = store.get("key")

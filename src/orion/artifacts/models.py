@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 
 
-class StorageScope(str, Enum):
+class StorageScope(StrEnum):
     """Determines where the artifact is persisted.
 
     GLOBAL — Written to ~/.orion/brain/<session_id>/artifacts/

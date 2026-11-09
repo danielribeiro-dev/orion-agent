@@ -244,7 +244,7 @@ class TelegramHITLConnector:
         try:
             await asyncio.wait_for(event.wait(), timeout=float(ttl))
         except TimeoutError:
-            raise HITLTimeoutError(request.request_id, ttl)
+            raise HITLTimeoutError(request.request_id, ttl) from None
 
         return self._decisions.get(request.request_id, False)
 
