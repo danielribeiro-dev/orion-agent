@@ -199,7 +199,9 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
   - [x] 5B MCP: streamable HTTP, headers `${VAR}`, OAuth PKCE (tokens 0600, login só sob demanda), resources (`@srv:uri`, tools LEVEL_1), prompts como slash commands, `list_changed`, keepalive e reconexão com backoff, `/mcp add|remove|auth|resources|prompts`
   - [x] 5B testes: `test_mcp_http_oauth` com servidor MCP real em subprocesso (`tests/fixtures/mcp_http_server.py`, inclui OAuth/PKCE); suíte inteira verde, cobertura 93,7%, mypy sem erros novos (26 de backlog)
   - [x] ADR-026; `docs/architecture/MCP_AND_CHANNELS.md` §1.1; `mcp>=2.3` + `httpx2` no `pyproject.toml` e `uv.lock` atualizado offline
-- [ ] Sprint 6: Subagents & Tasks
+- [ ] Sprint 6: Subagents & Tasks — **spec detalhada congelada (08/11/2026)**: 6A (núcleo foreground) e 6B (background/tasks/worktree/loop); ADR-028 a 031; estudo comparativo em `docs/planning/versions/v0.5.0/sprint-6-study.md`
+  - [ ] 6A
+  - [ ] 6B
 - [ ] Sprint 7: Daemon, Jobs & Schedules
 - [ ] Sprint 8: Hardening & Release
 - [ ] Pendências herdadas da v0.4.0: tags `v0.3.0`/`v0.4.0` e merge em `main`; validar turno com provedor real; repetir A/B de MCP com modelo pago

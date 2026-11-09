@@ -1,7 +1,7 @@
 # O.R.I.O.N — Active Context (Memória de Sessão de Desenvolvimento)
 
 > **Data de Atualização:** 07/11/2026  
-> **Status Atual:** v0.4.0 implementada. v0.5.0 em execução: Sprints 0–5 concluídas (Sprint 5 = 5A extensibilidade + 5B MCP completo). Visão ADR-027 (memória viva, protocolos = skills dinâmicas) documentada em `docs/planning/vision/`. Portão de dogfooding pendente; cobertura 94%.  
+> **Status Atual:** v0.4.0 implementada. v0.5.0 em execução: Sprints 0–5 concluídas; **Sprint 6 (Subagents & Tasks) com spec detalhada congelada em 6A/6B** (ADR-028 a 031, estudo em `sprint-6-study.md`). Visão ADR-027 (memória viva, protocolos = skills dinâmicas) documentada em `docs/planning/vision/`. Portão de dogfooding pendente; cobertura 94%.  
 > **Fase Ativa:** v0.5.0 "Claude-Grade Agent" — meta: programar com Claude rodando pelo ORION (`ANTHROPIC_API_KEY`), com tools, memória, MCPs, decisões, loops, schedules, subagents e jobs em segundo plano.  
 > **Branch Ativo:** `feat/v0.5.0-sprint-5` (a partir de `gate/dogfooding-v0.5.0`)  
 > **Regra Suprema:** Nenhuma linha de código em `src/` é escrita sem o comando explícito de início da Sprint correspondente (Doc-First).
@@ -21,7 +21,7 @@ Sem hooks, plugins, settings/regras, comandos custom, subagents, tasks, schedule
 Merge de `version/v0.4.0` em `main` e tags `v0.3.0`/`v0.4.0`.
 
 ## Próximo Passo (retomar aqui)
-**Sprint 5 concluída** (commits locais em `feat/v0.5.0-sprint-5`, **não enviados**). Próximos passos, todos dependentes do Senhor: (1) decidir push/merge de `feat/v0.5.0-sprint-5` e do `gate/dogfooding-v0.5.0`; (2) rodar o portão de dogfooding e a rodada live (`ANTHROPIC_API_KEY`); (3) iniciar a Sprint 6 (Subagents & Tasks) com comando explícito. A Sprint 6 deve criar o PEP dos subagents com `interactive=False` (escalada = negada, ADR-023). Validar em TTY real: modal de escalada, pedido de confiança do projeto e `/mcp auth` com navegador.
+**Sprint 5 concluída** (commits locais em `feat/v0.5.0-sprint-5`, **não enviados**). Próximos passos, todos dependentes do Senhor: (1) decidir push/merge de `feat/v0.5.0-sprint-5` e do `gate/dogfooding-v0.5.0`; (2) rodar o portão de dogfooding e a rodada live (`ANTHROPIC_API_KEY`); (3) **iniciar a Sprint 6A com comando explícito** (spec congelada em `docs/planning/versions/v0.5.0/sprints/sprint-6.md`; branch `feat/v0.5.0-sprint-6`; cada commit 6A/6B com ruff/mypy/cobertura verdes; leitura obrigatória: `sprint-6.md`, `sprint-6-study.md`, ADR-028 a 031). A Sprint 6 deve criar o PEP dos subagents com `interactive=False` (escalada = negada, ADR-023). Validar em TTY real: modal de escalada, pedido de confiança do projeto e `/mcp auth` com navegador.
 
 Histórico anterior (gate de dogfooding):
 Estado: branch `gate/dogfooding-v0.5.0` (commits locais NÃO enviados ao remoto após `00eaeae`; `version/v0.5.0` = Sprint 4 `a0c42bb`, já no remoto). Harness modelo-ponte em `scripts/dogfood/` (README lá); rodadas H1 (pty) e H2 (aba do Senhor) concluídas — achados em `docs/planning/versions/v0.5.0/dogfooding-findings.md`.

@@ -292,3 +292,37 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   6. **Skills por intenção:** skills próprias do Senhor ativam por intenção ("ative o protocolo babá"), sem `/skill-nome`. O `/` continua como atalho explícito.
   7. O formato de memória deve ser **portável** (exportar/importar, cifrado) para suportar multi-dispositivo na v3.0.0.
 * **Consequências:** `IdentityManager` deve carregar este princípio (hoje em `src/orion/core/identity.py`, só alterável em sprint com spec). Monitorar terceiros (ex.: "protocolo babá") exige consentimento claro e vale apenas para contas/dispositivos do Senhor; ações nucleares seguem exigindo step-up.
+
+### ADR-028: Subagents — Privilégio Só Diminui, Sem Humano = Nega, Resultado por Referência
+* **Status:** Aprovado (08/11/2026)
+* **Contexto:** Subagents multiplicam custo (~4x a ~15x tokens) e risco; sistemas de mercado sofrem com filhos que herdam demais, rejeição que mata o filho e resultados perdidos na compactação do pai.
+* **Decisão:**
+  1. O filho roda com PEP próprio sob **teto do pai**: tools = interseção, modo = `min(pai, filho)`, `deny` e `ask` do pai unidos, `allow` nunca herdado, sem trust ledger, sem gravar regras. Nenhum caminho (agente custom, plugin, hook, schedule) ultrapassa o pai; ações nucleares seguem exigindo step-up.
+  2. **Sem humano = nega:** `interactive=False` passa a negar **todo** `ask` (hoje só negava escalada). A negação devolve o motivo ao filho, que continua (não é morto).
+  3. Profundidade padrão 1: o filho não recebe `task`, `ask_user`, `enter/exit_plan_mode`, `record_decision`, `memorize`, `deprecate_fact`. Concorrência, profundidade, turnos e tempo têm teto configurável; "sem limite" é proibido.
+  4. O filho começa com contexto limpo (sem identidade, manifest, memória, skills ou MCP, salvo declarado); só o resumo curto volta ao pai. O completo fica em `~/.orion/agents/<id>/result.md` com `ref://`, sobrevivendo à compactação do pai. Resultado de filho é dado não confiável.
+  5. Agente de projeto não confiável (TOFU, ADR-023) só pode **restringir**.
+  6. O filho nunca altera o estado do circuit breaker do pai.
+* **Consequências:** Spec da Sprint 6 (6A). Auditoria e ledger ganham `agent_id`/`origin`.
+
+### ADR-029: Tasks em Loop de Thread Dedicada, com Portas Executor/TaskStore/Notifier
+* **Status:** Aprovado (08/11/2026)
+* **Contexto:** O REPL roda `asyncio.run` por turno e destrói o loop; tasks asyncio morrem entre turnos. A Sprint 7 trará o daemon.
+* **Decisão:** A 6B roda subagents em background num **loop asyncio persistente em thread dedicada** (`ThreadExecutor`), com `copy_context`, fila thread-safe de notificações drenada antes de cada prompt e estado em SQLite (`~/.orion/tasks.db`, parametrizado). O runner depende só de `ExecutorPort`, `TaskStorePort`, `NotifierPort` e `WorkspacePort`: o daemon (Sprint 7), processos/sandbox (v1.5.0) e workers remotos entram como novos adaptadores sem reescrever o runner. `Ctrl+C` cancela o turno, não as tasks. Término chega por evento; zero token enquanto espera (ADR-022).
+* **Consequências:** Eventos de agente usam um envelope JSON estável (`agent_id`, `parent_id`, `session_id`, `origin`), reaproveitável como payload do IPC da Sprint 7, do desktop (v0.7.0) e da voz (v0.6.0).
+
+### ADR-030: Orçamento por Agente com Reserva Antecipada e Origem no Ledger
+* **Status:** Aprovado (08/11/2026)
+* **Contexto:** O `BudgetGuard` só tem teto diário global e checa antes de cada chamada (TOCTOU com chamadas paralelas); o ledger não distingue quem gastou.
+* **Decisão:** `AgentBudget` (USD, tokens, turnos, tempo) por filho, `AggregateBudget` por chamada de `task`, mais o teto diário. Reserva antecipada (estimativa por `max_tokens` × preço do `CostCalculator`) antes de cada chamada. Estouro devolve resultado parcial marcado e retomável. O ledger ganha `origin` (`user|subagent|loop|cron|daemon`) e `agent_id` por migração `ALTER`; `task_id` mantém o significado atual. `/cost` e a status bar somam os filhos.
+* **Consequências:** Critério de parada "custo agregado sem teto verificável" passa a ser testável.
+
+### ADR-031: Núcleo de Agentes Agnóstico de Provedor (Tiers, Capacidades, Sem Downgrade Silencioso)
+* **Status:** Aprovado (08/11/2026)
+* **Contexto:** O ORION precisa durar além de qualquer provedor (Anthropic hoje; OpenRouter, Ollama e outros amanhã) e funcionar sem `ANTHROPIC_API_KEY`.
+* **Decisão:**
+  1. `agents/` depende apenas de portas (`LLMPort`, `ExecutorPort`, `TaskStorePort`, `NotifierPort`, `WorkspacePort`, `TriagePort`); nenhum campo de provedor (ex.: `cache_control`) vaza para ele. Cada provider declara *capability flags* (`supports_prompt_cache`, `supports_tool_use`, `context_window`, preço por Mtok) e decide como usá-los.
+  2. Agentes declaram **tier** (`fast|balanced|heavy`) ou um *model profile* nomeado em settings; ID concreto de modelo é proibido por padrão (exige `allow_pinned_model`, só na camada do usuário). O router resolve `tier -> lista ordenada de candidatos` (`models.tiers`), com os padrões atuais.
+  3. **Sem downgrade silencioso (CA-11):** agentes read-only podem cair para modelo local; agentes com tools mutantes exigem tier efetivo ≥ `balanced`; sem candidato adequado a task falha explicando. O modelo efetivo é gravado no registro e reutilizado na retomada.
+  4. Formato do agente versionado (`schema_version`); leitor também aceita `.claude/agents/*.md`. `memory` é enum (`none|read|scoped:<escopo>`) para encaixar nos escopos da Memória Viva (ADR-027).
+* **Consequências:** Trocar ou adicionar provedor não altera `agents/`; novos executores (daemon, remoto) e agentes auto-criados (v1.5.0) usam o mesmo contrato.
