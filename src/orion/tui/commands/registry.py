@@ -8,6 +8,7 @@ a linha digitada, validando argumentos obrigatórios.
 from __future__ import annotations
 
 import importlib
+from collections.abc import Iterable
 
 from orion.tui.commands.base import BaseSlashCommand, CommandContext, CommandResult
 
@@ -28,6 +29,7 @@ class CommandRegistry:
 
     def __init__(self) -> None:
         self._commands: dict[str, BaseSlashCommand] = {}
+        self._dynamic_names: set[str] = set()
 
     @classmethod
     def discover(cls) -> CommandRegistry:
@@ -44,6 +46,17 @@ class CommandRegistry:
         self._commands[command.name] = command
         for alias in command.aliases:
             self._commands[alias] = command
+
+    def set_dynamic(self, commands: Iterable[BaseSlashCommand]) -> None:
+        """Replace the dynamic commands (custom, plugin, MCP prompts); built-ins are never shadowed."""
+        for name in self._dynamic_names:
+            self._commands.pop(name, None)
+        self._dynamic_names = set()
+        for command in commands:
+            if command.name in self._commands:
+                continue
+            self.register(command)
+            self._dynamic_names.add(command.name)
 
     def get(self, name: str) -> BaseSlashCommand | None:
         """Busca um comando pelo nome ou alias."""

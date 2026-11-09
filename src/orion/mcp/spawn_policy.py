@@ -36,3 +36,32 @@ def check_spawn(cfg: MCPServerConfig) -> None:
         a in _FORBIDDEN_ARGS for a in cfg.args
     ):
         raise SpawnDenied(f"{cfg.name}: inline code execution flags are not allowed")
+
+
+_LOOPBACK = {"localhost", "127.0.0.1", "::1"}
+SERVER_NAME_RE = r"^[A-Za-z0-9_-]{1,40}$"
+
+
+def check_remote_url(cfg: MCPServerConfig) -> None:
+    """Validate the URL of a remote (sse/http) server.
+
+    Servers are configured by the Senhor, so loopback is allowed (dev servers).
+    Required: http(s) scheme, a host, no credentials embedded in the URL, and
+    https for any non-loopback host when headers or OAuth carry credentials.
+    """
+    if cfg.transport == "stdio":
+        return
+    from urllib.parse import urlsplit
+
+    if not cfg.url:
+        raise SpawnDenied(f"{cfg.name}: servidor remoto sem 'url'")
+    parts = urlsplit(cfg.url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise SpawnDenied(f"{cfg.name}: URL inválida (use http:// ou https://): {cfg.url}")
+    if parts.username or parts.password:
+        raise SpawnDenied(f"{cfg.name}: credenciais embutidas na URL não são permitidas")
+    sends_secrets = bool(cfg.headers) or cfg.auth == "oauth"
+    if sends_secrets and parts.scheme != "https" and parts.hostname not in _LOOPBACK:
+        raise SpawnDenied(
+            f"{cfg.name}: credenciais só trafegam por https (ou loopback); recebido {parts.scheme}://"
+        )

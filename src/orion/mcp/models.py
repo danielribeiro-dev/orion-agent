@@ -20,7 +20,13 @@ class MCPServerConfig(BaseModel):
     args: list[str] = Field(default_factory=list)
     env: dict[str, str] = Field(default_factory=dict)
     url: str | None = None
-    transport: Literal["stdio", "sse"] = "stdio"
+    transport: Literal["stdio", "sse", "http"] = "stdio"
+    #: Extra HTTP headers (``${VAR}`` is expanded from the environment, so secrets stay out of files).
+    headers: dict[str, str] = Field(default_factory=dict)
+    #: ``oauth`` runs the OAuth 2.1 authorization-code flow with PKCE (remote transports only).
+    auth: Literal["none", "oauth"] = "none"
+    #: OAuth scope requested at authorization time.
+    scope: str | None = None
 
     #: Disabled servers are never spawned/connected.
     enabled: bool = True
@@ -50,3 +56,33 @@ class MCPToolDefinition(BaseModel):
     def qualified_name(self) -> str:
         """Unique name exposed to the ReAct engine: ``mcp__<server>__<tool>``."""
         return f"mcp__{self.server_name}__{self.name}"
+
+
+class MCPResource(BaseModel):
+    """A resource exposed by an MCP server (read with ``@server:uri``)."""
+
+    server_name: str
+    uri: str
+    name: str = ""
+    description: str = ""
+    mime_type: str = ""
+
+
+class MCPPromptArgument(BaseModel):
+    name: str
+    description: str = ""
+    required: bool = False
+
+
+class MCPPrompt(BaseModel):
+    """A prompt template exposed by an MCP server (becomes a slash command)."""
+
+    server_name: str
+    name: str
+    description: str = ""
+    arguments: list[MCPPromptArgument] = Field(default_factory=list)
+
+    @property
+    def command_name(self) -> str:
+        """Slash command: ``/mcp__<server>__<prompt>``."""
+        return f"/mcp__{self.server_name}__{self.name}"

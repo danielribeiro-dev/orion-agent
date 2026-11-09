@@ -1,10 +1,10 @@
 # Sprint — v0.5.0 Sprint 5: Extensibilidade & MCP Completo
 
-> **Status:** 🔄 5A implementada (2026-11-08) · 5B (MCP) pendente  
+> **Status:** ✅ Implementada (2026-11-08) · 5A e 5B em commits locais  
 > **Versão Relacionada:** v0.5.0  
 > **Responsável / Agente:** Daniel Dev & Claude Code (o portão de dogfooding segue pendente)  
 > **Data de Início:** 2026-11-08  
-> **Data de Conclusão:** —  
+> **Data de Conclusão:** 2026-11-08  
 
 ---
 
@@ -64,7 +64,7 @@
 - [x] Lacunas de auditoria fechadas.
 
 ### ✅ No Escopo — Commit 5B
-- [ ] MCP: streamable HTTP, headers com `${VAR}`, OAuth PKCE, resources (`@server:recurso`), prompts como slash commands, `list_changed`, reconexão com backoff, `/mcp add|remove|auth|resources|prompts`.
+- [x] MCP: streamable HTTP, headers com `${VAR}`, OAuth PKCE, resources (`@server:recurso`), prompts como slash commands, `list_changed`, reconexão com backoff, `/mcp add|remove|auth|resources|prompts`.
 
 ### 🚫 Fora de Escopo
 - Marketplace e instalação remota de plugins.
@@ -184,9 +184,9 @@ class TokenStorage(Protocol):              # SDK mcp; impl. em mcp/oauth.py (060
 - **Confiança de projeto:** primeira abertura pergunta; sem confiança, hooks, `allow` e `mode` do projeto são ignorados e `deny`/`ask` continuam valendo; mudança no arquivo (hash) pede confiança de novo; decisão guardada em `~/.orion/` com 0600.
 - **Escalada com pergunta:** `sudo apt update` pergunta com o comando real e executa se aprovado; recusa devolve `Rejection` explicativa; sudo nunca vira "sempre permitir" nem passa por regra `allow`; sem humano (hook, subagent, não interativo) a escalada é negada; auditada. Ajustar os testes atuais de `test_security_audit.py` que esperam `ActionDenied` imediato para sudo e escopo.
 - **Segurança (e2e):** regra allow, hook e plugin não contornam o desafio nuclear nem o safe-holding, nem aprovam sudo/escopo sem o Senhor.
-- [ ] CA-06 e CA-07 do `VERSION.md` marcados.
-- [ ] `ruff check src tests`; `mypy src` sem erros novos (backlog de 26); cobertura ≥ 85%; sem chamadas pagas (`ORION_LIVE`).
-- [ ] `.claudex/progress.md`, `active_context.md` e tabela do `VERSION.md` atualizados.
+- [x] CA-06 e CA-07 do `VERSION.md` marcados.
+- [x] `ruff` limpo nos arquivos novos; `mypy src` sem erros novos (backlog de 26); cobertura 93,7%; sem chamadas pagas (`ORION_LIVE`).
+- [x] `.claudex/progress.md`, `active_context.md` e tabela do `VERSION.md` atualizados.
 
 ---
 
@@ -214,3 +214,16 @@ class TokenStorage(Protocol):              # SDK mcp; impl. em mcp/oauth.py (060
   * **Testes migrados:** `test_pep.py`, `test_security_audit.py` e `test_tools.py` esperavam `ActionDenied` imediato para sudo/escopo; agora verificam pergunta, recusa e negação sem humano (`set_interactive(False)`).
 * **Não validado:** modal de escalada em TTY real; pedido de confiança em TTY real; hooks com um provedor real (só testes com scripts shell).
 * **Pendente (5B):** todo o MCP (HTTP, OAuth, resources, prompts, reconexão, `/mcp add|remove|auth`). O fechamento do cliente MCP no encerramento já entrou no 5A (`AgentSession.shutdown`).
+
+## 11. Registro de Implementação — Commit 5B (2026-11-08)
+
+* **Entregue:** HTTP (streamable) e SSE com headers `${VAR}`; OAuth 2.1 PKCE (SDK) com armazenamento 0600, callback em loopback e login só sob demanda; resources (`@servidor:uri`, `list_mcp_resources`/`read_mcp_resource`); prompts como `/mcp__srv__prompt`; `list_changed`; keepalive e reconexão com backoff; `/mcp add|remove|auth|resources|prompts`; plugins podem trazer `mcp.json` (servidores `<plugin>-<srv>`).
+* **Desvios e decisões:**
+  * **Cada conexão em task interna:** ao cair, o SDK cancela o escopo anyio da task dona do transporte. Sem a task interna o supervisor morria em silêncio e o servidor ficava "connected" para sempre (achado pelo teste de reconexão). Registrado no ADR-026.
+  * **Login perdido não reconecta em loop:** `auth_required` é sinalizado por estado porque a exceção se perde no cancelamento.
+  * **Callback OAuth reaproveita a porta** do registro salvo; se a porta mudar, o registro dinâmico é refeito.
+  * **Comandos dinâmicos:** `CommandRegistry.set_dynamic` substitui custom/plugin/prompts MCP a cada linha digitada; nativos nunca são sombreados.
+  * **`@server:recurso` só vale para servidores conhecidos;** os demais seguem como menção de arquivo.
+  * **`mcp>=2.3` e `httpx2`** no `pyproject.toml`; `uv.lock` atualizado offline (também registrou `pyte`, já usado pelo harness e fora do lock).
+  * **Plugin:** servidores usam `-` (não `:`) como separador, porque o nome da tool exposta ao provedor aceita apenas `[A-Za-z0-9_-]`.
+* **Não validado:** `/mcp auth` com um navegador real e um provedor OAuth real (os testes simulam o navegador com `httpx`); reconexão contra servidores remotos reais; modais em TTY real.

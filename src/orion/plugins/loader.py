@@ -64,7 +64,7 @@ class Plugin:
         mcp_raw = read_json_object(self.root / "mcp.json") or {}
         servers = mcp_raw.get("servers") or mcp_raw.get("mcpServers") or {}
         mcp: dict[str, dict[str, Any]] = {
-            f"{self.name}:{name}": cfg for name, cfg in servers.items() if isinstance(cfg, dict)
+            f"{self.name}-{name}": cfg for name, cfg in servers.items() if isinstance(cfg, dict)
         }
         return Settings(hooks=hooks, mcp=mcp)
 

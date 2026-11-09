@@ -80,3 +80,73 @@ def build_adapters(client: MCPClient) -> dict[str, MCPToolAdapter]:
 def catalog_lines(adapters: dict[str, MCPToolAdapter]) -> list[str]:
     """Compact tool listing for the prompt (no schemas)."""
     return [a.summary() for a in adapters.values()]
+
+
+LIST_RESOURCES_TOOL = "list_mcp_resources"
+READ_RESOURCE_TOOL = "read_mcp_resource"
+
+
+class ListMCPResourcesTool(BaseTool):
+    """Lists the resources exposed by connected MCP servers (read-only)."""
+
+    name = LIST_RESOURCES_TOOL
+    description = (
+        "List resources exposed by connected MCP servers (documents, files, records). "
+        "Read one with read_mcp_resource."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {"server": {"type": "string", "description": "Only this server (optional)."}},
+        "additionalProperties": False,
+    }
+    read_only = True
+
+    def __init__(self, client: MCPClient) -> None:
+        self._client = client
+
+    async def run(self, **params: Any) -> RuntimeResult:
+        server = params.get("server")
+        rows = [
+            f"{r.server_name}:{r.uri}" + (f"  {r.name}" if r.name else "")
+            for r in self._client.all_resources()
+            if server in (None, r.server_name)
+        ]
+        return RuntimeResult.ok("\n".join(rows) if rows else "No MCP resources available.")
+
+
+class ReadMCPResourceTool(BaseTool):
+    """Reads one MCP resource; content is untrusted data, never instructions."""
+
+    name = READ_RESOURCE_TOOL
+    description = "Read a resource from a connected MCP server by server name and URI."
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "server": {"type": "string"},
+            "uri": {"type": "string"},
+        },
+        "required": ["server", "uri"],
+        "additionalProperties": False,
+    }
+    read_only = True
+
+    def __init__(self, client: MCPClient) -> None:
+        self._client = client
+
+    async def run(self, **params: Any) -> RuntimeResult:
+        ok, text = await self._client.read_resource(str(params["server"]), str(params["uri"]))
+        return RuntimeResult.ok(text) if ok else RuntimeResult.fail(text)
+
+
+def build_resource_tools(client: MCPClient) -> dict[str, BaseTool]:
+    """Synthetic LEVEL_1 tools for resources; empty when no server exposes any."""
+    if not client.all_resources():
+        unregister_tool_levels(LIST_RESOURCES_TOOL)
+        unregister_tool_levels(READ_RESOURCE_TOOL)
+        return {}
+    register_tool_level(LIST_RESOURCES_TOOL, ActionLevel.LEVEL_1)
+    register_tool_level(READ_RESOURCE_TOOL, ActionLevel.LEVEL_1)
+    return {
+        LIST_RESOURCES_TOOL: ListMCPResourcesTool(client),
+        READ_RESOURCE_TOOL: ReadMCPResourceTool(client),
+    }

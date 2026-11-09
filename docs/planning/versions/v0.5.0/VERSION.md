@@ -54,7 +54,7 @@ A v0.4.0 entregou TUI, PEP, memória e MCP, mas **nunca validou um turno com pro
 | **Sprint 2** | Loop Agêntico Nativo | `tool_use` estruturado, schemas, tools paralelas, cancelamento | [`sprint-2.md`](sprints/sprint-2.md) | ✅ Implementada |
 | **Sprint 3** | Contexto, Sessões & Memória | Auto-compactação, resume/rewind, wiring de memória/skills, decision log | [`sprint-3.md`](sprints/sprint-3.md) | ✅ Implementada |
 | **Sprint 4** | Paridade de Ferramentas | Web, glob/grep, todo, ask_user, plan mode, bash em background; **portão de dogfooding** | [`sprint-4.md`](sprints/sprint-4.md) | ✅ Implementada (portão pendente) |
-| **Sprint 5** | Extensibilidade & MCP Completo | Settings, regras, hooks, comandos custom, MCP HTTP/OAuth/resources/prompts | [`sprint-5.md`](sprints/sprint-5.md) | 🔄 5A implementada (5B MCP pendente) |
+| **Sprint 5** | Extensibilidade & MCP Completo | Settings, regras, hooks, comandos custom, MCP HTTP/OAuth/resources/prompts | [`sprint-5.md`](sprints/sprint-5.md) | ✅ Implementada |
 | **Sprint 6** | Subagents & Tasks | Tool `task`, paralelismo, background, worktree, `/loop` | [`sprint-6.md`](sprints/sprint-6.md) | 📋 Planejando |
 | **Sprint 7** | Daemon, Jobs & Schedules | systemd --user, IPC, scheduler, jobs, notificações, idle = 0 tokens | [`sprint-7.md`](sprints/sprint-7.md) | 📋 Planejando |
 | **Sprint 8** | Hardening & Release | Paridade, evals, segurança, doctor, tag `v0.5.0` | [`sprint-8.md`](sprints/sprint-8.md) | 📋 Planejando |
@@ -91,7 +91,7 @@ src/orion/
 | CA-04 | Resume/Rewind | `--resume` restaura conversa; `/rewind` restaura conversa e arquivos | `pytest tests/unit/test_sessions.py` | ✅ |
 | CA-05 | Portão de dogfooding | ORION corrige um bug real do repo, com teste e commit via PEP | roteiro manual documentado | ⏳ Pendente |
 | CA-06 | Hooks e regras | Hook `PreToolUse` bloqueia; `deny` vence `allow` | `pytest tests/unit/test_hooks.py tests/unit/test_permission_rules.py` | ✅ |
-| CA-07 | MCP completo | HTTP, OAuth, resources e prompts funcionam em servidor falso | `pytest tests/unit/test_mcp_*` | ⏳ Pendente |
+| CA-07 | MCP completo | HTTP, OAuth, resources e prompts funcionam em servidor falso | `pytest tests/unit/test_mcp_*` | ✅ |
 | CA-08 | Subagents | Paralelos, isolados, sem escalar privilégio, com orçamento | `pytest tests/unit/test_subagents.py` | ⏳ Pendente |
 | CA-09 | Schedule sobrevive | Tarefa agendada executa após reiniciar o daemon | `pytest tests/unit/test_scheduler.py` | ⏳ Pendente |
 | CA-10 | Idle sem tokens | 1 h de idle com 0 chamadas ao provider | teste de daemon + ledger | ⏳ Pendente |

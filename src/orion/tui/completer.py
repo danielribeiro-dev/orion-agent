@@ -498,8 +498,10 @@ class OrionCompleter(Completer):
         workspace_root: Path | str | None = None,
         commands: list[SlashCommandInfo] | None = None,
         dynamic_commands: Callable[[], list[SlashCommandInfo]] | None = None,
+        mcp_resources: Callable[[], list[tuple[str, str]]] | None = None,
     ) -> None:
         self.workspace_root = Path(workspace_root).resolve() if workspace_root else Path.cwd()
+        self._mcp_resources = mcp_resources
         self.slash_completer = SlashCommandCompleter(commands=commands, dynamic=dynamic_commands)
         self.path_completer = PathMentionCompleter(workspace_root=self.workspace_root)
 
@@ -518,7 +520,24 @@ class OrionCompleter(Completer):
         if word.startswith("/"):
             yield from self.slash_completer.get_completions(document, complete_event)
         elif "@" in word:
-            yield from self.path_completer.get_completions(document, complete_event)
+            if self._mcp_resources is not None and ":" in word:
+                yield from self._resource_completions(word)
+            else:
+                yield from self.path_completer.get_completions(document, complete_event)
+                yield from self._resource_completions(word)
+
+    def _resource_completions(self, word: str) -> Iterable[Completion]:
+        """``@servidor:recurso`` (resources MCP conectados)."""
+        if self._mcp_resources is None:
+            return
+        typed = word[word.index("@") + 1 :]
+        try:
+            choices = self._mcp_resources()
+        except Exception:
+            return
+        for ref, name in choices:
+            if ref.lower().startswith(typed.lower()):
+                yield Completion(ref, start_position=-len(typed), display=f"@{ref}", display_meta=name or "MCP")
 
 
 # ---------------------------------------------------------------------------

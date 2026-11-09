@@ -187,7 +187,7 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
   - [x] **Startup:** stderr do MCP e logs da CLI redirecionados para `~/.orion/logs/`; tela limpa no boot e prompt ancorado no rodapé
   - [x] Testes: `test_tools_read_search`, `test_tools_web`, `test_tools_shell_flow`, `test_sprint4_integration`; cobertura global 94%; mypy 30 → 26 erros (backlog pré-existente, nenhum novo)
   - Pendente: executar o portão com chave real; colar imagem da área de transferência (adiado); modais verificados por teste de lógica, não em TTY interativo real
-- [ ] **Sprint 5: Extensibilidade & MCP Completo** — 🔄 **5A implementada (2026-11-08; commit local)**, 5B (MCP) pendente
+- [x] **Sprint 5: Extensibilidade & MCP Completo** ✅ IMPLEMENTADA (2026-11-08; 5A e 5B em commits locais, sem push)
   - [x] 5A `settings/` (user < projeto < local; migração do `config.json`; escrita atômica 0600; confiança TOFU por hash em `~/.orion/trusted_projects.json`)
   - [x] 5A regras `allow/ask/deny` no PEP (`governance/rules.py`; deny > ask > allow; allow não casa comando composto); "sempre permitir" persiste na camada local
   - [x] 5A **sudo e fora do workspace viram pergunta** com motivo (uso único; sem humano = negado; nuclear e safe-holding seguem bloqueio duro); modo plano somente leitura no PEP
@@ -196,7 +196,9 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
   - [x] 5A testes: `test_settings`, `test_permission_rules`, `test_hooks`, `test_custom_commands`; suíte inteira verde, cobertura 94%, mypy sem erros novos (26 de backlog)
   - [x] ADR-023/024/025; `CLI_AGENT_RULES.md` seção 2
   - [x] Segurança de teste: fixture autouse em `tests/conftest.py` impede abrir o desafio nuclear real (zenity/kdialog/tty) — um teste chegou a abrir um popup real durante o desenvolvimento
-  - [ ] 5B MCP: HTTP, OAuth, resources, prompts, `list_changed`, reconexão, `/mcp add|remove|auth`
+  - [x] 5B MCP: streamable HTTP, headers `${VAR}`, OAuth PKCE (tokens 0600, login só sob demanda), resources (`@srv:uri`, tools LEVEL_1), prompts como slash commands, `list_changed`, keepalive e reconexão com backoff, `/mcp add|remove|auth|resources|prompts`
+  - [x] 5B testes: `test_mcp_http_oauth` com servidor MCP real em subprocesso (`tests/fixtures/mcp_http_server.py`, inclui OAuth/PKCE); suíte inteira verde, cobertura 93,7%, mypy sem erros novos (26 de backlog)
+  - [x] ADR-026; `docs/architecture/MCP_AND_CHANNELS.md` §1.1; `mcp>=2.3` + `httpx2` no `pyproject.toml` e `uv.lock` atualizado offline
 - [ ] Sprint 6: Subagents & Tasks
 - [ ] Sprint 7: Daemon, Jobs & Schedules
 - [ ] Sprint 8: Hardening & Release

@@ -12,8 +12,8 @@ import threading
 from collections.abc import Coroutine
 from typing import Any
 
-from orion.mcp.client import MCPClient
-from orion.mcp.models import MCPServerConfig, MCPToolDefinition
+from orion.mcp.client import MCPClient, ServerState
+from orion.mcp.models import MCPPrompt, MCPResource, MCPServerConfig, MCPToolDefinition
 
 
 class BackgroundMCPClient:
@@ -37,8 +37,13 @@ class BackgroundMCPClient:
 
     # ── MCPClient API ────────────────────────────────────────────────────
     @property
-    def servers(self):  # noqa: ANN201
+    def servers(self) -> dict[str, ServerState]:
         return self._inner.servers
+
+    @property
+    def generation(self) -> int:
+        """Changes whenever tools, resources or prompts change (list_changed, reconnect)."""
+        return self._inner.generation
 
     def start_in_background(self) -> None:
         """Connect enabled servers without blocking the caller."""
@@ -51,13 +56,40 @@ class BackgroundMCPClient:
         await self._call(self._inner.set_enabled(name, enabled))
 
     async def ping(self, name: str) -> float | None:
-        return await self._call(self._inner.ping(name))
+        result: float | None = await self._call(self._inner.ping(name))
+        return result
 
     async def call_tool(self, server: str, tool: str, arguments: dict[str, Any]) -> tuple[bool, str]:
-        return await self._call(self._inner.call_tool(server, tool, arguments))
+        result: tuple[bool, str] = await self._call(self._inner.call_tool(server, tool, arguments))
+        return result
+
+    async def add_server(self, config: MCPServerConfig) -> None:
+        await self._call(self._inner.add_server(config))
+
+    async def remove_server(self, name: str) -> bool:
+        return bool(await self._call(self._inner.remove_server(name)))
+
+    async def authenticate(self, name: str) -> None:
+        await self._call(self._inner.authenticate(name))
+
+    async def read_resource(self, server: str, uri: str) -> tuple[bool, str]:
+        result: tuple[bool, str] = await self._call(self._inner.read_resource(server, uri))
+        return result
+
+    async def get_prompt(
+        self, server: str, name: str, arguments: dict[str, str]
+    ) -> tuple[bool, str]:
+        result: tuple[bool, str] = await self._call(self._inner.get_prompt(server, name, arguments))
+        return result
 
     def all_tools(self) -> list[MCPToolDefinition]:
         return self._inner.all_tools()
+
+    def all_resources(self) -> list[MCPResource]:
+        return self._inner.all_resources()
+
+    def all_prompts(self) -> list[MCPPrompt]:
+        return self._inner.all_prompts()
 
     async def close(self) -> None:
         if self._loop.is_closed():

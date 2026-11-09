@@ -149,16 +149,15 @@ def create_prompt(status_bar: SessionStatusBar, session: AgentSession) -> Intera
         status_bar=status_bar,
         custom_key_bindings=bindings,
         dynamic_commands=session.dynamic_slash_infos,
+        mcp_resources=session.mcp_resource_choices,
     )
 
 
 def run_interactive_repl(prompt: InteractivePrompt, session: AgentSession) -> None:
     """Loop interativo principal do terminal orion-agent."""
     from orion.tui.commands import CommandContext, CommandRegistry
-    from orion.tui.commands.custom import register_custom_commands
-
     registry = CommandRegistry.discover()
-    register_custom_commands(registry, session.custom_commands)
+    registry.set_dynamic(session.dynamic_commands())
     context = CommandContext(
         session=session,
         console=console,
@@ -178,6 +177,7 @@ def run_interactive_repl(prompt: InteractivePrompt, session: AgentSession) -> No
                 console.print("[text_dim]● Até logo, Senhor. Sessão finalizada.[/text_dim]\n")
                 break
 
+            registry.set_dynamic(session.dynamic_commands())  # custom, plugins e prompts MCP
             is_command = cleaned.startswith("/") or registry.get(cleaned) is not None
             if is_command:
                 result = asyncio.run(

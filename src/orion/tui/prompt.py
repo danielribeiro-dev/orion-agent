@@ -91,6 +91,7 @@ class InteractivePrompt:
         console: Console | None = None,
         custom_key_bindings: KeyBindings | None = None,
         dynamic_commands: Callable[[], list[SlashCommandInfo]] | None = None,
+        mcp_resources: Callable[[], list[tuple[str, str]]] | None = None,
     ) -> None:
         self.workspace_root = Path(workspace_root).resolve() if workspace_root else Path.cwd()
         self.event_bus = event_bus
@@ -113,7 +114,9 @@ class InteractivePrompt:
 
         # 2. Autocompletador unificado
         self.completer = OrionCompleter(
-            workspace_root=self.workspace_root, dynamic_commands=dynamic_commands
+            workspace_root=self.workspace_root,
+            dynamic_commands=dynamic_commands,
+            mcp_resources=mcp_resources,
         )
 
         # 3. Atalhos de teclado

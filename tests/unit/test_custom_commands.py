@@ -139,7 +139,7 @@ class TestPlugins:
         (root / "mcp.json").write_text(json.dumps({"servers": {"db": {"command": "uvx"}}}), encoding="utf-8")
         layer = discover_plugins(home)[0].settings_layer()
         assert [h.command for h in layer.hooks["Stop"]] == ["echo oi"]
-        assert list(layer.mcp) == ["acme:db"]
+        assert list(layer.mcp) == ["acme-db"]
 
     def test_skills_do_plugin_entram_no_loader(self, home: Path) -> None:
         root = self._plugin(home)

@@ -13,6 +13,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -66,6 +67,7 @@ from orion.runtime.tools.plan_mode import EnterPlanModeTool, ExitPlanModeTool
 from orion.runtime.tools.read_file import IMAGE_TYPES, MAX_IMAGE_BYTES, encode_image
 from orion.runtime.tools.shells import ShellManager
 from orion.runtime.tools.todo_write import TodoList, TodoWriteTool
+from orion.runtime.tools.web_policy import UNTRUSTED_NOTE
 from orion.sessions import (
     FileSnapshot,
     JsonlSessionStore,
@@ -93,7 +95,9 @@ from orion.timeline.autocompact import (
 )
 from orion.timeline.branch_manager import BranchManager
 from orion.timeline.compactor import ContextCompactor, estimate_tokens
-from orion.tui.commands.custom import CustomCommandSpec, load_custom_commands
+from orion.tui.commands.base import BaseSlashCommand
+from orion.tui.commands.custom import CustomCommand, CustomCommandSpec, load_custom_commands
+from orion.tui.commands.mcp import MCPPromptCommand
 from orion.tui.completer import OFFICIAL_SLASH_COMMANDS, SlashCommandInfo, resolve_mentions
 from orion.tui.diff_viewer import FileDiff, diff_texts
 from orion.tui.status_bar import ReasoningEffort, SessionStatusBar
@@ -107,6 +111,8 @@ _MEMORY_TOOLS = {"memorize", "deprecate_fact", "record_decision"}
 _PERSISTABLE_TOOLS = {"run_command", "write_file", "edit_file", "notebook_edit", "web_fetch"}
 _PROJECT_FILES = ("CLAUDE.md", "ORION.md")
 _MAX_PROJECT_CONTEXT_CHARS = 16_000
+_MAX_MCP_MENTIONS = 5
+_MCP_MENTION = re.compile(r"(?<![\w@])@([A-Za-z0-9_-]+):(\S+)")
 PLAN_MODE_NOTE = "\nPlan mode is active: read only. Every mutation is denied. Finish with a plan for approval."
 
 
@@ -456,9 +462,22 @@ class AgentSession:
         reserved = {c.name for c in OFFICIAL_SLASH_COMMANDS}
         return load_custom_commands(self.home, self.workspace, self.plugins, reserved)
 
+    def dynamic_commands(self) -> list[BaseSlashCommand]:
+        """Comandos não nativos: custom/plugins e prompts MCP (como ``/mcp__srv__prompt``)."""
+        commands: list[BaseSlashCommand] = [CustomCommand(spec) for spec in self.custom_commands]
+        commands.extend(MCPPromptCommand(p) for p in self._mcp_prompts())
+        return commands
+
+    def _mcp_prompts(self) -> list[Any]:
+        all_prompts = getattr(self.mcp, "all_prompts", None)
+        try:
+            return list(all_prompts()) if callable(all_prompts) else []
+        except Exception:
+            return []
+
     def dynamic_slash_infos(self) -> list[SlashCommandInfo]:
         """Metadados (completer e /help) dos comandos que não são nativos."""
-        return [
+        infos = [
             SlashCommandInfo(
                 spec.name,
                 f"{spec.description} {spec.argument_hint}".strip(),
@@ -467,6 +486,25 @@ class AgentSession:
             )
             for spec in self.custom_commands
         ]
+        infos.extend(
+            SlashCommandInfo(
+                p.command_name,
+                p.description or f"Prompt MCP de {p.server_name}",
+                icon="●",
+                category="mcp",
+            )
+            for p in self._mcp_prompts()
+        )
+        return infos
+
+    def mcp_resource_choices(self) -> list[tuple[str, str]]:
+        """``(server:uri, nome)`` dos resources MCP conectados, para o autocompletar de ``@``."""
+        all_resources = getattr(self.mcp, "all_resources", None)
+        try:
+            resources = list(all_resources()) if callable(all_resources) else []
+        except Exception:
+            return []
+        return [(f"{r.server_name}:{r.uri}", r.name) for r in resources]
 
     def _apply_rules(self) -> None:
         """Entrega ao PEP as regras de permissão dos settings efetivos."""
@@ -652,8 +690,12 @@ class AgentSession:
                 from orion.mcp.client import load_server_configs
                 from orion.mcp.runner import BackgroundMCPClient
 
-                configs = load_server_configs(self.home, self.workspace)
-                client = BackgroundMCPClient(configs)
+                configs = load_server_configs(
+                    self.home, self.workspace, extra_layers=[self.settings.effective.mcp]
+                )
+                client = BackgroundMCPClient(
+                    configs, home=self.home, on_auth_url=self._show_auth_url
+                )
             self.mcp = client
             if hasattr(client, "start_in_background"):
                 client.start_in_background()
@@ -661,20 +703,33 @@ class AgentSession:
             logger.exception("AgentSession: falha ao iniciar o cliente MCP")
             self.mcp = None
 
+    def _show_auth_url(self, server: str, url: str) -> None:
+        """Mostra a URL de login OAuth (o navegador também é aberto quando possível)."""
+        self.console.print(f"! {server}: autorize no navegador e volte ao terminal.", style="pep_warn")
+        self.console.print(f"  {url}", style="text_dim", soft_wrap=True)
+
     def refresh_mcp(self) -> None:
-        """Registra no runtime as tools MCP já conectadas (barato; roda a cada turno)."""
+        """Registra no runtime as tools MCP já conectadas (barato; roda a cada turno).
+
+        A chave é a *geração* do cliente (muda em conexão, ``list_changed`` e reconexão),
+        não apenas a contagem de servidores conectados.
+        """
         if self.mcp is None:
             return
         try:
-            from orion.mcp.adapter import build_adapters
+            from orion.mcp.adapter import build_adapters, build_resource_tools
 
             connected = sum(1 for s in self.mcp.servers.values() if s.status == "connected")
-            if connected == getattr(self, "_mcp_connected", -1):
+            key = (getattr(self.mcp, "generation", None), connected)
+            if key == getattr(self, "_mcp_key", None):
                 return
-            self._mcp_connected = connected
+            self._mcp_key = key
             for name in self._mcp_adapters:
                 self.runtime._tools.pop(name, None)
-            self._mcp_adapters = build_adapters(self.mcp)
+            adapters: dict[str, Any] = dict(build_adapters(self.mcp))
+            if hasattr(self.mcp, "all_resources"):
+                adapters.update(build_resource_tools(self.mcp))
+            self._mcp_adapters = adapters
             for name, adapter in self._mcp_adapters.items():
                 self.runtime.register_tool(adapter, name=name)
         except Exception:
@@ -955,10 +1010,41 @@ class AgentSession:
 
     # ── Turnos ──────────────────────────────────────────────────────
 
+    def _mcp_mentions(self, text: str) -> list[tuple[str, str]]:
+        """``@servidor:recurso`` de servidores MCP conhecidos (os demais seguem como arquivo)."""
+        servers = getattr(self.mcp, "servers", None) or {}
+        found: list[tuple[str, str]] = []
+        for match in _MCP_MENTION.finditer(text):
+            server, uri = match.group(1), match.group(2).rstrip(".,;!?)\"']")
+            if server in servers and uri and (server, uri) not in found:
+                found.append((server, uri))
+        return found
+
+    async def _mcp_blocks(self, text: str) -> str:
+        """Lê os recursos citados; o conteúdo é dado não confiável, nunca instrução."""
+        blocks: list[str] = []
+        for server, uri in self._mcp_mentions(text)[:_MAX_MCP_MENTIONS]:
+            ok, body = await self.mcp.read_resource(server, uri)
+            safe_uri = uri.replace('"', "'")
+            if not ok:
+                blocks.append(f'<mcp_resource server="{server}" uri="{safe_uri}" error="{body[:200]}"/>')
+                continue
+            body = body[:_MAX_MENTION_CHARS].replace("<<<ORION_", "<<_ORION_")
+            body = body.replace("</mcp_resource", "<\\/mcp_resource")
+            blocks.append(
+                f'<mcp_resource server="{server}" uri="{safe_uri}" trust="untrusted">\n'
+                f"{UNTRUSTED_NOTE}\n{body}\n</mcp_resource>"
+            )
+        if blocks:
+            self.mention_tokens += estimate_tokens("".join(blocks))
+        return "\n".join(blocks)
+
     def _with_mentions(self, text: str) -> str:
         blocks: list[str] = []
         self._turn_images = []
-        for mention, path in resolve_mentions(text, workspace_root=self.workspace).items():
+        known = getattr(self.mcp, "servers", None) or {}
+        file_text = _MCP_MENTION.sub(lambda m: "" if m.group(1) in known else m.group(0), text)
+        for mention, path in resolve_mentions(file_text, workspace_root=self.workspace).items():
             if not path.is_file():
                 continue
             if path.suffix.lower() in IMAGE_TYPES:
@@ -988,6 +1074,8 @@ class AgentSession:
             return None
         self.refresh_mcp()
         content = self._with_mentions(text)
+        if mcp_blocks := await self._mcp_blocks(text):
+            content = f"{content}\n\n{mcp_blocks}"
         if self._turn_images and self._resolve_model()[0].provider != ProviderName.ANTHROPIC:
             self.renderer.warn("Imagem anexada ignorada: apenas modelos Anthropic recebem imagens.")
         recalled = await self.recall.recall(text, self.session_id)

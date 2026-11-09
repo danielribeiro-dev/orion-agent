@@ -269,3 +269,13 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 * **Status:** Aprovado (08/11/2026)
 * **Decisão:** `.md` em `<ws>/.orion/commands` e `~/.orion/commands` viram slash commands (`$ARGUMENTS`, `$1..$9`); subpastas viram `/ns:cmd`; nomes nativos são reservados; projeto vence user. Plugin = pasta em `~/.orion/plugins/<nome>/` com `plugin.json` e `commands/`, `skills/`, `hooks.json`, `mcp.json`; comandos de plugin ganham namespace `/<plugin>:<cmd>`. Sem marketplace. O comando só envia o prompt ao agente; toda tool segue pelo PEP.
 * **Consequências:** Afrouxa o "catálogo fechado" do ADR-016 [v0.4.0]: o catálogo oficial continua fechado e testado; os dinâmicos são aditivos e aparecem em `/help` e no autocompletar.
+
+### ADR-026: MCP Completo — HTTP, OAuth Interativo Sob Demanda, Resources, Prompts e Reconexão
+* **Status:** Aprovado (08/11/2026)
+* **Decisão:**
+  1. SDK `mcp>=2.3` (reescrita; clientes HTTP e `Auth` são `httpx2`) com `httpx2` declarado.
+  2. OAuth só abre o navegador por pedido do Senhor (`/mcp auth`); no boot o fluxo é não interativo e sinaliza `auth_required`. Tokens em `~/.orion/mcp_auth/` (0700/0600, atômico), com `obtained_at` para recalcular a expiração depois de reiniciar.
+  3. Cada conexão roda em uma task interna dedicada: o SDK cancela o escopo anyio do dono do transporte quando a conexão cai, e isso precisa ser lido como "queda", não matar o supervisor.
+  4. Reconexão com backoff limitado só após ter conectado; falha inicial e login perdido não reconectam em loop.
+  5. Conteúdo de resources e prompts de servidores remotos é dado não confiável.
+* **Consequências:** o `refresh_mcp` da sessão passa a usar a geração do cliente; comandos dinâmicos (prompts MCP) usam `CommandRegistry.set_dynamic`.
