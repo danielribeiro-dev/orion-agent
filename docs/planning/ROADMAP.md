@@ -4,6 +4,9 @@
 > **Visão Geral:** Este documento estabelece o roadmap estratégico, tecnológico e executivo do **O.R.I.O.N**, desde a fundação inicial do núcleo de orquestração até a consolidação da plataforma de inteligência pessoal de alta autonomia.  
 > **Filosofia:** *Estável antes de ambicioso. Seguro antes de autônomo. Documentado antes de codificado.*
 
+
+> **Princípio fundacional (ADR-027):** o ORION é a segunda metade do Senhor, vive no computador e não em um projeto. Memória e aprendizado são sua maior virtude; nada se perde, tudo se transforma. Proposta de versões em [`vision/living-memory-and-ambient-jarvis.md`](vision/living-memory-and-ambient-jarvis.md) (aguardando decisão do Senhor).
+
 ---
 
 ## 🧭 1. O Benchmark Estratégico: Superando o Mercado (2026)
@@ -57,6 +60,8 @@ v0.7.0  ── Dedicated Desktop App & Sci-Fi Cockpit (eDEX-UI Standalone)
 v1.0.0  ── Production Release: Autonomous Personal Operating Intelligence
   │        (Blindagem de Segurança Militar, Pacotes Binários e Multiplataforma)
 v1.5.0  ── Self-Healing Engine, Bubblewrap Sandboxing & Dynamic Subagents
+v0.5.x+ ─ [PROPOSTO, ADR-027] Memória Viva · Diretivas e Skills por Intenção · Interface (F-09+) · Protocolos (= skills dinâmicas)
+  │        (detalhes e ordem em vision/living-memory-and-ambient-jarvis.md; aguardando spec de versão)
 v1.6.0  ── Code Copilot Mode & Provedores Nativos adicionais [FUTURO]
   │        (provider Anthropic e tool use nativos foram antecipados para a v0.5.0 pelo ADR-020)
 v2.0.0  ── Ghost Input (/dev/uinput), Chrome CDP Automation & Zero-Knowledge Vault

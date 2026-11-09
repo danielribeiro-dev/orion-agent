@@ -279,3 +279,16 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   4. Reconexão com backoff limitado só após ter conectado; falha inicial e login perdido não reconectam em loop.
   5. Conteúdo de resources e prompts de servidores remotos é dado não confiável.
 * **Consequências:** o `refresh_mcp` da sessão passa a usar a geração do cliente; comandos dinâmicos (prompts MCP) usam `CommandRegistry.set_dynamic`.
+
+### ADR-027: O ORION É a Segunda Metade do Senhor — Memória e Aprendizado como Virtude Central
+* **Status:** Proposto (08/11/2026) — princípio fundacional aprovado pelo Senhor; mecanismos aguardam spec de versão
+* **Princípio (frase do Senhor, preservar):** "A memória e a capacidade de APRENDER são uma das maiores virtudes do ORION." Ele não é um projeto que chama um LLM nem é limitado a um projeto: é uma segunda metade do Senhor que vive no computador (e, no futuro, o acompanha por outros dispositivos, se permitido). **Nada se perde, tudo se transforma:** a memória não acumula lixo, ela consolida, recicla e cria novas.
+* **Decisão:**
+  1. A memória é escopada por **pessoa/dispositivo**, não por projeto. Camadas: `global` (o Senhor), `organização/infra`, `projeto`, `dispositivo`. O projeto é um filtro de relevância, nunca a fronteira.
+  2. O ORION aprende por **observação e instrução direta** (decisões, infra, preferências, nível de habilidade por domínio) e registra com proveniência (origem, data, confiança). Inferências nascem `PROVISÓRIAS` e só viram `CONFIRMADAS` por confirmação do Senhor ou evidência repetida (mantém a blindagem anti-envenenamento da v0.2.0).
+  3. A higiene é cirúrgica: fatos duplicados se fundem, os superados são `DEPRECATED` com linhagem (substituído por X) e episódios antigos viram resumo. Nenhuma informação é apagada sem destino.
+  4. A recuperação é **automática** (injeção em `<recalled_context>`, ADR-021/AutoRecall). As tools de memória são a gaveta de apoio, nunca o caminho principal.
+  5. **Diretivas permanentes:** o Senhor pode ensinar reflexos em linguagem natural ("quando eu disser X, responda Y"). São determinísticas, zero token em idle (ADR-022) e passam pelo PEP quando mutam algo.
+  6. **Skills por intenção:** skills próprias do Senhor ativam por intenção ("ative o protocolo babá"), sem `/skill-nome`. O `/` continua como atalho explícito.
+  7. O formato de memória deve ser **portável** (exportar/importar, cifrado) para suportar multi-dispositivo na v3.0.0.
+* **Consequências:** `IdentityManager` deve carregar este princípio (hoje em `src/orion/core/identity.py`, só alterável em sprint com spec). Monitorar terceiros (ex.: "protocolo babá") exige consentimento claro e vale apenas para contas/dispositivos do Senhor; ações nucleares seguem exigindo step-up.

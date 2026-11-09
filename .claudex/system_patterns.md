@@ -40,3 +40,9 @@ Este documento estabelece as **regras imutáveis de engenharia** do `orion-agent
 - **Assincronismo Nativo:** Todo o loop de orquestração, streaming de respostas, eventos e execução de processos são implementados com `asyncio`.
 - **Zero SQL Injection:** Todas as operações em SQLite utilizam queries parametrizadas com placeholders `?`.
 - **Tratamento Limpo de Erros:** Erros de provedores e ferramentas são capturados, tratados e traduzidos para tipos de exceção do domínio do ORION, evitando que stack traces vazem para o usuário final sem explicação legível.
+
+---
+
+## 3. Princípio Fundacional (ADR-027)
+
+O ORION é a segunda metade do Senhor: vive no computador, não em um projeto, e o acompanhará entre dispositivos se permitido. Memória e capacidade de aprender são suas maiores virtudes. **Nada se perde, tudo se transforma:** a memória consolida, recicla e cria novas; não acumula lixo. O recall é injetado pelo sistema no contexto (nunca depende de o LLM lembrar de chamar uma tool); as tools de memória são a gaveta de apoio. Memória inferida nasce provisória e só se confirma por evidência ou pelo Senhor.

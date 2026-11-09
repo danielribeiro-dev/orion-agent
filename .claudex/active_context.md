@@ -1,7 +1,7 @@
 # O.R.I.O.N — Active Context (Memória de Sessão de Desenvolvimento)
 
 > **Data de Atualização:** 07/11/2026  
-> **Status Atual:** v0.4.0 implementada. v0.5.0 em execução: Sprints 0–5 implementadas (**Sprint 5 em dois commits locais: 5A extensibilidade e 5B MCP completo**). Portão de dogfooding pendente; cobertura 94%.  
+> **Status Atual:** v0.4.0 implementada. v0.5.0 em execução: Sprints 0–5 concluídas (Sprint 5 = 5A extensibilidade + 5B MCP completo). Visão ADR-027 (memória viva, protocolos = skills dinâmicas) documentada em `docs/planning/vision/`. Portão de dogfooding pendente; cobertura 94%.  
 > **Fase Ativa:** v0.5.0 "Claude-Grade Agent" — meta: programar com Claude rodando pelo ORION (`ANTHROPIC_API_KEY`), com tools, memória, MCPs, decisões, loops, schedules, subagents e jobs em segundo plano.  
 > **Branch Ativo:** `feat/v0.5.0-sprint-5` (a partir de `gate/dogfooding-v0.5.0`)  
 > **Regra Suprema:** Nenhuma linha de código em `src/` é escrita sem o comando explícito de início da Sprint correspondente (Doc-First).
