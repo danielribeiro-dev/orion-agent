@@ -247,6 +247,12 @@ OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
         category="operation",
     ),
     SlashCommandInfo(
+        "/daemon",
+        "Daemon opt-in: status, ligar/desligar, autostart e Inbox de pendências",
+        icon="❯",
+        category="operation",
+    ),
+    SlashCommandInfo(
         "/voice",
         "Ativar ou silenciar o daemon de voz e presença ambiente",
         icon="❯",

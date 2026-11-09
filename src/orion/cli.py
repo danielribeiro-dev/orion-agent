@@ -332,6 +332,111 @@ def cmd_info() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Daemon e attach (v0.5.0 Sprint 7, ADR-032/033)
+# ---------------------------------------------------------------------------
+
+daemon_app = typer.Typer(help="Daemon opt-in do ORION (systemd --user).", no_args_is_help=True)
+app.add_typer(daemon_app, name="daemon")
+
+
+def _orion_home() -> Path:
+    return Path.home() / ".orion"
+
+
+def _daemon_action(action: str, *, boot: bool = False) -> None:
+    from orion.daemon.control import DaemonControlError, DaemonController, format_status
+
+    try:
+        outcome = asyncio.run(DaemonController(_orion_home()).run(action, boot=boot))
+    except (DaemonControlError, RuntimeError, OSError) as exc:
+        err_console.print(f"✖ {exc}")
+        raise typer.Exit(1) from exc
+    if isinstance(outcome, dict):
+        for line in format_status(outcome):
+            console.print(line, highlight=False)
+    else:
+        console.print(f"✔ {outcome}", highlight=False)
+
+
+@daemon_app.command("run")
+def cmd_daemon_run(
+    force: bool = typer.Option(False, "--force", help="Roda em primeiro plano mesmo sem opt-in."),
+) -> None:
+    """Executa o daemon em primeiro plano (o que a unit do systemd chama)."""
+    from orion.daemon.app import run_daemon
+    from orion.settings import load_settings
+
+    home = _orion_home()
+    effective = load_settings(home, None).effective
+    if not (effective.daemon.enabled or force):
+        err_console.print("✖ daemon desligado (opt-in). Use `orion-agent daemon start` ou /daemon enable.")
+        raise typer.Exit(2)
+    from orion.scheduler.store import SchedulerLocked
+
+    configure_logging(home)
+    try:
+        asyncio.run(run_daemon(home, effective.daemon, effective.ui, hooks=effective.hooks))
+    except SchedulerLocked as exc:
+        err_console.print("✖ já existe um daemon do ORION em execução.")
+        raise typer.Exit(1) from exc
+    except (RuntimeError, OSError) as exc:
+        err_console.print(f"✖ daemon não iniciou: {exc}")
+        raise typer.Exit(1) from exc
+
+
+@daemon_app.command("status")
+def cmd_daemon_status() -> None:
+    """Estado do daemon, do serviço e do autostart."""
+    _daemon_action("status")
+
+
+@daemon_app.command("start")
+def cmd_daemon_start() -> None:
+    """Liga agora (marca o opt-in), sem autostart."""
+    _daemon_action("start")
+
+
+@daemon_app.command("stop")
+def cmd_daemon_stop() -> None:
+    """Para o daemon."""
+    _daemon_action("stop")
+
+
+@daemon_app.command("restart")
+def cmd_daemon_restart() -> None:
+    """Reinicia o daemon."""
+    _daemon_action("restart")
+
+
+@daemon_app.command("install")
+def cmd_daemon_install() -> None:
+    """Grava a unit do systemd --user (não liga nada)."""
+    _daemon_action("install")
+
+
+@daemon_app.command("enable")
+def cmd_daemon_enable(
+    boot: bool = typer.Option(False, "--boot", help="Sobe no boot (liga loginctl linger explicitamente)."),
+) -> None:
+    """Sobe no login (ou no boot com --boot)."""
+    _daemon_action("enable", boot=boot)
+
+
+@daemon_app.command("disable")
+def cmd_daemon_disable() -> None:
+    """Desliga tudo: autostart, unit e linger do ORION. Preserva ~/.orion."""
+    _daemon_action("disable")
+
+
+@app.command(name="attach")
+def cmd_attach() -> None:
+    """Anexa este terminal ao daemon (Inbox, eventos e prompts). Sair não derruba o daemon."""
+    from orion.tui.attach import run_attach
+
+    raise typer.Exit(asyncio.run(run_attach(_orion_home(), console)))
+
+
+# ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
 

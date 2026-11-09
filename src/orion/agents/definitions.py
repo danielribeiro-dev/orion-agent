@@ -40,6 +40,13 @@ READ_ONLY_TOOLS: tuple[str, ...] = ("read_file", "glob", "grep", "search_files")
 FORBIDDEN_FOR_CHILD: frozenset[str] = frozenset(
     {
         "task",
+        "daemon_control",
+        "schedule_create",
+        "schedule_list",
+        "schedule_delete",
+        "presence_rule_create",
+        "presence_rule_list",
+        "presence_rule_delete",
         "task_create",
         "task_list",
         "task_get",

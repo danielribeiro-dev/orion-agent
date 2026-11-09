@@ -5,7 +5,7 @@
 - **Repositório:** `orion-agent`
 - **Fase Atual:** Fase 5 (v0.5.0 Claude-Grade Agent) **EM ANDAMENTO** 🟡 (Sprint 0 concluída; v0.4.0 implementada, tags/merge pendentes)
 - **Linhas de Código em `src/`:** ~16.300 linhas de produção
-- **Testes:** 1747 passando, cobertura global 92% (medido em 09/11/2026 após a 6B; excluídos `test_vector_store` — baixa o modelo ONNX, sem rede aqui — e os 2 arquivos que importam `aiohttp`, dependência não declarada no `pyproject.toml`) ✅
+- **Testes:** 2002 passando, cobertura global 94% (suíte completa com `.venv/bin` no PATH, medido em 09/11/2026 após a Sprint 7) ✅
 
 ---
 
@@ -222,7 +222,12 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
     - [x] Testes (+137): `test_agent_executor`, `test_tasks`, `test_worktree` (git real; mutação confirmou que os testes quebram sem a ancoragem/confinação), `test_loop`, `test_background_session`, `test_agent_infra`; 1747 passam, cobertura 92%, ruff 73 (= baseline), mypy sem erros novos além do ruído `BaseModel: Any`
     - Pendente (exige o Senhor): TTY real (notificação entre turnos, toolbar, `/tasks`, `/loop`) e rodada live com `ORION_LIVE=1`; persistência durável de `/loop` e cron real ficam para a Sprint 7
   - [x] **Gates zerados (2026-11-09)** — `1ae924f` (ruff 73 → 0; `StrEnum`, `per-file-ignores` de `SIM117`/`B017` em `tests/**`) e `3e9d210` (mypy strict 21 → 0); 1815 testes, cobertura 94,19%; branch enviada ao remoto
-- [ ] Sprint 7: Daemon, Jobs & Schedules — **spec congelada (09/11/2026)**, ADR-032 a 036; subdividida em 7A (boot/pressão + fundação), 7B (agenda e jobs), 7C (notificação, HITL, presença)
+- [x] Sprint 7: Daemon, Jobs & Schedules ✅ IMPLEMENTADA (7A + 7B + 7C, 09/11/2026; branch `feat/v0.5.0-sprint-7`, commits locais, sem push) — ADR-022, 032 a 036; registro em `sprints/sprint-7.md` §8.1
+  - [x] 7A: `SessionSink` em commit próprio (`d89f1d8`); daemon (`daemon/{ipc,server,client,app,control,service,probe,pressure,sleepable}.py`), socket 0600 + `SO_PEERCRED`, reconexão, boot escalonado, `PressureMonitor` com histerese, `orion-agent daemon ...`, `attach`, `/daemon`, `daemon_control`; `orion` = `orion-agent`
+  - [x] 7B: `scheduler/` (cron, intervalo, one-shot, catch-up, lock), `daemon/jobs.py`, `schedule_*`, disparo em sessão limpa `origin=cron` não interativa, teto diário por origem
+  - [x] 7C: `notify/` (Inbox, desktop com ações, Telegram com TTL, roteador), `presence/` (regras da memória, política determinística, atividade), `presence_rule_*`, `ui.show_thinking`, medidor de chamadas em idle
+  - [x] Testes (+255): `test_session_sink`, `test_daemon`, `test_daemon_control`, `test_daemon_system`, `test_scheduler`, `test_notify`, `test_presence`; 2002 passam, cobertura 94%, ruff e mypy limpos (com `.venv/bin` no PATH: `test_mcp_stdio_integration` chama `python`)
+  - Pendente (exige o Senhor): manual no GNOME (enable, logout/login, disparo, botão aprova, attach com Inbox), Telegram real, calibração dos limiares de pressão
 - [ ] Sprint 8: Hardening & Release
 - [ ] Pendências herdadas da v0.4.0: tags `v0.3.0`/`v0.4.0` e merge em `main`; validar turno com provedor real; repetir A/B de MCP com modelo pago
 

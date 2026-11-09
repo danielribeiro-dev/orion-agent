@@ -38,7 +38,7 @@ dependencies = [
 ]
 
 [project.scripts]
-orion = "orion.cli:app"
+orion = "orion.cli:main"  # ADR-033: mesma CLI de orion-agent
 orion-agent = "orion.cli:main"
 
 [project.optional-dependencies]

@@ -1,0 +1,19 @@
+# Unit de REFERÊNCIA. A CLI (`orion-agent daemon install`) gera a unit real,
+# com o caminho correto do executável. Opt-in: nada é instalado sem ação do Senhor.
+[Unit]
+Description=O.R.I.O.N daemon
+Documentation=https://github.com/danielribeiro-dev/orion-agent
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/orion-agent daemon run
+Restart=on-failure
+RestartSec=5
+Nice=10
+CPUWeight=20
+IOWeight=20
+MemoryHigh=512M
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

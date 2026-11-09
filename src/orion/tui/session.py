@@ -665,6 +665,7 @@ class AgentSession:
             TaskGetTool(self.tasks),
             TaskStopTool(self.tasks),
             SendMessageTool(self.tasks),
+            *self._daemon_tools(),
         ]
         return LocalRuntimeProvider(
             shells=self.shells,
@@ -676,6 +677,40 @@ class AgentSession:
             skills_engine=self.skills,
             extra_tools=extra,
         )
+
+    def _daemon_tools(self) -> list[Any]:
+        """Daemon, agenda e presença (Sprint 7). Nunca entregues a subagents."""
+        from orion.daemon.control import DaemonController
+        from orion.runtime.tools.daemon_control import DaemonControlTool
+        from orion.runtime.tools.presence import (
+            PresenceRuleCreateTool,
+            PresenceRuleDeleteTool,
+            PresenceRuleListTool,
+        )
+        from orion.runtime.tools.schedule import (
+            ScheduleCreateTool,
+            ScheduleDeleteTool,
+            ScheduleListTool,
+        )
+
+        def trusted() -> bool:
+            return not self.settings.project_needs_trust
+
+        schedule_kwargs: dict[str, Any] = {
+            "workspace": self.workspace,
+            "autonomy": lambda: self.pep.mode,
+            "trusted": trusted,
+            "daemon_enabled": lambda: DaemonController(self.home).settings().enabled,
+        }
+        return [
+            DaemonControlTool(lambda: DaemonController(self.home), trusted),
+            ScheduleCreateTool(self.home, **schedule_kwargs),
+            ScheduleListTool(self.home, **schedule_kwargs),
+            ScheduleDeleteTool(self.home, **schedule_kwargs),
+            PresenceRuleCreateTool(lambda: self.facts),
+            PresenceRuleListTool(lambda: self.facts),
+            PresenceRuleDeleteTool(lambda: self.facts),
+        ]
 
     def _build_manifest(self) -> Any:
         try:

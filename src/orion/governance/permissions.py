@@ -71,6 +71,15 @@ TOOL_LEVELS: dict[str, ActionLevel] = {
     "task_get": ActionLevel.LEVEL_1,
     "task_stop": ActionLevel.LEVEL_2,
     "send_message": ActionLevel.LEVEL_1,
+    # Daemon, agenda e presença (Sprint 7, ADR-032/036): ligar o daemon, agendar trabalho sem
+    # humano e mudar como o ORION alcança o Senhor sempre pedem confirmação (fora de FULLY_AUTO).
+    "daemon_control": ActionLevel.LEVEL_3,
+    "schedule_create": ActionLevel.LEVEL_3,
+    "schedule_delete": ActionLevel.LEVEL_3,
+    "schedule_list": ActionLevel.LEVEL_0,
+    "presence_rule_create": ActionLevel.LEVEL_3,
+    "presence_rule_delete": ActionLevel.LEVEL_3,
+    "presence_rule_list": ActionLevel.LEVEL_0,
 }
 
 #: Tools que abrem modal no terminal: nunca rodam em paralelo com outras.
