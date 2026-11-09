@@ -23,6 +23,7 @@ from orion.tui.console import get_console
 from orion.tui.keybindings import create_key_bindings
 from orion.tui.prompt import InteractivePrompt
 from orion.tui.status_bar import SessionStatusBar
+from orion.tui.stream_renderer import StreamRenderer
 
 if TYPE_CHECKING:
     from orion.tui.session import AgentSession
@@ -138,12 +139,14 @@ def _resume_session(session: AgentSession, continue_session: bool, ref: str) -> 
 
 def create_prompt(status_bar: SessionStatusBar, session: AgentSession) -> InteractivePrompt:
     """Cria o prompt com os atalhos ligados à sessão."""
+    renderer = session.renderer
+    assert isinstance(renderer, StreamRenderer), "a TUI local usa sempre o RichSink"
     bindings = create_key_bindings(
         on_cycle_mode=session.cycle_mode,
         on_cycle_effort=session.cycle_effort,
         on_toggle_fast=session.toggle_fast,
-        on_expand_reasoning=session.renderer.expand_reasoning,
-        on_expand_output=session.renderer.expand_output,
+        on_expand_reasoning=renderer.expand_reasoning,
+        on_expand_output=renderer.expand_output,
     )
     return InteractivePrompt(
         status_bar=status_bar,

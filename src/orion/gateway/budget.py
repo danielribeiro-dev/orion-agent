@@ -50,6 +50,25 @@ class BudgetExceededError(Exception):
         )
 
 
+class OriginBudgetExceededError(BudgetExceededError):
+    """Teto diário de uma origem não interativa (``cron``, ``daemon``, ``loop``) atingido (ADR-032).
+
+    Subclasse do erro global: quem já trata estouro de orçamento (runner, sessão) trata este também.
+    """
+
+    def __init__(self, origin: str, cap_usd: float, spent_usd: float) -> None:
+        self.origin = origin
+        self.cap_usd = cap_usd
+        self.daily_budget_usd = cap_usd
+        self.spent_today_usd = spent_usd
+        self.percentage_used = 100.0 * spent_usd / cap_usd if cap_usd else 100.0
+        Exception.__init__(
+            self,
+            f"Daily budget for origin '{origin}' exceeded: ${spent_usd:.4f} / ${cap_usd:.4f}. "
+            "Scheduled and background calls are blocked until tomorrow.",
+        )
+
+
 class BudgetWarningEvent:
     """Evento emitido quando o gasto atinge o limiar de alerta (padrão 85%).
 
@@ -161,6 +180,8 @@ class BudgetGuard:
     daily_budget_usd: float = 2.0
     warning_threshold_pct: float = 85.0
     on_warning: object | None = field(default=None, repr=False)
+    #: Teto diário por origem (ADR-032). Origens ausentes só obedecem ao teto global.
+    origin_budget_usd: dict[str, float] = field(default_factory=dict)
 
     # Estado interno — não fazer parte do hash/eq do dataclass
     _last_warning_date: str | None = field(default=None, init=False, repr=False)
@@ -196,7 +217,7 @@ class BudgetGuard:
 
     # ── Verificação (com efeitos colaterais) ─────────────────────────────────
 
-    def check(self, *, is_local_model: bool = False) -> BudgetStatus:
+    def check(self, *, is_local_model: bool = False, origin: str = "user") -> BudgetStatus:
         """Verifica o estado do orçamento antes de um despacho de inferência.
 
         Modelos locais (Ollama) nunca são bloqueados — têm custo zero.
@@ -216,6 +237,8 @@ class BudgetGuard:
         # Modelos locais não consomem orçamento
         if is_local_model:
             return bs
+
+        self.check_origin(origin)
 
         # Sem limite configurado
         if self.daily_budget_usd == 0.0:
@@ -244,6 +267,15 @@ class BudgetGuard:
                     self.on_warning(event)
 
         return bs
+
+    def check_origin(self, origin: str) -> None:
+        """Levanta :class:`OriginBudgetExceededError` se a origem estourou o teto do dia."""
+        cap = self.origin_budget_usd.get(origin)
+        if cap is None:
+            return
+        spent = self.ledger.spent_by_origin().get(origin, 0.0)
+        if spent >= cap:
+            raise OriginBudgetExceededError(origin, cap, spent)
 
     def reset_warning_state(self) -> None:
         """Reseta o estado de aviso (útil para testes e virada de dia)."""

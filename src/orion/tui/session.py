@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import io
 import json
 import logging
 import os
@@ -128,8 +129,8 @@ from orion.tui.commands.custom import CustomCommand, CustomCommandSpec, load_cus
 from orion.tui.commands.mcp import MCPPromptCommand
 from orion.tui.completer import OFFICIAL_SLASH_COMMANDS, SlashCommandInfo, resolve_mentions
 from orion.tui.diff_viewer import FileDiff, diff_texts
+from orion.tui.sink import RichSink, SessionSink
 from orion.tui.status_bar import ReasoningEffort, SessionStatusBar
-from orion.tui.stream_renderer import StreamRenderer
 
 logger = logging.getLogger(__name__)
 
@@ -241,17 +242,24 @@ class AgentSession:
 
     def __init__(
         self,
-        status_bar: SessionStatusBar,
-        console: Console,
+        status_bar: SessionStatusBar | None = None,
+        console: Console | None = None,
         workspace: Path | None = None,
         home: Path | None = None,
         provider_factory: ProviderFactory | None = None,
         ask_pep: PepAsker | None = None,
         max_turns: int = 20,
         recall: AutoRecall | None = None,
+        sink: SessionSink | None = None,
+        origin: Origin = "user",
     ) -> None:
+        # Sem console a sessão é headless (daemon): nada de modal no terminal (ADR-032).
+        self.headless = console is None
+        status_bar = status_bar if status_bar is not None else SessionStatusBar()
+        console = console if console is not None else Console(file=io.StringIO(), width=100)
         self.status_bar = status_bar
         self.console = console
+        self.origin: Origin = origin
         self.workspace = (workspace or Path.cwd()).resolve()
         self.home = home or Path.home() / ".orion"
         self.session_id = str(uuid.uuid4())
@@ -281,11 +289,14 @@ class AgentSession:
             primary_model_tier=ComplexityTier.HEAVY,
         )
         self.ledger = CostLedger(db_path=self.home / "metrics.db", registry=self.registry)
-        self.budget = BudgetGuard(ledger=self.ledger)
+        self.budget = BudgetGuard(
+            ledger=self.ledger,
+            origin_budget_usd=dict(self.settings.effective.daemon.origin_budget_usd),
+        )
         self.compactor = ContextCompactor()
         self.branches = BranchManager()
         self.tracker = ChangeTracker()
-        self.renderer = StreamRenderer(
+        self.renderer: SessionSink = sink or RichSink(
             console,
             effort=lambda: self.status_bar.reasoning_effort.value.lower(),
             status_line=self.status_bar.render_bottom_bar,
@@ -354,6 +365,9 @@ class AgentSession:
         status_bar.session_tokens_in = status_bar.session_tokens_out = 0
         status_bar.session_cost_usd = 0.0
         self.pep.attach_circuit_breaker(self.breaker)
+        if self.headless and ask_pep is None:
+            # Ninguém para responder: toda pergunta do PEP vira negação, nuclear inclusive.
+            self.pep.set_interactive(False)
         self._apply_rules()
         self.online = bool(os.environ.get("OPENROUTER_API_KEY") or self.anthropic_key)
         status_bar.is_online = self.online
@@ -1012,7 +1026,7 @@ class AgentSession:
         """Uma volta com o modelo: stream ao vivo no renderer e blocos tipados de volta ao engine."""
         spec, tier, routing = self._resolve_model()
         self.status_bar.model_name = spec.id
-        self.budget.check(is_local_model=spec.provider == ProviderName.OLLAMA)
+        self.budget.check(is_local_model=spec.provider == ProviderName.OLLAMA, origin=self.origin)
         # Modelo leve só é "intencional" se o tier resolvido não é HEAVY; senão uma falha
         # externa do modelo de topo ativa SAFE_HOLDING (mutações bloqueadas).
         self.breaker.set_intentional_lite_mode(tier != ComplexityTier.HEAVY)
@@ -1089,6 +1103,7 @@ class AgentSession:
             complexity=tier,
             task_id=self.session_id,
             latency_ms=latency_ms,
+            origin=self.origin,
         )
         self.tokens_in += usage.prompt_tokens
         self.tokens_out += usage.completion_tokens
@@ -1167,6 +1182,8 @@ class AgentSession:
         from orion.tui.modal import ask_user_choice
 
         await self.fire_hook("Notification", {"message": question, "kind": "ask_user"})
+        if self.headless:
+            return None  # sem terminal: o modelo segue sem a resposta
         self.renderer.pause()
         try:
             return await ask_user_choice(self.console, question, options, multi)
@@ -1183,6 +1200,8 @@ class AgentSession:
 
         target = self._pre_plan_mode if self._pre_plan_mode != AgentMode.PLAN else AgentMode.ACCEPT_EDITS
         await self.fire_hook("Notification", {"message": "plano aguardando aprovação", "kind": "plan"})
+        if self.headless:
+            return False  # aprovar plano exige o Senhor no terminal
         self.renderer.pause()
         try:
             approved = await approve_plan(self.console, plan, target.value)
@@ -1209,6 +1228,8 @@ class AgentSession:
             {"message": f"{action.tool} aguardando autorização", "kind": "permission"},
         )
         asker = self._ask_pep
+        if asker is None and self.headless:
+            return Rejection("no terminal is attached to approve this action")
         if asker is None:
             from orion.tui.modal import ask_pep_decision
 

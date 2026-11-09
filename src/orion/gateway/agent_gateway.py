@@ -256,7 +256,7 @@ class AgentGateway:
             spec = self._registry.require(model.model_id)
             if self._budget is not None:
                 # Teto diário global: levanta BudgetExceededError (o runner a converte em parcial).
-                self._budget.check(is_local_model=spec.is_local)
+                self._budget.check(is_local_model=spec.is_local, origin=origin)
             request, wire = build_llm_request(
                 spec,
                 tier,

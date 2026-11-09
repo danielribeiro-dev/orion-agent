@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -17,6 +17,10 @@ HOOK_EVENTS: tuple[str, ...] = (
     "Notification",
     "SubagentStart",
     "SubagentStop",
+    # Daemon (v0.5.0 Sprint 7)
+    "DaemonStart",
+    "DaemonStop",
+    "ScheduleFire",
 )
 
 
@@ -104,6 +108,62 @@ class ModelsSettings(BaseModel):
         return bool(self.tiers or self.profiles)
 
 
+class NotifySettings(BaseModel):
+    """Canais de notificação do daemon (ADR-032). O token do Telegram nunca fica aqui."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    desktop: bool = True
+    telegram: bool = False
+    telegram_chat_id: int | None = None
+    #: Validade de uma aprovação remota; expirada vale como negada.
+    approval_ttl_s: int = Field(default=600, ge=30, le=86_400)
+
+
+class PressureSettings(BaseModel):
+    """Limiares do ``PressureMonitor`` (ADR-035). Entrada > saída: histerese."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    sample_s: float = Field(default=10.0, ge=1.0, le=600.0)
+    enter_cpu: float = Field(default=0.85, gt=0.0, le=1.0)
+    exit_cpu: float = Field(default=0.60, gt=0.0, le=1.0)
+    enter_mem: float = Field(default=0.90, gt=0.0, le=1.0)
+    exit_mem: float = Field(default=0.75, gt=0.0, le=1.0)
+    #: PSI ``some avg10`` de memória/CPU (percentual), quando o kernel expõe.
+    enter_psi: float = Field(default=20.0, ge=0.0, le=100.0)
+    exit_psi: float = Field(default=5.0, ge=0.0, le=100.0)
+    min_dwell_s: float = Field(default=60.0, ge=0.0, le=3600.0)
+
+
+class DaemonSettings(BaseModel):
+    """Daemon opt-in (ADR-032). Só vale da camada do usuário: projeto nunca liga daemon."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    enabled: bool = False
+    autostart: Literal["off", "login", "boot"] = "off"
+    boot_profile: Literal["auto", "minimal", "full"] = "auto"
+    notifications: NotifySettings = Field(default_factory=NotifySettings)
+    pressure: PressureSettings = Field(default_factory=PressureSettings)
+    #: Teto de espera pela estabilização da máquina antes de subir componentes.
+    stabilize_max_wait_s: float = Field(default=300.0, ge=0.0, le=3600.0)
+    #: Teto diário em USD por origem (``cron``, ``daemon``, ``loop``). Nunca "sem limite".
+    origin_budget_usd: dict[str, float] = Field(
+        default_factory=lambda: {"cron": 0.50, "daemon": 0.25, "loop": 1.00}
+    )
+    max_concurrent_jobs: int = Field(default=2, ge=1, le=8)
+
+
+class UiSettings(BaseModel):
+    """Superfícies opcionais (ADR-034): pensamentos no stream e aba flutuante (v0.7.0)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    show_thinking: bool = False
+    panel: bool = False
+
+
 class Settings(BaseModel):
     """Settings efetivos ou de uma única camada. Chaves desconhecidas são ignoradas."""
 
@@ -119,6 +179,8 @@ class Settings(BaseModel):
     env: dict[str, str] = Field(default_factory=dict)
     agents: AgentsSettings = Field(default_factory=AgentsSettings)
     models: ModelsSettings = Field(default_factory=ModelsSettings)
+    daemon: DaemonSettings = Field(default_factory=DaemonSettings)
+    ui: UiSettings = Field(default_factory=UiSettings)
 
     def has_risky_content(self) -> bool:
         """Verdadeiro se a camada traz algo que executa código ou afrouxa o PEP."""

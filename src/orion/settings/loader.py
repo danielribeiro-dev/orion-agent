@@ -6,9 +6,9 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from orion.settings.io import read_json_object, write_private_json
 from orion.settings.models import (
@@ -19,6 +19,8 @@ from orion.settings.models import (
     Settings,
 )
 from orion.settings.trust import ProjectTrust, digest_of
+
+_M = TypeVar("_M", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
@@ -122,8 +124,15 @@ def merge(layers: list[Settings]) -> Settings:
                 tiers={**result.models.tiers, **layer.models.tiers},
                 profiles={**result.models.profiles, **layer.models.profiles},
             ),
+            daemon=layer.daemon if "daemon" in layer.model_fields_set else result.daemon,
+            ui=_merge_model(result.ui, layer.ui),
         )
     return result
+
+
+def _merge_model(base: _M, top: _M) -> _M:
+    """Campos explicitamente definidos na camada mais alta sobrescrevem os de baixo."""
+    return base.model_copy(update={k: getattr(top, k) for k in top.model_fields_set})
 
 
 def _merge_agents(base: AgentsSettings, top: AgentsSettings) -> AgentsSettings:
@@ -178,8 +187,10 @@ def load_settings(
                 effective_project = project.restricted()
         local = _parse(read_json_object(local_settings_path(workspace)), "local", notices)
 
+    # O daemon é da máquina, não do projeto (ADR-032): só a camada do usuário o configura.
+    project_layers = [_drop(layer, {"daemon"}) for layer in (*extra_layers, effective_project, local)]
     return LoadedSettings(
-        effective=merge([user, *extra_layers, effective_project, local]),
+        effective=merge([user, *project_layers]),
         user=user,
         project=project,
         local=local,
@@ -187,6 +198,13 @@ def load_settings(
         project_digest=digest,
         notices=notices,
     )
+
+
+def _drop(layer: Settings, fields: set[str]) -> Settings:
+    """Remove campos de uma camada (voltam ao padrão e deixam de contar como definidos)."""
+    if not fields & layer.model_fields_set:
+        return layer
+    return Settings(**layer.model_dump(include=layer.model_fields_set - fields))
 
 
 def _update_layer(path: Path, updates: dict[str, Any]) -> None:
