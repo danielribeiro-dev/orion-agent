@@ -106,7 +106,9 @@ class IdentityManager:
             f"Origin   : {identity.immutable_origin}\n"
             f"Persona  : {identity.persona_name}\n"
             f"Style    : {identity.persona_style}\n"
-            f"Rules    : {rules_text}"
+            f"Rules    : {rules_text}\n"
+            "Memory   : when the Senhor states a durable preference, how to address him/you, "
+            "or a project decision, call `memorize` (CONFIRMED) in that same turn."
         )
 
     # ------------------------------------------------------------------

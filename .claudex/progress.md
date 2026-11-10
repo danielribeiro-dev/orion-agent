@@ -228,6 +228,7 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
   - [x] 7C: `notify/` (Inbox, desktop com ações, Telegram com TTL, roteador), `presence/` (regras da memória, política determinística, atividade), `presence_rule_*`, `ui.show_thinking`, medidor de chamadas em idle
   - [x] Testes (+255): `test_session_sink`, `test_daemon`, `test_daemon_control`, `test_daemon_system`, `test_scheduler`, `test_notify`, `test_presence`; 2002 passam, cobertura 94%, ruff e mypy limpos (com `.venv/bin` no PATH: `test_mcp_stdio_integration` chama `python`)
   - Pendente (exige o Senhor): manual no GNOME (enable, logout/login, disparo, botão aprova, attach com Inbox), Telegram real, calibração dos limiares de pressão
+- [x] Rodada manual com modelos free (09/11/2026, antes da Sprint 8): modelos `:free` no catálogo + `models.prefer_free`; correções do núcleo R-03/R-04/R-08/R-10 a R-14 + chave OpenRouter por arquivo, `aiohttp` declarado e teste do daemon isolado. Achados e pendências (UI, R-06 a R-09, R-15 a R-17) em `docs/planning/versions/v0.5.0/rascunho-achados-teste-manual.md`; plano em `plano-testes-manuais.md`
 - [ ] Sprint 8: Hardening & Release
 - [ ] Pendências herdadas da v0.4.0: tags `v0.3.0`/`v0.4.0` e merge em `main`; validar turno com provedor real; repetir A/B de MCP com modelo pago
 

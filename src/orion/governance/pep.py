@@ -47,6 +47,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 from orion.core.events import Action
@@ -126,6 +127,37 @@ class Rejection:
     """Recusa que não veio do usuário (ex.: modo plano); *reason* chega ao modelo."""
 
     reason: str
+
+
+# Estado de governança do próprio ORION: nenhuma tool de escrita do agente o altera
+# (o agente não pode ampliar a própria allowlist, orçamento, segredos ou trilha de auditoria).
+_PROTECTED_NAMES = frozenset(
+    {
+        "web_allowlist.json", "settings.json", "config.json", "blacklist.json", "users.json",
+        "token_budget.json", "anthropic_api_key", "openrouter_api_key", "permissions.json",
+    }
+)
+_PROTECTED_PREFIXES = ("audit.", "trust")
+_PROTECTED_DIRS = frozenset({"secrets"})
+_WRITE_TOOLS = frozenset({"write_file", "edit_file", "notebook_edit"})
+
+
+def is_protected_state_path(path: str, home: Path | None = None) -> bool:
+    """True se *path* aponta para um arquivo de governança dentro de ``~/.orion``."""
+    try:
+        target = Path(path).expanduser().resolve()
+        root = (home or Path.home() / ".orion").resolve()
+        rel = target.relative_to(root)
+    except (ValueError, OSError):
+        return False
+    parts = rel.parts
+    if not parts:
+        return False
+    return (
+        parts[0] in _PROTECTED_DIRS
+        or parts[-1] in _PROTECTED_NAMES
+        or any(parts[-1].startswith(p) for p in _PROTECTED_PREFIXES)
+    )
 
 
 _SUDO_RE = re.compile(r"(?:^|[\s;&|(`])sudo(?:\s|$)")
@@ -349,7 +381,8 @@ class PolicyEnforcementPoint:
         params = dict(action.params)
 
         self._assert_safe_holding(action, level)
-        await self._assert_nuclear_safe(action, level)
+        self._assert_not_protected_state(action, level)
+        nuclear = await self._assert_nuclear_safe(action, level)
 
         match = self._match_rule(action)
         if match is not None and match.effect == "deny":
@@ -420,16 +453,40 @@ class PolicyEnforcementPoint:
             )
             return False
 
+        if nuclear is not None:
+            source = f"nuclear_stepup:{nuclear}+{source}"
         self._audit.log(
             action_id=action.event_id,
             tool=action.tool,
             params=params,
             level=level,
-            user_authorized=(source.startswith("user")),
+            user_authorized=(source.startswith("user") or nuclear is not None),
             result_status="pending",
             decision_source=source,
         )
         return True
+
+    def _assert_not_protected_state(self, action: Action, level: ActionLevel) -> None:
+        """Escritas do agente em arquivos de governança de ``~/.orion`` são sempre negadas."""
+        if action.tool not in _WRITE_TOOLS:
+            return
+        raw = str(action.params.get("path", ""))
+        if not raw or not is_protected_state_path(raw):
+            return
+        self._audit.log_denied(
+            action_id=action.event_id,
+            tool=action.tool,
+            params=dict(action.params),
+            level=level,
+            reason="protected_governance_file",
+            decision_source="mode",
+        )
+        raise ActionDenied(
+            action.event_id,
+            action.tool,
+            f"'{raw}' é estado de governança do ORION; o agente não o altera. "
+            "Peça ao Senhor para editar o arquivo manualmente.",
+        )
 
     def record_hook_denial(self, action: Action, reason: str) -> None:
         """Audit a PreToolUse hook that blocked *action* before it reached the PEP."""
@@ -546,7 +603,7 @@ class PolicyEnforcementPoint:
                     str(exc),
                 ) from exc
 
-    async def _assert_nuclear_safe(self, action: Action, level: ActionLevel) -> None:
+    async def _assert_nuclear_safe(self, action: Action, level: ActionLevel) -> str | None:
         """Run Nuclear Safety Gate for LEVEL_3 run_command actions.
 
         NUCLEAR_DESTRUCTIVE commands trigger OS authentication in ALL modes.
@@ -561,17 +618,17 @@ class PolicyEnforcementPoint:
         """
         # Only applies to run_command
         if action.tool != "run_command":
-            return
+            return None
         if level < ActionLevel.LEVEL_3:
-            return
+            return None
 
         cmd = str(action.params.get("command", ""))
         if not cmd:
-            return
+            return None
 
         blast = self._blast_classifier.classify(cmd)
         if blast != BlastRadius.NUCLEAR_DESTRUCTIVE:
-            return
+            return None
 
         if not self._interactive:
             # Sem humano para o desafio do SO: nuclear nunca é contornado, é negado.
@@ -631,6 +688,7 @@ class PolicyEnforcementPoint:
             result.duration_seconds,
             cmd[:80],
         )
+        return str(result.method_used)
 
     def _match_rule(self, action: Action) -> RuleMatch | None:
         own = (

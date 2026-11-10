@@ -23,9 +23,19 @@ class ProviderAPIError(GatewayError):
 class RateLimitError(ProviderAPIError):
     """Limite de taxa atingido (HTTP 429). Inclui retry_after em segundos, se disponível."""
 
-    def __init__(self, message: str, retry_after: float | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        retry_after: float | None = None,
+        *,
+        quota_exhausted: bool = False,
+        reset_in_s: float | None = None,
+    ) -> None:
         super().__init__(message, status_code=429)
         self.retry_after = retry_after
+        # Cota diária esgotada: esperar segundos não resolve, então não é retentável.
+        self.quota_exhausted = quota_exhausted
+        self.reset_in_s = reset_in_s
 
 
 class ProviderTimeoutError(GatewayError):

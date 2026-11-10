@@ -122,6 +122,11 @@ def merge(layers: list[Settings]) -> Settings:
             agents=_merge_agents(result.agents, layer.agents),
             models=ModelsSettings(
                 tiers={**result.models.tiers, **layer.models.tiers},
+                prefer_free=(
+                    layer.models.prefer_free
+                    if "prefer_free" in layer.models.model_fields_set
+                    else result.models.prefer_free
+                ),
                 profiles={**result.models.profiles, **layer.models.profiles},
             ),
             daemon=layer.daemon if "daemon" in layer.model_fields_set else result.daemon,

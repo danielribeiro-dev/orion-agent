@@ -416,3 +416,8 @@ class ModelSpec(BaseModel):
         ge=0.0,
         description="Custo absoluto/1M de tokens lidos do cache; None = input * desconto padrão",
     )
+
+    @property
+    def is_free(self) -> bool:
+        """Modelo de nuvem sem custo (sufixo ``:free`` do OpenRouter): sujeito a cota diária e 429."""
+        return not self.is_local and self.cost_input_m == 0.0 and self.cost_output_m == 0.0

@@ -216,6 +216,7 @@ class ModelRouter:
         self._mode: RoutingMode = default_mode
         self._fixed_model: str | None = fixed_model
         self._tier_candidates: dict[ComplexityTier, list[str]] = {}
+        self._prefer_free = False
 
         # Valida o modelo fixo inicial, se fornecido
         if self._fixed_model and self._fixed_model not in self._registry:
@@ -269,11 +270,20 @@ class ModelRouter:
         self._tier_candidates = parsed
         return notes
 
+    def set_prefer_free(self, value: bool) -> None:
+        """Liga/desliga a preferência por modelos ``:free`` nos tiers (``models.prefer_free``)."""
+        self._prefer_free = value
+
+    def _free_for_tier(self, tier: ComplexityTier) -> list[str]:
+        return [m.id for m in self._registry.by_tier(tier) if m.is_free and m.supports_tool_use]
+
     def tier_candidates(self, tier: ComplexityTier) -> list[str]:
         """Candidatos do tier em ordem: o configurado ou os padrões (nativo, depois o outro catálogo)."""
         if tier in self._tier_candidates:
             return list(self._tier_candidates[tier])
-        defaults = [self._tier_models[tier]]
+        defaults = self._free_for_tier(tier) if self._prefer_free else []
+        if self._tier_models[tier] not in defaults:
+            defaults.append(self._tier_models[tier])
         for table in (ANTHROPIC_TIER_MODELS, DEFAULT_TIER_MODELS):
             model_id = table[tier]
             if model_id in self._registry and model_id not in defaults:
@@ -426,7 +436,8 @@ class ModelRouter:
             prompt=prompt, history=history
         )
         tier = classification.tier
-        model_id = self._tier_models[tier]
+        free = self._free_for_tier(tier) if self._prefer_free else []
+        model_id = free[0] if free else self._tier_models[tier]
         spec = self._registry.require(model_id)
         return RoutingDecision(
             selected_model=model_id,

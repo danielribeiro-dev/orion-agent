@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 KEY_FILE_NAME = "anthropic_api_key"
+OPENROUTER_KEY_FILE_NAME = "openrouter_api_key"
 _KEY_PREFIX = "sk-ant-"
 
 
@@ -73,3 +74,15 @@ def inspect_anthropic_key(home: Path) -> KeyStatus:
         well_formed=key.startswith(_KEY_PREFIX),
         file_too_open=too_open,
     )
+
+
+def load_openrouter_key(home: Path) -> str | None:
+    """Chave do OpenRouter: ``OPENROUTER_API_KEY`` (env vence) ou ``~/.orion/openrouter_api_key``."""
+    env = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if env:
+        return env
+    try:
+        value = (home / OPENROUTER_KEY_FILE_NAME).read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return value or None

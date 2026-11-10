@@ -392,6 +392,11 @@ class CircuitBreaker:
 
     # ── API Pública ───────────────────────────────────────────────────────────
 
+    def set_primary(self, model_id: str, tier: ComplexityTier) -> None:
+        """Atualiza o modelo primário (o Senhor fixou outro modelo): mensagens e saúde seguem o real."""
+        self._primary_model_id = model_id
+        self._primary_model_tier = tier
+
     def set_intentional_lite_mode(self, value: bool) -> None:
         """Define se o usuário escolheu intencionalmente um modelo leve.
 

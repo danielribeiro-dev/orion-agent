@@ -21,6 +21,7 @@ Sem hooks, plugins, settings/regras, comandos custom, subagents, tasks, schedule
 Merge de `version/v0.4.0` em `main` e tags `v0.3.0`/`v0.4.0`.
 
 ## Próximo Passo (retomar aqui)
+**Rodada manual com modelos free (09/11/2026) concluída e corrigida no núcleo** (branch `feat/v0.5.0-sprint-7`): modelos `:free` + `models.prefer_free`, 429 tipado (cota diária não retenta), escrita em `~/` expandida, arquivos de governança de `~/.orion` negados às tools, step-up nuclear na auditoria, recall sem ruído, breaker segue o modelo fixado, `web_search` distingue bloqueio anti-bot, `~/.orion/openrouter_api_key`. **Interface: toda para a v0.5.1** (achados em `rascunho-achados-teste-manual.md`, R-15 e demais). Pendentes de núcleo: R-06 (modelo nem sempre chama `memorize`; só reforçado no preâmbulo), R-09, R-16 (prompt base de ~15k tokens), R-17 (subagent sem fallback para outro modelo free).
 **Sprint 7 implementada em 09/11/2026** (branch `feat/v0.5.0-sprint-7`, sem push): `SessionSink` em commit próprio (`d89f1d8`) e o commit `feat(daemon)` da sprint. Registro completo e desvios em `sprints/sprint-7.md` §8.1. 2002 testes, cobertura 94%, ruff e mypy limpos.
 Pendências que dependem do Senhor:
 1. **Validação manual no GNOME:** `/daemon enable`, logout/login, agendamento dispara, botão da notificação aprova, `orion-agent attach` mostra a Inbox. Depois de `pip install -e .` o comando `orion` passa a abrir a mesma CLI (ADR-033).

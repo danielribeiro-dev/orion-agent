@@ -16,6 +16,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import re
 import time
 from collections.abc import AsyncIterator
 from typing import Any
@@ -67,9 +68,59 @@ _APP_TITLE = "ORION-Agent"
 _APP_URL = "https://github.com/orion-agent/orion"
 
 # Tentativas de backoff exponencial para 429 / 5xx
-_MAX_RETRIES = 3
-_BACKOFF_BASE_S = 1.0  # segundos base do backoff
+_MAX_RETRIES = 4
+_BACKOFF_BASE_S = 2.0  # segundos base do backoff
 _BACKOFF_MAX_S = 30.0  # teto máximo do backoff
+
+
+# Acima disto, esperar não adianta: é cota diária (modelos ``:free``: 50 req/dia sem créditos).
+_QUOTA_WAIT_S = 120.0
+_MAX_HONORED_WAIT_S = 60.0
+
+
+def _rate_limit_error(response: httpx.Response) -> RateLimitError:
+    """429 do OpenRouter: separa limite momentâneo (retenta) de cota diária (não retenta)."""
+    retry_after: float | None = None
+    ra_header = response.headers.get("Retry-After")
+    if ra_header is not None:
+        with contextlib.suppress(ValueError):
+            retry_after = float(ra_header)
+    body = ""
+    with contextlib.suppress(Exception):
+        body = response.text or ""
+    reset_in: float | None = None
+    reset = response.headers.get("X-RateLimit-Reset")
+    if reset is None:
+        match = re.search(r'"X-RateLimit-Reset"\s*:\s*"?(\d+)', body)
+        reset = match.group(1) if match else None
+    if reset is not None:
+        with contextlib.suppress(ValueError):
+            value = float(reset)
+            value = value / 1000.0 if value > 1e11 else value  # ms ou s desde a época
+            reset_in = max(0.0, value - time.time())
+    daily = "per-day" in body or "per day" in body or "daily" in body.lower()
+    exhausted = daily or (reset_in is not None and reset_in > _QUOTA_WAIT_S)
+    if retry_after is None and reset_in is not None and reset_in <= _MAX_HONORED_WAIT_S:
+        retry_after = reset_in
+    if exhausted:
+        when = ""
+        if reset_in is not None:
+            hours, rem = divmod(int(reset_in), 3600)
+            when = f" Renova em ~{hours}h{rem // 60:02d}min."
+        return RateLimitError(
+            "OpenRouter: cota diária dos modelos gratuitos esgotada (50 req/dia sem créditos)."
+            + when,
+            retry_after=None,
+            quota_exhausted=True,
+            reset_in_s=reset_in,
+        )
+    hint = f" Tentando de novo em {retry_after:.0f}s." if retry_after is not None else ""
+    return RateLimitError(
+        "OpenRouter: limite de requisições atingido (o provedor do modelo free pode estar saturado)."
+        + hint,
+        retry_after=retry_after,
+        reset_in_s=reset_in,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -178,15 +229,7 @@ class OpenRouterProvider(BaseLLMProvider):
         if response.status_code == 200:
             return
         if response.status_code == 429:
-            retry_after: float | None = None
-            ra_header = response.headers.get("Retry-After")
-            if ra_header is not None:
-                with contextlib.suppress(ValueError):
-                    retry_after = float(ra_header)
-            raise RateLimitError(
-                f"OpenRouter rate limit exceeded. Retry-After: {retry_after}s",
-                retry_after=retry_after,
-            )
+            raise _rate_limit_error(response)
         if response.status_code == 401:
             raise ProviderAPIError(
                 "OpenRouter authentication failed. Check your API key.",

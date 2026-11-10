@@ -77,7 +77,7 @@ class WriteFileTool(BaseTool):
                 "write_file: 'overwrite' and 'append' are mutually exclusive."
             )
 
-        file_path = Path(path)
+        file_path = Path(path).expanduser()
         already_exists = file_path.exists()
 
         if already_exists and not overwrite and not append:

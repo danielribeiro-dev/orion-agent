@@ -71,7 +71,9 @@ def is_retryable(exc: BaseException) -> bool:
 
     Falha de conexão NÃO é retentada aqui: o failover assume (resposta rápida).
     """
-    if isinstance(exc, (RateLimitError, ProviderTimeoutError)):
+    if isinstance(exc, RateLimitError):
+        return not exc.quota_exhausted
+    if isinstance(exc, ProviderTimeoutError):
         return True
     if isinstance(exc, ProviderAPIError):
         code = exc.status_code or 0

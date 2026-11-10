@@ -97,15 +97,20 @@ class ModelProfile(BaseModel):
 
 
 class ModelsSettings(BaseModel):
-    """``tiers``: lista ordenada de candidatos por tier (``fast|balanced|heavy``)."""
+    """``tiers``: lista ordenada de candidatos por tier (``fast|balanced|heavy``).
+
+    ``prefer_free``: modelos ``:free`` do catálogo passam à frente dos pagos em cada tier
+    (roteamento automático e subagents). Tools mutantes continuam exigindo tier >= balanced.
+    """
 
     model_config = ConfigDict(extra="ignore")
 
     tiers: dict[str, list[str]] = Field(default_factory=dict)
+    prefer_free: bool = False
     profiles: dict[str, ModelProfile] = Field(default_factory=dict)
 
     def is_set(self) -> bool:
-        return bool(self.tiers or self.profiles)
+        return bool(self.tiers or self.profiles or self.prefer_free)
 
 
 class NotifySettings(BaseModel):

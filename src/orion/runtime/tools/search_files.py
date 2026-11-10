@@ -89,7 +89,7 @@ class SearchFilesTool(BaseTool):
         include_hidden: bool = False,
         **_: Any,
     ) -> RuntimeResult:
-        root = Path(path).resolve()
+        root = Path(path).expanduser().resolve()
 
         if not root.exists():
             return RuntimeResult.fail(f"search_files: path not found: '{path}'")

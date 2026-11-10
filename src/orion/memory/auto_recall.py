@@ -35,6 +35,29 @@ _CHARS_PER_TOKEN = 4
 
 VectorFactory = Callable[[Path], VectorStore]
 
+_MIN_SNIPPET_WORDS = 5
+_MIN_TERM_LEN = 4
+# Prompts de comando (slash/skills) não são conhecimento: não voltam como "memória".
+_COMMAND_PROMPTS = ("destile a solução", "distill the solution")
+
+
+def _terms(text: str) -> set[str]:
+    return {w for w in _WORD.findall(text.lower()) if len(w) >= _MIN_TERM_LEN}
+
+
+def _is_noise(text: str, query: str) -> bool:
+    """Descarta recall curto demais, de prompt de comando ou com pouca sobreposição com o pedido."""
+    flat = " ".join(text.split())
+    if len(flat.split()) < _MIN_SNIPPET_WORDS:
+        return True
+    if flat.lower().startswith(_COMMAND_PROMPTS):
+        return True
+    wanted = _terms(query)
+    if not wanted:
+        return False
+    need = 2 if len(wanted) >= 3 else 1
+    return len(wanted & _terms(flat)) < need
+
 
 def _tokens(text: str) -> int:
     return max(1, len(text) // _CHARS_PER_TOKEN)
@@ -186,6 +209,8 @@ class AutoRecall:
                 if session_id and record.metadata.get("session_id") == session_id:
                     continue
                 text, tag = record.text, "episódio"
+            if _is_noise(text, query):
+                continue
             line = f"- [{tag}] " + " ".join(text.split())[:_SNIPPET_CHARS]
             cost = _tokens(line)
             if used + cost > budget:

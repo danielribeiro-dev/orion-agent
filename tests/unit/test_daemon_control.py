@@ -252,6 +252,8 @@ class TestDaemonCommand:
     @pytest.fixture
     def context(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> CommandContext:
         monkeypatch.setenv("OPENROUTER_API_KEY", "k")
+        # Isola do daemon real da máquina (o socket fica em XDG_RUNTIME_DIR).
+        monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "run"))
         c = console()
         session = AgentSession(status_bar=SessionStatusBar(), console=c, workspace=tmp_path, home=tmp_path / "home")
         return CommandContext(session=session, console=c, clear_screen=MagicMock())

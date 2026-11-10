@@ -92,6 +92,13 @@ class WebSearchTool(BaseTool):
         except httpx.HTTPError as exc:
             return RuntimeResult.fail(f"web_search: request failed: {type(exc).__name__}: {exc}")
 
+        if response.status_code == 202 or "anomaly" in response.text[:4000].lower():
+            return RuntimeResult.fail(
+                "web_search: o buscador bloqueou a requisição automatizada (desafio anti-bot, "
+                f"HTTP {response.status_code}); isto NÃO significa que não há resultados. "
+                "Use web_fetch com uma URL conhecida (domínio na allowlist)."
+            )
+
         def host_matches(url: str, domains: list[str]) -> bool:
             host = (urlsplit(url).hostname or "").lower()
             return any(host == d.lower() or host.endswith("." + d.lower()) for d in domains)

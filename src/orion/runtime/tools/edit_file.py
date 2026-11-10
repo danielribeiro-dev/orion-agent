@@ -78,7 +78,7 @@ class EditFileTool(BaseTool):
         if not target:
             return RuntimeResult.fail("edit_file: 'target' parameter is required and must be non-empty.")
 
-        file_path = Path(path)
+        file_path = Path(path).expanduser()
 
         if not file_path.exists():
             return RuntimeResult.fail(f"edit_file: file not found: '{path}'")

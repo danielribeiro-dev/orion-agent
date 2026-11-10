@@ -53,7 +53,7 @@ from orion.gateway.agent_gateway import (
 )
 from orion.gateway.budget import BudgetExceededError, BudgetGuard
 from orion.gateway.circuit_breaker import CircuitBreaker
-from orion.gateway.credentials import load_anthropic_key
+from orion.gateway.credentials import load_anthropic_key, load_openrouter_key
 from orion.gateway.failover import FailoverEvent, FailoverProvider, build_candidates
 from orion.gateway.ledger import CostLedger
 from orion.gateway.models import (
@@ -279,6 +279,7 @@ class AgentSession:
 
         self.registry = ModelRegistry()
         self.anthropic_key = load_anthropic_key(self.home)
+        self.openrouter_key = load_openrouter_key(self.home)
         self.router = ModelRouter(
             registry=self.registry,
             tier_models=ANTHROPIC_TIER_MODELS if self.anthropic_key else None,
@@ -369,7 +370,7 @@ class AgentSession:
             # Ninguém para responder: toda pergunta do PEP vira negação, nuclear inclusive.
             self.pep.set_interactive(False)
         self._apply_rules()
-        self.online = bool(os.environ.get("OPENROUTER_API_KEY") or self.anthropic_key)
+        self.online = bool(self.openrouter_key or self.anthropic_key)
         status_bar.is_online = self.online
         self.selected_model: str | None = None
         self._load_settings()
@@ -391,6 +392,7 @@ class AgentSession:
             primary_model_tier=ComplexityTier.HEAVY,
         )
         self.router.set_tier_candidates(self.settings.effective.models.tiers)
+        self.router.set_prefer_free(self.settings.effective.models.prefer_free)
         self.agent_catalog: AgentCatalog = self._load_agents()
         self.agent_gateway = AgentGateway(
             registry=self.registry,
@@ -463,6 +465,7 @@ class AgentSession:
     def reload_agents(self) -> AgentCatalog:
         """Relê os agentes (após confiar no projeto ou editar ``.orion/agents``)."""
         self.router.set_tier_candidates(self.settings.effective.models.tiers)
+        self.router.set_prefer_free(self.settings.effective.models.prefer_free)
         self.agent_catalog = self._load_agents()
         return self.agent_catalog
 
@@ -486,7 +489,7 @@ class AgentSession:
         if spec.provider == ProviderName.ANTHROPIC:
             return bool(self.anthropic_key)
         if spec.provider == ProviderName.OPENROUTER:
-            return bool(os.environ.get("OPENROUTER_API_KEY"))
+            return bool(self.openrouter_key)
         return False
 
     def _agent_provider(self, spec: ModelSpec) -> BaseLLMProvider:
@@ -504,7 +507,7 @@ class AgentSession:
         async def on_action(event: ActionEmitted) -> None:
             if event.tool in _MUTATING_TOOLS:
                 self.tracker.begin(
-                    event.action_id, (root / str(event.params.get("path", ""))).resolve(), agent_id
+                    event.action_id, (root / Path(str(event.params.get("path", ""))).expanduser()).resolve(), agent_id
                 )
 
         async def on_observation(event: Observation) -> None:
@@ -873,9 +876,16 @@ class AgentSession:
         self.selected_model = model_id
         if model_id is None:
             self.router.set_mode(RoutingMode.AUTO)
+            self.breaker.set_primary(
+                self.router.tier_model(ComplexityTier.HEAVY), ComplexityTier.HEAVY
+            )
         else:
             self.router.set_mode(RoutingMode.FIXED, model_id)
             self.status_bar.model_name = model_id
+            spec = self.registry.get(model_id)
+            self.breaker.set_primary(
+                model_id, spec.default_tier if spec else ComplexityTier.HEAVY
+            )
 
     def available_models(self) -> list[ModelSpec]:
         """Modelos selecionáveis: sem chave de nuvem, só os locais."""
@@ -895,7 +905,7 @@ class AgentSession:
             from orion.gateway.providers.local_ollama import LocalOllamaProvider
 
             return LocalOllamaProvider(model_id=spec.id)
-        openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
+        openrouter_key = self.openrouter_key or ""
         if spec.provider == ProviderName.ANTHROPIC:
             if not self.anthropic_key:
                 raise RuntimeError(
@@ -1153,7 +1163,7 @@ class AgentSession:
     # ── Eventos do engine → interface ───────────────────────────────
 
     def _target_path(self, params: dict[str, Any]) -> Path:
-        return (self.workspace / str(params.get("path", ""))).resolve()
+        return (self.workspace / Path(str(params.get("path", ""))).expanduser()).resolve()
 
     async def _on_action(self, event: ActionEmitted) -> None:
         self._running[event.action_id] = event.tool
