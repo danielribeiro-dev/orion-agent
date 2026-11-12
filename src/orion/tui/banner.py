@@ -13,7 +13,7 @@ from pathlib import Path
 from rich.console import Group, RenderableType
 from rich.text import Text
 
-from orion.tui.status_bar import SessionStatusBar
+from orion.tui.status_bar import STELLAR_CYBER_BLOCK, SessionStatusBar
 from orion.tui.theme import ORION_COLORS
 
 
@@ -25,20 +25,6 @@ def _interpolate_color(start_hex: str, end_hex: str, t: float) -> str:
     g = int(g1 + (g2 - g1) * t)
     b = int(b1 + (b2 - b1) * t)
     return f"#{r:02x}{g:02x}{b:02x}"
-
-
-# ---------------------------------------------------------------------------
-# Tipografia Oficial Stellar Cyber Block (6 linhas, 42 colunas)
-# ---------------------------------------------------------------------------
-
-STELLAR_CYBER_BLOCK: list[str] = [
-    "  ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗",
-    " ██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║",
-    " ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║",
-    " ██║   ██║██╔══██╗██║██║   ██║██║╚██╗██║",
-    " ╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║",
-    "  ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝",
-]
 
 
 class BannerRenderer:
@@ -100,33 +86,26 @@ class BannerRenderer:
         return grad_text
 
     def render(self, terminal_width: int | None = None) -> RenderableType:
-        """Renderiza o banner adaptativo completo com cabeçalho e dica rápida.
-
-        Regras de Largura:
-        - width < 100: Retorna o layout compacto (Stellar Cyber Block + Badges de 2 colunas).
-        - width >= 100: Retorna o layout standard/amplo com gradiente cyan/azul cósmico.
-        """
+        """Banner Horizon: cabeçalho lateral, dica que sempre cabe e uma linha de respiro."""
         width = terminal_width or shutil.get_terminal_size((80, 24)).columns
+        header = self.status_bar.render_header_panel(width=width)
+        return Group(header, Text(""), render_hint(width), Text(""))
 
-        header_panel = self.status_bar.render_header_panel(width=width)
 
-        if width < 75:
-            hint_text = "  Dica: Digite / para comandos, @ para arquivos, Esc para limpar."
-            if len(hint_text) > width:
-                hint_text = hint_text[:width]
-            hint = Text(hint_text, style="text_dim", no_wrap=True)
-            return Group(header_panel, hint)
-
-        if width < 100:
-            hint_text = "  Dica: Digite / para comandos, @ para arquivos, Esc para limpar/voltar e Ctrl+C duplo para sair."
-            if len(hint_text) > width:
-                hint_text = hint_text[:width]
-            hint = Text(hint_text, style="text_dim", no_wrap=True)
-            return Group(header_panel, hint)
-
-        art = self.render_art(terminal_width=width)
-        hint_wide_text = "  Dica: Digite / para comandos rápidos, @ para anexar arquivos locais, Esc para limpar/voltar e Ctrl+C duplo para sair."
-        if len(hint_wide_text) > width:
-            hint_wide_text = hint_wide_text[:width]
-        hint_wide = Text(hint_wide_text, style="text_dim", no_wrap=True)
-        return Group(art, header_panel, hint_wide)
+def render_hint(width: int) -> Text:
+    """Dica em três variantes por largura (V-01): nunca é cortada."""
+    items: list[tuple[str, str]] = [("/", " comandos"), ("@", " arquivos")]
+    if width >= 80:
+        items.append(("Shift+Tab", " modo"))
+    if width >= 100:
+        items.append(("Alt+T", " raciocínio"))
+    if width >= 80:
+        items.append(("Ctrl+C", " ×2 sai"))
+    hint = Text("  ", no_wrap=True, overflow="crop")
+    for n, (key, label) in enumerate(items):
+        if n:
+            hint.append("  ·  ", style="faint")
+        style = "accent_cyan" if key in ("/", "@") else ORION_COLORS["text_primary"]
+        hint.append(key, style=style)
+        hint.append(label, style="text_dim")
+    return hint

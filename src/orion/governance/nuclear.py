@@ -238,7 +238,7 @@ class NuclearSafetyGate:
     def __init__(
         self,
         classifier: BlastRadiusClassifier | None = None,
-        prompt_prefix: str = "🔐 O.R.I.O.N Nuclear Safety Gate",
+        prompt_prefix: str = "[PEP] O.R.I.O.N Nuclear Safety Gate",
     ) -> None:
         """Inicializa o Nuclear Safety Gate.
 
@@ -515,7 +515,7 @@ class NuclearAuthDenied(Exception):
         self.blast_radius = blast_radius
         self.method_used = method_used
         super().__init__(
-            f"☢️  ORION Nuclear Safety Gate: operação NEGADA.\n"
+            f"[PEP] ORION Nuclear Safety Gate: operação NEGADA.\n"
             f"   Comando: {command[:80]}\n"
             f"   Risco: {blast_radius.value}\n"
             f"   Método: {method_used}\n"

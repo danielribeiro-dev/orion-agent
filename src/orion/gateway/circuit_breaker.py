@@ -189,7 +189,7 @@ class SafeHoldingViolation(Exception):
         self.reason = reason
         self.failed_model = failed_model
         super().__init__(
-            f"🔒 SAFE HOLDING ATIVO — Ferramenta '{tool}' bloqueada.\n"
+            f"[PEP] SAFE HOLDING ATIVO — Ferramenta '{tool}' bloqueada.\n"
             f"   Causa: Modelo de fronteira '{failed_model}' indisponível "
             f"({reason.value}).\n"
             f"   Um modelo leve está ativo APENAS para diálogo. "

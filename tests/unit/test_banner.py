@@ -86,9 +86,10 @@ class TestBannerRendererCA01Widths:
 
         # Deve conter o bloco Stellar Cyber Block e dica compacta
         assert "██████╗" in output
-        assert "STATUS" in output
-        assert "MODEL" in output
-        assert "Dica:" in output
+        assert "online" in output  # linha de estado sob o logo (Horizon)
+        assert "PEP 2 supervisionado" in output
+        assert "Shift+Tab" in output and "Ctrl+C" in output  # dica curta (80 a 99)
+        assert "Alt+T" not in output
 
     def test_render_width_100_or_above_uses_wide_gradient_layout(self) -> None:
         renderer = BannerRenderer()
@@ -105,9 +106,9 @@ class TestBannerRendererCA01Widths:
         # Deve conter o cabeçalho amplo e a dica completa
         assert "Operational Reasoning & Intelligence Orchestration Network" in output
         assert "Non Ducor, Duco" in output
-        assert "PEP GOVERNANCE" in output
-        assert "STATUS" in output
-        assert "Ctrl+C" in output
+        assert "PEP 2 supervisionado" in output
+        assert "online" in output
+        assert "Alt+T" in output and "Ctrl+C" in output  # dica completa (>= 100)
 
 
 class TestBannerArtRenderer:

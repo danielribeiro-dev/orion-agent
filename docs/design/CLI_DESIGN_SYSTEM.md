@@ -4,7 +4,7 @@
 > **Versão de Referência:** v0.4.0+  
 > **Benchmark de Mercado:** Claude Code (Anthropic), Google Antigravity CLI (`agy`), Hermes Agent (Nous Research)  
 > **Referência Visual:** [Figma — O.R.I.O.N Stream CLI (v0.4.0)](https://www.figma.com/design/v4kP8u5X0plLLjjg7TAumJ). Em caso de divergência, este documento e `ORION_COLORS` prevalecem. No Figma, `✔` e `✖` são vetores porque a fonte de fallback ignora a cor do token; no terminal continuam sendo os glifos oficiais.  
-> **v0.5.1 — Horizon:** a identidade Horizon (§7) é a especificação alvo e **vigora a partir da Sprint 2 da v0.5.1** (`docs/planning/versions/v0.5.1/`). Até lá valem as seções 1 a 6. Em conflito entre §7 e as seções anteriores, §7 prevalece para o que ela cobre.  
+> **v0.5.1 — Horizon:** a identidade Horizon (§7) **está em vigor desde 11/11/2026** (Sprint 2 da v0.5.1). Em conflito entre §7 e as seções anteriores, §7 prevalece.  
 > **Propósito:** Definir as regras visuais, arquitetura de componentes, wireframes de telas, catálogo de atalhos e padrões de renderização que **todo desenvolvedor e agente de IA** deve seguir rigorosamente ao criar ou alterar comandos, modais ou saídas da CLI do ORION.
 
 ---
@@ -323,7 +323,7 @@ Qualquer alteração na interface da CLI deve respeitar o princípio **Doc-First
 
 ## 7. Identidade Horizon (v0.5.1)
 
-> **Status:** proposta aprovada pelo Senhor em 11/11/2026; vigora a partir da Sprint 2 da v0.5.1 (ADR-039). Referência de telas em [`horizon/`](horizon/README.md) (texto puro, 1 caractere = 1 célula). O mock no Figma ainda não existe (limite de chamadas do MCP); até lá, `horizon/*.txt` é a referência.
+> **Status:** implementada em 11/11/2026 (v0.5.1 Sprint 2, ADR-039). Desvios em relação à proposta: `sprints/sprint-2.md` §8.1. Referência de telas em [`horizon/`](horizon/README.md) (texto puro, 1 caractere = 1 célula). O mock no Figma ainda não existe (limite de chamadas do MCP); até lá, `horizon/*.txt` é a referência.
 
 ### 7.1 Princípio
 Hierarquia por **peso e cor**, não por caixas. Moldura só onde há decisão ou conteúdo próprio (diff, PEP, painéis de comando). Mesma paleta Deep Cosmos; três tokens novos.
@@ -346,7 +346,7 @@ Logo Stellar (6 linhas) à esquerda com gradiente vertical `accent_cyan` para `a
 - 80 a 99 colunas: o texto desce para baixo do logo (3 linhas).
 - < 70 colunas: logo reduzido de 4 linhas já existente e uma linha de estado.
 - **Dica** em três variantes que sempre cabem: completa (>= 100), curta (80 a 99: `/ comandos · @ arquivos · Shift+Tab modo · Ctrl+C ×2 sai`) e mínima (< 80: `/ comandos · @ arquivos`).
-- **Sem provedor configurado:** `● sem provedor · /config` em `pep_warn`. Vermelho (`status_offline`) só para falha real de conexão.
+- **Sem provedor configurado:** `● sem chave de provedor · /config` em `pep_warn`, nunca em vermelho. O cabeçalho não mostra conta (o antigo `AUTH` vinha do `git config`).
 - **Sem `dock_to_bottom`:** o prompt vem logo abaixo do conteúdo e sobe com ele.
 
 ### 7.5 Prompt e status line
@@ -354,13 +354,13 @@ Logo Stellar (6 linhas) à esquerda com gradiente vertical `accent_cyan` para `a
 - Status line (sem fundo, regra 2 mantida): `modo · modelo · NN% ctx · $custo · PEP n · Estado ●`, separador `·` em `faint`.
   - Modo em `accent_blue` negrito; modelo e custo em `text_dim`; `PEP n` em `pep_warn`.
   - Estados: `Ready` (`status_ok`), `Working` (`accent_cyan`), `Aguardando` (`pep_warn`, modal aberto), `Offline` (`status_offline`).
-  - Abreviação por largura mantida (§3.2); `% ctx` vem do cálculo do `/context`.
+  - Abreviação por largura mantida (§3.2); `% ctx` vem do cálculo do `/context`. Tokens in/out e BRL saíram da linha (BRL no `/cost`); o esforço de raciocínio aparece só quando difere de `high`.
 - **Independente de CPR (ADR-040):** o rodapé aparece mesmo que o terminal não responda ao pedido de posição do cursor.
 
 ### 7.6 Menu de comandos e menções
 - Fundo `surface_panel`; linha ativa em `sel` com `❯` e nome em `accent_cyan` negrito; demais linhas sem ícone, nome em `text_primary`, descrição em `text_dim`, categoria à direita em `faint` (na linha ativa, em `text_dim`).
 - Ordem estável por categoria (cognitivo, memória, contexto, operação, extensão); prefixo antes de fuzzy.
-- Rodapé `↑↓ navegar · Tab aceitar · Esc fechar` com posição `n/N` à direita, em `faint`. Sem setas ASCII de rolagem. Altura máxima de 8 linhas.
+- Rodapé `↑↓ navegar · Tab próximo · Esc fechar` com posição `n/N` à direita, em `faint` (no prompt_toolkit, Tab avança para a próxima opção). Sem setas ASCII de rolagem. Altura máxima de 8 linhas.
 - **Esc fecha o menu** (V-15). Ctrl+C com menu aberto limpa sem resíduo.
 
 ### 7.7 Fluxo de trabalho

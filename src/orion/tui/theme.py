@@ -7,6 +7,9 @@ com contraste WCAG AAA superior a 13:1 e fidelidade harmônica com a temática c
 
 from __future__ import annotations
 
+import os
+from collections.abc import Mapping
+
 from pygments.token import (
     Comment,
     Keyword,
@@ -41,7 +44,26 @@ ORION_COLORS: dict[str, str] = {
     "pep_warn": "#D29922",  # Âmbar de Ignição (Avisos de permissão PEP)
     "status_ok": "#2EA043",  # Verde de Conectividade Online
     "status_offline": "#DA3633",  # Vermelho de Modo Offline / Failover
+    # Horizon (v0.5.1, ADR-039): contrastes medidos sobre bg_canvas
+    "rule": "#566377",  # Réguas, molduras de diff e guias │ (3,2:1)
+    "faint": "#7D8590",  # Atalhos, tempos, separadores, placeholder (5,2:1)
+    "sel": "#1B2634",  # Fundo da linha selecionada no menu
 }
+
+
+def color_depth(env: Mapping[str, str] | None = None, is_tty: bool = True) -> str:
+    """Profundidade de cor efetiva: ``truecolor``, ``256`` ou ``none`` (ADR-039, 2.10).
+
+    Rich e prompt_toolkit já fazem a degradação sozinhos (mapeiam cada token para a cor mais
+    próxima da paleta de 256 e desligam a cor com ``NO_COLOR``); esta função só a explica no
+    ``/doctor``, com a mesma regra.
+    """
+    env = os.environ if env is None else env
+    if not is_tty or env.get("NO_COLOR"):
+        return "none"
+    if env.get("COLORTERM", "").lower() in ("truecolor", "24bit"):
+        return "truecolor"
+    return "256"
 
 
 def get_syntax_theme() -> ANSISyntaxTheme:
@@ -97,6 +119,9 @@ def get_orion_theme() -> Theme:
             "pep_warn": f"bold {ORION_COLORS['pep_warn']}",
             "status_ok": f"bold {ORION_COLORS['status_ok']}",
             "status_offline": f"bold {ORION_COLORS['status_offline']}",
+            "rule": ORION_COLORS["rule"],
+            "faint": ORION_COLORS["faint"],
+            "sel": f"on {ORION_COLORS['sel']}",
             "diff_add_line": f"on {ORION_COLORS['diff_add_tint']}",
             "diff_del_line": f"on {ORION_COLORS['diff_del_tint']}",
             # Markdown renderizado no streaming

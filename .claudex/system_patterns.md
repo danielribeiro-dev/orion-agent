@@ -46,3 +46,16 @@ Este documento estabelece as **regras imutáveis de engenharia** do `orion-agent
 ## 3. Princípio Fundacional (ADR-027)
 
 O ORION é a segunda metade do Senhor: vive no computador, não em um projeto, e o acompanhará entre dispositivos se permitido. Memória e capacidade de aprender são suas maiores virtudes. **Nada se perde, tudo se transforma:** a memória consolida, recicla e cria novas; não acumula lixo. O recall é injetado pelo sistema no contexto (nunca depende de o LLM lembrar de chamar uma tool); as tools de memória são a gaveta de apoio. Memória inferida nasce provisória e só se confirma por evidência ou pelo Senhor.
+
+---
+
+## 4. Invariantes da TUI (v0.5.1 Horizon, ADR-039 a 042)
+
+- **Cores só de `ORION_COLORS`**; tokens `rule`, `faint`, `sel` para réguas, atalhos e seleção. Rich e prompt_toolkit degradam sozinhos para 256 cores e respeitam `NO_COLOR` (`theme.color_depth` explica no `/doctor`).
+- **Sem emoji em `src/`** (teste `test_no_emoji_in_source`); glifos oficiais e o `−` do diff.
+- **Nada da TUI depende de CPR:** a status line é uma janela própria; toda aplicação do prompt_toolkit passa por `console.silence_cpr_warning`.
+- **Sem rede implícita:** modelo de embeddings só do cache local (`~/.orion/models/fastembed`); download só por `/memory model install`.
+- **Prints durante o Live passam por `StreamRenderer._print`** (lock do Live) e a parte viva nunca passa da altura da tela; senão aparecem quadros fantasma (V-10).
+- **Prompt logo abaixo do conteúdo** (sem `dock_to_bottom`), `HSplit` alinhado ao topo, duas réguas (regra 3).
+- **Segredos em `~/.orion/.env`** (0600); o agente não os lê nem escreve (PEP).
+- **Mudança de interface só com cenário no `tests/lab/`** (`pytest -m lab`): ver `.claudex/tooling.md` §1.

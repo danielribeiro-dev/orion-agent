@@ -41,7 +41,7 @@ def synthesize_checkpoint(
     )
 
     lines = [
-        f"📍 [CHECKPOINT: branch '{branch_name}']",
+        f"› [CHECKPOINT: branch '{branch_name}']",
         f"  • Accomplished : {milestones_str}",
         f"  • Files touched: {files_str}",
         f"  • Outcome      : {outcome}",

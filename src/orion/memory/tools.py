@@ -335,7 +335,7 @@ class InspectEnvironmentTool:
     def execute(self, params: dict[str, Any]) -> RuntimeResult:  # noqa: ARG002
         telemetry = self._monitor.snapshot()
 
-        headroom_icon = "✅" if telemetry.headroom_safe else "⚠️"
+        headroom_icon = "✔" if telemetry.headroom_safe else "!"
         gpu_line = f"GPU      : {telemetry.gpu_name}" if telemetry.gpu_name else "GPU      : not detected"
 
         output = (

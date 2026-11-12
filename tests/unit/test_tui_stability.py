@@ -47,7 +47,7 @@ class TestToolTimer:
             clock[0] += 0.2
             renderer.tool_finished("run_command", True, "1\n2\n3", {"exit_code": 0}, key="a")
         out = buf.getvalue()
-        assert "0.2s" in out, out
+        assert "0,2s" in out, out
         assert "30" not in out, out
 
 
@@ -101,6 +101,20 @@ class TestStallNotice:
             renderer.close()
             clock[0] += 30.0
             assert not any("sem resposta" in line for line in _lines(renderer))
+
+
+class TestToolSummaries:
+    """2.6: linha de resultado `›` sob cada ferramenta."""
+
+    def test_read_grep_and_none_for_bash(self) -> None:
+        from orion.tui.stream_renderer import tool_result_line
+
+        read = tool_result_line("read_file", True, "1→a\n2→b\n")
+        assert read is not None and read.plain == "  › 2 linhas"
+        found = tool_result_line("grep", True, "x.py:1\n")
+        assert found is not None and found.plain == "  › 1 resultado"
+        assert tool_result_line("run_command", True, "ok") is None
+        assert tool_result_line("read_file", False, "erro") is None
 
 
 class TestExpandAndDecision:

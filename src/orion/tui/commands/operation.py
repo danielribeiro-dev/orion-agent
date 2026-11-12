@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import platform
 import shutil
+import sys
 from typing import Any
 
 from rich.table import Table
@@ -62,6 +63,16 @@ def _anthropic_status(home: Any) -> Any:
     return inspect_anthropic_key(home)
 
 
+def _color_label() -> str:
+    from orion.tui.theme import color_depth
+
+    return {
+        "truecolor": "truecolor (paleta exata)",
+        "256": "256 cores (tokens aproximados)",
+        "none": "sem cor (NO_COLOR ou sem terminal)",
+    }[color_depth(is_tty=sys.stdout.isatty())]
+
+
 def _openrouter_status(home: Any) -> tuple[bool, str]:
     from orion.gateway.credentials import openrouter_key_status
 
@@ -80,6 +91,7 @@ class DoctorCommand(BaseSlashCommand):
             ("Git", shutil.which("git") is not None, shutil.which("git") or "não encontrado"),
             ("ANTHROPIC_API_KEY", _anthropic_status(session.home).ok, _anthropic_status(session.home).detail),
             ("OPENROUTER_API_KEY", *_openrouter_status(session.home)),
+            ("Cores", True, _color_label()),
         ]
         try:
             from orion.gateway.providers.local_ollama import LocalOllamaProvider

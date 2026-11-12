@@ -18,7 +18,7 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 from rich.text import Text
 
-from orion.tui.theme import get_syntax_theme
+from orion.tui.theme import ORION_COLORS, get_syntax_theme
 
 _HUNK_RE = re.compile(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$")
 
@@ -127,9 +127,9 @@ class _DiffBody:
             for line in hunk.lines:
                 old = str(line.old_no) if line.old_no is not None else ""
                 new = str(line.new_no) if line.new_no is not None else ""
-                sign = {"add": "+", "del": "-", "ctx": " "}[line.kind]
+                sign = {"add": "+", "del": "−", "ctx": " "}[line.kind]
                 row = Text(no_wrap=True, overflow="ellipsis")
-                row.append(f"{old:>4} {new:>4} ", style="text_dim")
+                row.append(f"{old:>4} {new:>4} ", style="faint")
                 row.append(f"{sign} ", style={"add": "diff_add", "del": "diff_del"}.get(line.kind, ""))
                 row.append_text(self._code(line.text))
                 row.truncate(width, overflow="ellipsis", pad=True)
@@ -142,19 +142,19 @@ class DiffViewer:
     """Renderizador de painéis de diff do Design System."""
 
     def render(self, diff: FileDiff) -> Panel:
-        """Gera o painel do diff com título `caminho +X / -Y`."""
+        """Gera o painel do diff com título `caminho  +X −Y` (Horizon, ADR-039)."""
         title = Text()
-        title.append(f" {self._display_path(diff.path)} ", style="text_primary")
+        title.append(f" {self._display_path(diff.path)}  ", style=f"bold {ORION_COLORS['text_primary']}")
         title.append(f"+{diff.added}", style="diff_add")
-        title.append(" / ", style="text_dim")
-        title.append(f"-{diff.removed}", style="diff_del")
+        title.append(" ")
+        title.append(f"−{diff.removed}", style="diff_del")
         title.append(" ")
         return Panel(
             _DiffBody(diff),
             title=title,
             title_align="left",
             box=box.ROUNDED,
-            border_style="border_subtle",
+            border_style="rule",
             padding=(0, 1),
         )
 

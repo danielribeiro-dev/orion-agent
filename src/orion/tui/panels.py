@@ -305,32 +305,37 @@ def render_pep_dialog(
     """Blueprint D: autorização operacional."""
     action, target, impact = describe_action(tool, params)
     body = Text()
-    body.append("Ação Solicitada: ", style="text_dim")
-    body.append(action + "\n", style="text_primary")
-    body.append("Comando:         " if tool == "run_command" else "Alvo:            ", style="text_dim")
-    body.append(target + "\n", style="accent_cyan")
-    body.append("Impacto:         ", style="text_dim")
-    body.append(impact, style="text_primary")
+
+    def row(label: str, value: str, style: str = "text_primary", last: bool = False) -> None:
+        body.append(f"{label:<12}", style="text_dim")
+        body.append(value + ("" if last else "\n"), style=style)
+
+    row("Ação", action)
+    row("Comando" if tool == "run_command" else "Alvo", target, style="accent_cyan")
+    row("Impacto", impact, last=not reason)
     if reason:
-        body.append("\nEscalada:        ", style="text_dim")
-        body.append(reason, style="pep_warn")
+        row("Escalada", reason, style="pep_warn", last=True)
 
     title = Text()
-    title.append(f" [PEP NÍVEL {int(level)}]", style="pep_warn")
-    title.append(" Autorização Operacional Requerida ", style="text_primary")
+    title.append(f" [PEP {int(level)}] Autorização requerida ", style="pep_warn")
 
-    keys = Text("   ")
-    keys.append("[y]", style="status_ok")
-    keys.append(" Aprovar   ", style="text_dim")
-    keys.append("[n]", style="diff_del")
-    keys.append(" Rejeitar   ", style="text_dim")
+    keys = Text("  ")
+    keys.append("y", style="diff_add")
+    keys.append(" aprovar   ", style="text_dim")
+    keys.append("n", style="diff_del")
+    keys.append(" negar   ", style="text_dim")
     if tool == "run_command":
-        keys.append("[e]", style="accent_cyan")
-        keys.append(" Editar Comando   ", style="text_dim")
+        keys.append("e", style=f"bold {ORION_COLORS['text_primary']}")
+        keys.append(" editar   ", style="text_dim")
     if not reason:  # escalada vale uma vez: nunca "sempre"
-        keys.append("[a]", style="pep_warn")
-        keys.append(" Sempre Permitir (salva regra local)", style="text_dim")
-    panel = orion_panel(body, title, border=ORION_COLORS["pep_warn"])
+        keys.append("a", style=f"bold {ORION_COLORS['text_primary']}")
+        keys.append(" sempre nesta sessão   ", style="text_dim")
+    keys.append("Esc", style=f"bold {ORION_COLORS['text_primary']}")
+    keys.append(" cancela", style="text_dim")
+    panel = Panel(
+        body, title=title, title_align="left", box=box.ROUNDED,
+        border_style=ORION_COLORS["pep_warn"], padding=(0, 2),
+    )
     return Group(panel, keys) if show_keys else Group(panel)
 
 

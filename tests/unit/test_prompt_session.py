@@ -51,11 +51,9 @@ class TestInteractivePromptBasics:
         assert "─" not in plain_text
         assert plain_text == "❯ "
 
-    def test_dock_to_bottom(self) -> None:
-        prompt = InteractivePrompt()
-        # Não deve levantar exceções nem injetar newlines forçadas
-        prompt.dock_to_bottom(rendered_lines=15)
-        prompt.dock_to_bottom(rendered_lines=200)
+    def test_no_dock_to_bottom(self) -> None:
+        """v0.5.1 Sprint 2: o prompt não é mais empurrado ao rodapé (V-02)."""
+        assert not hasattr(InteractivePrompt(), "dock_to_bottom")
 
     def test_prompt_style_mapping(self) -> None:
         from prompt_toolkit.styles import default_ui_style, merge_styles
@@ -110,12 +108,9 @@ class TestBottomToolbarIntegration:
             toolbar = prompt.get_bottom_toolbar()
             plain_text = "".join(part[1] for part in toolbar)
 
-            assert "claude-3-7-sonnet" in plain_text
-            assert "thinking: high" in plain_text
-            assert "PEP: 2" in plain_text
-            assert "1.5k in / 600 out" in plain_text
-            assert "$0.0125" in plain_text
-            assert "R$" in plain_text
+            assert plain_text.startswith("accept-edits · claude-3-7-sonnet")
+            assert "PEP 2" in plain_text
+            assert "$0.013" in plain_text
             assert "Ready ●" in plain_text
             assert " · " in plain_text
             assert " │ " not in plain_text
@@ -127,11 +122,11 @@ class TestBottomToolbarIntegration:
             assert "─" not in plain_text
 
         # Em terminal padrão 80 colunas (Item 4: Clean Status Line):
-        # claude-3-7-sonnet · 2.1k tok · $0.0125 · Ready ●
+        # Horizon: claude-3-7-sonnet · $0.013 · Ready ● (o % de contexto entra quando conhecido)
         with patch("shutil.get_terminal_size", return_value=os.terminal_size((80, 24))):
             toolbar_compact = prompt.get_bottom_toolbar()
             compact_text = "".join(part[1] for part in toolbar_compact)
-            assert "claude-3-7-sonnet · 2.1k tok · $0.0125 · Ready ●" in compact_text
+            assert "claude-3-7-sonnet · $0.013 · Ready ●" in compact_text
             assert " · " in compact_text
             assert " │ " not in compact_text
             assert "Ready ●" in compact_text
@@ -150,7 +145,9 @@ class TestBottomToolbarIntegration:
 
         assert "Offline ●" in plain_text
         styles = [part[0] for part in toolbar]
-        assert "class:bottom-toolbar.offline" in styles
+        # V-07: sem chave de provedor é aviso neutro (âmbar), não erro vermelho
+        assert "class:bottom-toolbar.pep" in styles
+        assert "class:bottom-toolbar.offline" not in styles
 
 
 class TestKeybindings:

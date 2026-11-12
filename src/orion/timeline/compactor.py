@@ -200,7 +200,7 @@ class ContextCompactor:
         )
         focus_str = f" [focus: {result.focus}]" if result.focus else ""
         return (
-            f"⚡ [O.R.I.O.N Compactor{focus_str}] {result.original_turns} turns compacted. "
+            f"› [O.R.I.O.N Compactor{focus_str}] {result.original_turns} turns compacted. "
             f"Preserved {result.preserved_tail_turns} vital turns. "
             f"Saved ~{result.tokens_saved} tokens ({pct:.1f}% reduction). "
             f"Active files: {len(result.active_files)}"

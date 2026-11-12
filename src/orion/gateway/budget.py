@@ -95,7 +95,7 @@ class BudgetWarningEvent:
 
     def __str__(self) -> str:
         return (
-            f"⚠️  ORION Budget Warning: {self.percentage_used:.1f}% do orçamento diário usado "
+            f"! ORION Budget Warning: {self.percentage_used:.1f}% do orçamento diário usado "
             f"(${self.spent_today_usd:.4f} / ${self.daily_budget_usd:.4f}). "
             f"Limiar de alerta: {self.threshold_pct:.0f}%."
         )

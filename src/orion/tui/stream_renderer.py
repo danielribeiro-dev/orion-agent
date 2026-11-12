@@ -23,7 +23,7 @@ from rich.syntax import Syntax
 from rich.text import Text
 
 from orion.tui.diff_viewer import DiffViewer, FileDiff
-from orion.tui.theme import get_syntax_theme
+from orion.tui.theme import ORION_COLORS, get_syntax_theme
 
 MAX_INLINE_OUTPUT_LINES = 5
 STALL_NOTICE_S = 5.0
@@ -67,7 +67,7 @@ class _RoundedCodeBlock(CodeBlock):
             background_color="default",
             word_wrap=True,
         )
-        yield Panel(syntax, box=box.ROUNDED, border_style="border_subtle", padding=(0, 1))
+        yield Panel(syntax, box=box.ROUNDED, border_style="rule", padding=(0, 1))
 
 
 class OrionMarkdown(Markdown):
@@ -118,12 +118,45 @@ def split_committable(buffer: str) -> tuple[str, str]:
     return buffer[:cut], buffer[cut:]
 
 
-def format_tool_label(tool: str, params: dict[str, Any]) -> str:
-    """Rótulo curto do card: `Bash: pytest`, `Edit: src/x.py`."""
+def tool_parts(tool: str, params: dict[str, Any]) -> tuple[str, str]:
+    """Nome curto e argumento principal da ferramenta: (`Bash`, `pytest -q`)."""
     label, key = _TOOL_LABELS.get(tool, (tool, ""))
     value = str(params.get(key, "")) if key else ""
-    value = " ".join(value.split())
+    return label, " ".join(value.split())
+
+
+def format_tool_label(tool: str, params: dict[str, Any]) -> str:
+    """Rótulo curto do card: `Bash: pytest`, `Edit: src/x.py`."""
+    label, value = tool_parts(tool, params)
     return f"{label}: {value}" if value else label
+
+
+def _seconds(value: float) -> str:
+    """Tempo com vírgula decimal (`0,2s`), como no resto da interface em PT-BR."""
+    return f"{value:.1f}s".replace(".", ",")
+
+
+def tool_result_line(
+    tool: str, success: bool, output: str, diff: FileDiff | None = None
+) -> Text | None:
+    """Resumo de uma linha sob a ferramenta (`  › 212 linhas`); None quando não há o que resumir."""
+    if not success:
+        return None
+    line = Text(no_wrap=True, overflow="ellipsis")
+    line.append("  › ", style="faint")
+    if diff is not None and tool in ("edit_file", "write_file", "notebook_edit"):
+        line.append(f"+{diff.added}", style="diff_add")
+        line.append(" ")
+        line.append(f"−{diff.removed}", style="diff_del")
+        return line
+    count = len([row for row in output.splitlines() if row.strip()])
+    if tool == "read_file":
+        line.append(f"{count} {'linha' if count == 1 else 'linhas'}", style="text_dim")
+        return line
+    if tool in ("grep", "glob", "search_files"):
+        line.append(f"{count} {'resultado' if count == 1 else 'resultados'}", style="text_dim")
+        return line
+    return None
 
 
 def collapse_output(output: str) -> tuple[list[str], list[str], int]:
@@ -155,6 +188,7 @@ class StreamRenderer:
         self._reasoning = ""
         self._thinking_started: float | None = None
         self._tools: dict[str, tuple[str, float]] = {}
+        self._tool_parts: dict[str, tuple[str, str]] = {}
         self._last_block = "user"
         self._last_event: float | None = None  # último sinal do provedor (None: fora de turno)
         self._paused_at: float | None = None
@@ -208,7 +242,7 @@ class StreamRenderer:
         silent = time.monotonic() - self._last_event
         if silent < STALL_NOTICE_S:
             return None
-        return Text(f"sem resposta há {int(silent)}s · Ctrl+C cancela", style="text_dim")
+        return Text(f"sem resposta há {int(silent)}s  ·  Ctrl+C cancela", style="faint")
 
     def set_input_line(self, render: Callable[[], RenderableType | None] | None) -> None:
         """Linha de digitação durante o turno (V-11); ``None`` remove."""
@@ -283,7 +317,7 @@ class StreamRenderer:
 
         def activity() -> Text:
             elapsed = time.monotonic() - (self._thinking_started or time.monotonic())
-            return Text(f"Pensando{tag}... ({elapsed:.1f}s)", style="text_dim")
+            return Text(f"Pensando{tag}… ({_seconds(elapsed)})", style="text_dim")
 
         self._activity = activity
         self._ensure_live()
@@ -304,10 +338,8 @@ class StreamRenderer:
             self._start_block("thinking")
             line = Text(no_wrap=True)
             line.append("▼ ", style="accent_blue")
-            line.append(
-                f"Raciocínio formulado em {elapsed:.1f}s (pressione Alt+R para expandir)",
-                style="text_dim",
-            )
+            line.append(f"Raciocínio · {_seconds(elapsed)}", style="text_dim")
+            line.append("   Alt+R expande", style="faint")
             self._print(line)
 
     # ── Texto ───────────────────────────────────────────────────────
@@ -346,10 +378,19 @@ class StreamRenderer:
         self.end_message()
         self._touch()
         self._tools[key] = (format_tool_label(tool, params), time.monotonic())
+        self._tool_parts[key] = tool_parts(tool, params)
 
         def running() -> Text:
-            labels = " · ".join(label for label, _ in self._tools.values())
-            return Text(labels, style="text_primary", no_wrap=True, overflow="ellipsis")
+            line = Text(no_wrap=True, overflow="ellipsis")
+            for n, (name, arg) in enumerate(self._tool_parts.values()):
+                if n:
+                    line.append("  ·  ", style="faint")
+                line.append(name, style=f"bold {ORION_COLORS['text_primary']}")
+                if arg:
+                    line.append(f"  {arg}", style="text_dim")
+            started = min((t for _, t in self._tools.values()), default=time.monotonic())
+            line.append(f"  ·  {int(time.monotonic() - started)}s  ·  Ctrl+C cancela", style="faint")
+            return line
 
         self._activity = running
         self._ensure_live()
@@ -365,6 +406,7 @@ class StreamRenderer:
     ) -> None:
         """Substitui o spinner pelo card concluído, seguido de saída e diff."""
         label, started = self._tools.pop(key, (tool, time.monotonic()))
+        name, arg = self._tool_parts.pop(key, (label, ""))
         self._touch()
         if not self._tools:
             self._activity = None
@@ -372,14 +414,17 @@ class StreamRenderer:
         self._start_block("tool")
         line = Text(no_wrap=True, overflow="ellipsis")
         line.append("✔ " if success else "✖ ", style="status_ok" if success else "diff_del")
-        line.append(label, style="text_primary")
-        meta = f" · {time.monotonic() - started:.1f}s"
+        line.append(name, style=f"bold {ORION_COLORS['text_primary']}")
+        if arg:
+            line.append(f"  {arg}", style="text_dim")
+        meta = f"  ·  {_seconds(time.monotonic() - started)}"
         if "exit_code" in metadata:
-            meta += f" · exit {metadata['exit_code']}"
-        if diff is not None:
-            meta += f" · +{diff.added} / -{diff.removed}"
-        line.append(meta, style="text_dim")
+            meta += f"  ·  exit {metadata['exit_code']}"
+        line.append(meta, style="faint")
         self._print(line)
+        summary = tool_result_line(tool, success, output, diff)
+        if summary is not None:
+            self._print(summary)
 
         if diff is not None and diff.hunks:
             self._print(self._diff_viewer.render(diff))
@@ -399,18 +444,16 @@ class StreamRenderer:
             self._guide(text)
         if hidden:
             note = Text(no_wrap=True)
-            note.append("│ ", style="border_subtle")
-            note.append(
-                f"[+{hidden} linhas ocultas · pressione Alt+E para expandir]",
-                style="accent_blue",
-            )
+            note.append("  │ ", style="rule")
+            note.append(f"+{hidden} linhas ocultas", style="accent_blue")
+            note.append("  ·  Alt+E expande", style="faint")
             self._print(note)
         for text in tail:
             self._guide(text)
 
     def _guide(self, text: str, style: str = "text_dim") -> None:
         line = Text(no_wrap=True, overflow="ellipsis")
-        line.append("│ ", style="border_subtle")
+        line.append("  │ ", style="rule")
         line.append(text, style=style)
         self._print(line)
 

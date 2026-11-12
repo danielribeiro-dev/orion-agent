@@ -101,7 +101,7 @@ v3.0.0  ── Full Ambient Symbiosis & Multi-Device Distributed Coordination
 * **Documentação:** [`docs/planning/versions/v0.5.0/VERSION.md`](versions/v0.5.0/VERSION.md)
 
 ### 🌌 v0.5.1 — Horizon (TUI)
-* **Status:** 🔄 EM EXECUÇÃO — spec aprovada em 11/11/2026; Sprint 1 iniciada
+* **Status:** 🔄 Sprints 1 e 2 implementadas (11/11/2026); falta a rodada com modelo real
 * **Foco:** Identidade visual Horizon e eliminação dos bugs de TUI que só aparecem em movimento, no mesmo pacote. Sprint 1: harness `tests/lab/` e correções de comportamento; Sprint 2: visual.
 * **Documentação:** [`docs/planning/versions/v0.5.1/VERSION.md`](versions/v0.5.1/VERSION.md)
 

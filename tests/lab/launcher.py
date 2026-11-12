@@ -45,9 +45,8 @@ def main() -> None:
     session.set_model(args.model)
     if cli.console.is_terminal:
         cli.console.clear()
-    lines = cli.print_banner(status_bar)
+    cli.print_banner(status_bar)
     prompt = cli.create_prompt(status_bar, session)
-    prompt.dock_to_bottom(lines)
     try:
         cli.run_interactive_repl(prompt, session)
     finally:

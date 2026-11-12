@@ -11,7 +11,7 @@
 ## Ferramentas de teste/TUI (10/11/2026)
 MCPs `tui-mcp` (olhar, PNG) e `ptywright` (regredir, asserções) instalados no escopo de usuário; guia em `.claudex/tooling.md`, decisão no ADR-038. Harness `tests/lab/` planejado, sem sprint ainda. Achados abertos de partida lenta, banner com conta do GitHub e rodapé divergente estão em `tooling.md` §5.
 
-## v0.5.1 Horizon (11/11/2026): spec e ADR-039/040/041 aprovados; **Sprint 1 implementada** na branch `feat/v0.5.1-sprint-1` (sem push). Próximo: Sprint 2 (visual), com comando do Senhor. Lab de TUI: `pytest -m lab tests/lab` (ver `tooling.md` §1)
+## v0.5.1 Horizon (11/11/2026): spec e ADR-039/040/041 aprovados; **Sprints 1 e 2 implementadas** na branch `feat/v0.5.1-sprint-1` (sem push); chaves em `~/.orion/.env` (ADR-042). Próximo: o Senhor preenche `OPENROUTER_API_KEY` no `.env` para a rodada real (CA-12) e valida em terminal gráfico; depois merge/tag com autorização. Lab de TUI: `pytest -m lab tests/lab` (ver `tooling.md` §1)
 Análise visual e testes dinâmicos da TUI concluídos; o Senhor aprovou a proposta Horizon e o pacote único (visual + bugs). Documentos: `docs/planning/versions/v0.5.1/{VERSION.md, achados-tui.md, sprints/sprint-1.md, sprints/sprint-2.md}`, `docs/design/horizon/` (telas de referência), `CLI_DESIGN_SYSTEM.md` §7 e ADR-039/040/041 (propostos). Sprint 1 = harness `tests/lab/` e bugs V-05, V-06, V-09 a V-17; Sprint 2 = visual. **Nada em `src/` foi alterado.** Pendências do Senhor: aprovar a spec e os ADRs; comando de início da Sprint 1; mock no Figma quando houver cota do MCP; chave do OpenRouter em `~/.orion/openrouter_api_key` (ou `OPENROUTER_API_KEY`) para a rodada com modelo real (<= 15 das 50 req/dia).
 
 ## Estado

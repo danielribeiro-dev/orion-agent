@@ -80,7 +80,7 @@ class EnvironmentMonitor:
         monitor = EnvironmentMonitor()
         telemetry = monitor.snapshot()
         if not monitor.is_safe_for_browser():
-            print("⚠️  RAM insuficiente para abrir navegadores.")
+            print("! RAM insuficiente para abrir navegadores.")
     """
 
     def __init__(self, headroom_threshold_gb: float = _HEADROOM_THRESHOLD_GB) -> None:

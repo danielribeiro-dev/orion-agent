@@ -26,6 +26,7 @@ from rich.text import Text
 
 from orion.core.events import Action
 from orion.governance.permissions import ActionLevel
+from orion.tui.console import silence_cpr_warning
 from orion.tui.panels import (
     render_config,
     render_model_picker,
@@ -98,6 +99,7 @@ async def run_modal(
         key_bindings=bindings,
         erase_when_done=not keep_on_screen,
     )
+    silence_cpr_warning(app)
     await app.run_async()
 
 
@@ -246,6 +248,7 @@ async def ask_pep_decision(
     histórico guarda o diálogo sem as teclas e a decisão do Senhor (V-13).
     """
     interactive = is_interactive()
+    console.print()  # respiro entre a fala do modelo e o diálogo
     picker = PepChoice(action, level, reason, footer if interactive else None)
     await run_modal(picker, console, keep_on_screen=not interactive)
     if interactive:
@@ -256,6 +259,7 @@ async def ask_pep_decision(
         _print_decision(console, picker.choice)
         return picker.choice
     session: PromptSession[str] = PromptSession()
+    silence_cpr_warning(session.app)
     edited = await session.prompt_async("❯ ", default=str(action.params.get("command", "")))
     if not edited.strip():
         _print_decision(console, "n")
@@ -342,6 +346,7 @@ async def ask_user_choice(
         await run_modal(picker, console, keep_on_screen=True)
     if picker.wants_text:
         session: PromptSession[str] = PromptSession()
+        silence_cpr_warning(session.app)
         console.print(Text(question, style="text_primary"))
         typed = (await session.prompt_async("❯ ")).strip()
         return [typed] if typed else None

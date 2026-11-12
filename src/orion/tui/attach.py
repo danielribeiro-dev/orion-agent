@@ -20,6 +20,7 @@ from rich.console import Console
 from orion.daemon import ipc
 from orion.daemon.client import DaemonUnavailable, call_once, follow
 from orion.daemon.control import format_status
+from orion.tui.console import silence_cpr_warning
 from orion.tui.sink import RichSink, SessionSink, apply_sink_event
 
 ATTACH_HELP = "/inbox · /approve <id> · /deny <id> · /status · /detach  (texto livre vai para a sessão do daemon)"
@@ -116,6 +117,7 @@ async def _prompt_toolkit_reader() -> ReadLine:
     from prompt_toolkit import PromptSession
 
     prompt: PromptSession[str] = PromptSession()
+    silence_cpr_warning(prompt.app)
 
     async def read() -> str:
         return await prompt.prompt_async("❯ ")

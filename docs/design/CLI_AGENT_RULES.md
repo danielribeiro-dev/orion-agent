@@ -19,7 +19,7 @@
 
 3. **RÉGUAS DO PROMPT: SOMENTE AS DUAS APROVADAS, DENTRO DO `HSplit` (F-07/F-08):**
    * O container do prompt tem exatamente **duas** réguas `Window(char="─", height=1)` em `text_primary` (clara; `border_subtle` é escura demais e some no fundo do terminal), uma acima e outra abaixo do input (estilo Claude Code), inseridas em `InteractivePrompt.__init__`. Por serem filhas do `HSplit`, acompanham a altura do input (quebra de linha e `Alt+Enter`) e permanecem no scrollback após o envio.
-   * **Atualização v0.5.1 (ADR-039, vigora na Sprint 2):** a cor das duas réguas passa a ser o token `rule` (`#566377`, 3,2:1 sobre o fundo), mais leve que `text_primary` e mais visível que `border_subtle`. A quantidade (duas), o lugar (dentro do `HSplit`) e o `dont_extend_height` não mudam. O prompt deixa de ser empurrado ao rodapé (`dock_to_bottom` removido).
+   * **Atualização v0.5.1 (ADR-039, em vigor desde 11/11/2026):** a cor das duas réguas passa a ser o token `rule` (`#566377`, 3,2:1 sobre o fundo), mais leve que `text_primary` e mais visível que `border_subtle`. A quantidade (duas), o lugar (dentro do `HSplit`) e o `dont_extend_height` não mudam. O prompt deixa de ser empurrado ao rodapé (`dock_to_bottom` removido).
    * A janela de input tem `dont_extend_height`: sem isso, com o prompt no rodapé, sobram linhas vazias entre o texto e a régua de baixo ao apagar linhas. As réguas devem seguir sempre o texto digitado.
    * É proibido adicionar outras janelas horizontais estáticas ou caixas laterais ao redor do texto.
    * **Por quê:** janelas adicionais geraram "linhas fantasmas" com o menu de autocompletar e entradas multilinhas. A configuração aprovada foi validada em pty (vazio, quebra, `Alt+Enter`, menu aberto/fechado, envio).
@@ -86,6 +86,6 @@ Ao construir qualquer tela interativa:
 
 Antes de declarar que uma tarefa na CLI está concluída, você DEVE rodar as seguintes verificações:
 
-- [ ] Execute `grep -r -E '[\U00010000-\U0010ffff]' src/` e garanta que nenhum emoji novo foi introduzido em arquivos de interface.
+- [ ] Rode `pytest tests/unit/test_horizon.py` (inclui `test_no_emoji_in_source`, que cobre também o bloco U+2600, onde estão ⚠ ☢ ⚡) e, para mudanças visuais, `pytest -m lab tests/lab`.
 - [ ] Execute `uv run pytest tests/unit/test_cli.py tests/unit/test_prompt_session.py tests/unit/test_status_bar.py tests/unit/test_completer.py`.
 - [ ] Garanta que todas as cores utilizadas pertençam ao dicionário oficial [`ORION_COLORS`](file:///home/danieldev/orion-agent/src/orion/tui/theme.py).

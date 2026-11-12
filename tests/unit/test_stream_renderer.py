@@ -88,7 +88,7 @@ class TestStreaming:
         renderer.add_text("resposta")
         renderer.close()
         output = buf.getvalue()
-        assert "Raciocínio formulado" in output
+        assert "Raciocínio · " in output and "Alt+R expande" in output
         assert "Alt+R" in output
         assert "linha secreta" not in output
         renderer.expand_reasoning()
@@ -109,7 +109,7 @@ class TestToolCards:
         renderer.tool_finished("run_command", True, "ok", {"exit_code": 0})
         renderer.close()
         output = buf.getvalue()
-        assert "✔ Bash: pytest" in output
+        assert "✔ Bash  pytest" in output
         assert "exit 0" in output
         assert "│ ok" in output
 
@@ -118,7 +118,7 @@ class TestToolCards:
         renderer.tool_started("run_command", {"command": "make"})
         renderer.tool_finished("run_command", False, "boom", {"exit_code": 2})
         renderer.close()
-        assert "✖ Bash: make" in buf.getvalue()
+        assert "✖ Bash  make" in buf.getvalue()
 
     def test_long_output_collapses_and_expands(self) -> None:
         renderer, buf = _renderer()
@@ -143,7 +143,7 @@ class TestToolCards:
         renderer.tool_started("edit_file", {"path": "a.py"})
         renderer.tool_finished("edit_file", True, "", diff=diff_texts("a\n", "b\n", "a.py"))
         renderer.close()
-        assert "+1 / -1" in buf.getvalue()
+        assert "+1 −1" in buf.getvalue() and "  › +1 −1" in buf.getvalue()
 
     def test_pause_and_resume_keep_activity(self) -> None:
         renderer, _ = _renderer()

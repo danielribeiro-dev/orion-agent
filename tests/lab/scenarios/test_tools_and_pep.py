@@ -14,7 +14,7 @@ TOOLS = {
 
 
 def _approve_after(lab, seconds: float) -> None:  # type: ignore[no-untyped-def]
-    assert lab.wait_for(r"\[y\]", 25), lab.screen_text()
+    assert lab.wait_for(r"y aprovar", 25), lab.screen_text()
     lab.pump(seconds)
     lab.send("y")
 
@@ -32,20 +32,20 @@ def test_tool_time_excludes_approval_wait(open_lab) -> None:  # type: ignore[no-
 def test_pep_decision_is_recorded_and_status_stays(open_lab) -> None:  # type: ignore[no-untyped-def]
     lab = open_lab(TOOLS)
     lab.submit("ferramentas")
-    assert lab.wait_for(r"\[y\]", 25)
+    assert lab.wait_for(r"y aprovar", 25)
     lab.pump(0.5)
     assert re.search(r"accept-edits ·", lab.screen_text()), lab.screen_text()
     lab.send("y")
     assert lab.wait_for("contei até 40", 20, history=True)
     history = lab.history_text()
     assert "✔ aprovado" in history, history[-2500:]
-    assert "[y] Aprovar" not in history, history[-2500:]
+    assert "y aprovar" not in history, history[-2500:]
 
 
 def test_pep_denial_is_recorded(open_lab) -> None:  # type: ignore[no-untyped-def]
     lab = open_lab(TOOLS)
     lab.submit("ferramentas")
-    assert lab.wait_for(r"\[y\]", 25)
+    assert lab.wait_for(r"y aprovar", 25)
     lab.send("n")
     assert lab.wait_for("✖ negado", 15, history=True), lab.history_text()[-2000:]
 
@@ -60,3 +60,12 @@ def test_expand_output_has_header_and_shift_alias(open_lab) -> None:  # type: ig
     assert lab.wait_for("saída completa", 10, history=True), lab.history_text()[-2000:]
     lab.pump(0.5)
     assert not re.search(r"^❯ E\s*$", lab.screen_text(), re.M), lab.screen_text()
+
+
+def test_pep_modal_without_cpr_has_no_warning(open_lab) -> None:  # type: ignore[no-untyped-def]
+    """V-05: o aviso de CPR não pode vir de nenhuma aplicação do prompt_toolkit (modal incluso)."""
+    lab = open_lab(TOOLS, cpr=False)
+    lab.submit("ferramentas")
+    _approve_after(lab, 0.3)
+    assert lab.wait_for("contei até 40", 20, history=True)
+    assert "CPR" not in lab.history_text(), lab.history_text()[-2000:]

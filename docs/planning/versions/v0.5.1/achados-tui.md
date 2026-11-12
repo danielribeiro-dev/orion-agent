@@ -59,4 +59,4 @@ Modelo real do OpenRouter (`ORION_LIVE=1`, teto 15 das 50 req diárias), colar t
 | V-13 | corrigido | Decisão registrada; status line visível no modal; nível exibido é o real |
 | V-14, V-15, V-16 | corrigido | Cabeçalho na expansão e aliases; Esc `eager` fecha o menu; prompt alinhado ao fundo e aviso de Ctrl+C |
 | V-17 | **falso positivo** | Cenário passou no código antigo; mantido como regressão |
-| V-01 a V-04, V-07, V-08 | Sprint 2 | Visual |
+| V-01 a V-04, V-07, V-08 | corrigido (Sprint 2) | Dica por largura, sem dock, menu Horizon, réguas `rule`, estado neutro sem provedor e sem `AUTH`, documentos alinhados; detalhes em `sprints/sprint-2.md` §8.1 |

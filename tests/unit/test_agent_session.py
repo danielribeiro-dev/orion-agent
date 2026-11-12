@@ -183,7 +183,7 @@ class TestTurns:
         session = make_session(provider)
         await session.run_turn("edite")
         assert target.read_text() == "x = 2\n"
-        assert "+1 / -1" in output(session)
+        assert "+1 −1" in output(session)
         assert "tool_call" not in output(session)
         assert session.tracker.undo() is not None
         assert target.read_text() == "x = 1\n"
@@ -329,7 +329,7 @@ class TestStructuredLoop:
         session = make_session(ScriptedProvider([two, "ok"]))
         await session.run_turn("leia")
         out = output(session)
-        assert out.count("✔ Read:") == 2
+        assert out.count("✔ Read  ") == 2
         assert "a.txt" in out
         assert "b.txt" in out
 

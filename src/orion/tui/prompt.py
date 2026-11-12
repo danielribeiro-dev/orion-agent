@@ -26,13 +26,11 @@ from prompt_toolkit.filters import has_completions, is_done, to_filter
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import FileHistory, History, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.layout.containers import ConditionalContainer, VerticalAlign, Window
+from prompt_toolkit.layout.containers import ConditionalContainer, HSplit, VerticalAlign, Window
 from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl
 from prompt_toolkit.layout.dimension import Dimension
-from prompt_toolkit.layout.margins import ScrollbarMargin
 from prompt_toolkit.layout.menus import (
     CompletionsMenu,
-    CompletionsMenuControl,
     MultiColumnCompletionsMenu,
 )
 from prompt_toolkit.styles import Style
@@ -42,8 +40,9 @@ from rich.text import Text
 from orion.core.event_bus import EventBus
 from orion.core.events import TurnCancelledEvent
 from orion.tui.completer import OrionCompleter, SlashCommandInfo
-from orion.tui.console import get_console
+from orion.tui.console import get_console, silence_cpr_warning
 from orion.tui.keybindings import create_key_bindings
+from orion.tui.menu import MENU_MAX_HEIGHT, OrionCompletionsMenuControl, menu_footer
 from orion.tui.status_bar import SessionStatusBar
 from orion.tui.theme import ORION_COLORS
 
@@ -58,26 +57,34 @@ def get_prompt_style() -> Style:
             # nem de texto claro: em terminais de fundo claro o input ficaria invisível.
             "": "bold",
             # Réguas do input: claras (text_primary); border_subtle some em terminais escuros
-            "prompt.border": f"{ORION_COLORS['text_primary']}",
+            "prompt.border": f"{ORION_COLORS['rule']}",
+            "prompt.placeholder": f"nobold {ORION_COLORS['faint']}",
             "prompt.symbol": f"{ORION_COLORS['accent_cyan']} bold",
             "prompt.dim": f"{ORION_COLORS['text_dim']}",
             "prompt.identity": f"{ORION_COLORS['text_primary']} bold",
             # Barra de status inferior — sem fundo sólido, sobre o fundo nativo do terminal (noreverse)
             "bottom-toolbar": f"noreverse {ORION_COLORS['text_dim']}",
-            "bottom-toolbar.border": f"noreverse {ORION_COLORS['border_subtle']}",
+            "bottom-toolbar.border": f"noreverse {ORION_COLORS['faint']}",
             "bottom-toolbar.cyan": f"noreverse {ORION_COLORS['accent_cyan']} bold",
-            "bottom-toolbar.blue": f"noreverse {ORION_COLORS['accent_blue']}",
+            "bottom-toolbar.blue": f"noreverse {ORION_COLORS['accent_blue']} bold",
             "bottom-toolbar.dim": f"noreverse {ORION_COLORS['text_dim']}",
             "bottom-toolbar.cost": f"noreverse {ORION_COLORS['text_primary']} bold",
-            "bottom-toolbar.ok": f"noreverse {ORION_COLORS['status_ok']} bold",
+            "bottom-toolbar.ok": f"noreverse {ORION_COLORS['status_ok']}",
+            "bottom-toolbar.cyanstate": f"noreverse {ORION_COLORS['accent_cyan']}",
             "bottom-toolbar.offline": f"noreverse {ORION_COLORS['status_offline']} bold",
-            "bottom-toolbar.pep": f"noreverse {ORION_COLORS['pep_warn']} bold",
+            "bottom-toolbar.pep": f"noreverse {ORION_COLORS['pep_warn']}",
             # Menu flutuante de autocompletar
             "completion-menu": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['text_primary']}",
-            "completion-menu.completion": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['text_primary']}",
-            "completion-menu.completion.current": f"bg:{ORION_COLORS['border_subtle']} {ORION_COLORS['accent_cyan']} bold",
-            "completion-menu.meta": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['text_dim']}",
-            "completion-menu.meta.completion.current": f"bg:{ORION_COLORS['border_subtle']} {ORION_COLORS['accent_blue']}",
+            # Horizon (ADR-039): linha ativa em `sel`, nome ciano negrito, categoria em `faint`
+            "completion-menu.mark": f"bg:{ORION_COLORS['surface_panel']} nobold",
+            "completion-menu.name": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['text_primary']} nobold",
+            "completion-menu.desc": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['text_dim']} nobold",
+            "completion-menu.category": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['faint']} nobold",
+            "completion-menu.mark.current": f"bg:{ORION_COLORS['sel']} {ORION_COLORS['accent_cyan']} bold",
+            "completion-menu.name.current": f"bg:{ORION_COLORS['sel']} {ORION_COLORS['accent_cyan']} bold",
+            "completion-menu.desc.current": f"bg:{ORION_COLORS['sel']} {ORION_COLORS['text_primary']} nobold",
+            "completion-menu.category.current": f"bg:{ORION_COLORS['sel']} {ORION_COLORS['text_dim']} nobold",
+            "completion-menu.footer": f"bg:{ORION_COLORS['surface_panel']} {ORION_COLORS['faint']} nobold",
             "scrollbar.background": f"bg:{ORION_COLORS['bg_canvas']}",
             "scrollbar.button": f"bg:{ORION_COLORS['border_subtle']}",
         }
@@ -139,6 +146,7 @@ class InteractivePrompt:
             completer=self.completer,
             complete_while_typing=True,
             reserve_space_for_menu=0,
+            placeholder=FormattedText([("class:prompt.placeholder", "digite sua instrução…")]),
             history=self.history,
             key_bindings=self.key_bindings,
             bottom_toolbar=None,  # status line própria abaixo (não depende de CPR, ADR-040)
@@ -149,12 +157,21 @@ class InteractivePrompt:
 
         # 6. Reconfiguração do layout: Menu Flutuante acima do prompt, sem túnel rígido
         comp_window = ConditionalContainer(
-            Window(
-                content=CompletionsMenuControl(),
-                height=Dimension(min=1, max=8),
-                right_margins=[ScrollbarMargin(display_arrows=True)],
-                dont_extend_width=True,
-                style="class:completion-menu",
+            HSplit(
+                [
+                    Window(
+                        content=OrionCompletionsMenuControl(),
+                        height=Dimension(min=1, max=MENU_MAX_HEIGHT),
+                        dont_extend_width=True,
+                        style="class:completion-menu",
+                    ),
+                    Window(
+                        FormattedTextControl(menu_footer),
+                        height=1,
+                        dont_extend_width=True,
+                        style="class:completion-menu.footer",
+                    ),
+                ]
             ),
             filter=has_completions & ~is_done,
         )
@@ -164,10 +181,10 @@ class InteractivePrompt:
         root = self.session.layout.container
         children = root.children  # type: ignore[attr-defined]
         children.insert(0, comp_window)
-        # Com CPR o prompt_toolkit reserva a altura até o fim da tela; quando o menu fecha, o espaço
-        # que ele ocupava sobra. Alinhado ao fundo, o prompt e a status line não sobem deixando
-        # linhas vazias abaixo (V-16). Revisar na Sprint 2 da v0.5.1, junto com o fim do dock.
-        root.align = VerticalAlign.BOTTOM  # type: ignore[attr-defined]
+        # Sem dock (v0.5.1 Sprint 2): o prompt fica logo abaixo do conteúdo. O prompt_toolkit reserva
+        # a altura até o fim da tela (CPR); alinhado ao topo, o espaço que sobra fica abaixo da
+        # status line, em branco, e o prompt não salta para o rodapé.
+        root.align = VerticalAlign.TOP  # type: ignore[attr-defined]
 
         # Réguas dinâmicas (estilo Claude Code): fazem parte do HSplit, logo sobem e descem com a
         # altura do input (multilinha/quebra de linha). `main_input` fica entre as duas.
@@ -188,7 +205,7 @@ class InteractivePrompt:
             )
         )
         # Sem CPR o prompt_toolkit imprimiria um aviso sobre o menu (V-05): o ORION funciona igual.
-        self.session.app.renderer.cpr_not_supported_callback = None
+        silence_cpr_warning(self.session.app)
 
         # Enter sem texto: apaga o bloco régua/❯/régua em vez de empilhá-lo no scrollback. Com texto,
         # o bloco permanece, delimitando o pedido e a resposta.
@@ -243,6 +260,7 @@ class InteractivePrompt:
             "pep": "class:bottom-toolbar.pep",
             "ok": "class:bottom-toolbar.ok",
             "offline": "class:bottom-toolbar.offline",
+            "cyan": "class:bottom-toolbar.cyanstate",
         }
         return FormattedText(
             [(classes[role], text) for role, text in self.status_bar.status_segments(term_cols)]
@@ -252,20 +270,6 @@ class InteractivePrompt:
     def _make_rule() -> Window:
         """Régua de largura total em `text_primary`, uma linha, que acompanha o redimensionamento."""
         return Window(height=1, char="─", style="class:prompt.border")
-
-    def dock_to_bottom(self, rendered_lines: int = 15) -> None:
-        """Empurra o prompt para o rodapé do terminal (aparência de tela cheia).
-
-        Só em TTY: preenche com linhas em branco o espaço entre o banner e o prompt.
-        """
-        if not self.console.is_terminal:
-            return
-        import shutil
-
-        rows = shutil.get_terminal_size((80, 24)).lines
-        pad = rows - rendered_lines - 4  # prompt + barra de status + folga
-        if pad > 0:
-            self.console.print("\n" * (pad - 1))
 
     async def prompt_async(
         self,

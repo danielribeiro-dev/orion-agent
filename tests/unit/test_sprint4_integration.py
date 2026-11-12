@@ -334,24 +334,6 @@ class TestCleanStartup:
         assert log.parent == tmp_path / ".orion" / "logs" and log.name == "mcp-no_isy_1.log"
         assert "NOISE-FROM-NPX-INSTALL" in log.read_text()
 
-    def test_dock_to_bottom_pads_only_on_a_real_terminal(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from orion.tui.prompt import InteractivePrompt
-
-        buf = io.StringIO()
-        monkeypatch.setattr("shutil.get_terminal_size", lambda fallback=(80, 24): __import__("os").terminal_size((80, 40)))
-        prompt = InteractivePrompt(history_path="/tmp/orion-test-history", console=Console(file=buf, force_terminal=False))
-        prompt.dock_to_bottom(10)
-        assert buf.getvalue() == ""  # sem TTY: nada
-        tty = Console(file=buf, force_terminal=True)
-        prompt = InteractivePrompt(history_path="/tmp/orion-test-history", console=tty)
-        prompt.dock_to_bottom(10)
-        assert buf.getvalue().count("\n") == 40 - 10 - 4 - 1 + 1  # prompt + barra + folga reservados
-        buf.truncate(0)
-        buf.seek(0)
-        prompt.dock_to_bottom(60)  # banner maior que a tela: não imprime
-        assert buf.getvalue() == ""
-
-
 def test_describe_action_flags_background_commands() -> None:
     """F-01: o modal avisa que o comando continua rodando após a aprovação."""
     from orion.tui.panels import describe_action
@@ -402,7 +384,7 @@ def test_prompt_input_does_not_stretch_and_rules_are_light() -> None:
     ]
     assert inputs and all(w.dont_extend_height() for w in inputs)
     rules = dict(get_prompt_style().style_rules)
-    assert ORION_COLORS["text_primary"].lstrip("#").lower() in rules["prompt.border"].lower()
+    assert ORION_COLORS["rule"].lstrip("#").lower() in rules["prompt.border"].lower()  # ADR-039
 
 
 def test_empty_submit_erases_the_prompt_block() -> None:

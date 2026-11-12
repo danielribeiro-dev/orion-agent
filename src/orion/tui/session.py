@@ -378,6 +378,7 @@ class AgentSession:
         self.set_mode(self.mode)
         if self.selected_model is None and not self.online:
             self.set_model(self._local_default())
+        self.refresh_context_display()
         self.status_bar.model_name = self.selected_model or self.router.tier_model(ComplexityTier.HEAVY)
 
     # ── Subagents (Sprint 6) ────────────────────────────────────────
@@ -606,6 +607,14 @@ class AgentSession:
 
     def _refresh_cost_display(self) -> None:
         self.status_bar.session_cost_usd = self.cost_total + self.agent_usage.cost_usd
+
+    def refresh_context_display(self) -> None:
+        """Atualiza o `% ctx` da status line (Horizon); falha nunca derruba a sessão."""
+        try:
+            used = sum(self.context_breakdown().values())
+            self.status_bar.context_pct = min(round(100 * used / max(self.context_window(), 1)), 100)
+        except Exception:  # noqa: BLE001
+            logger.debug("AgentSession: % de contexto indisponível", exc_info=True)
 
     # ── Inicialização tolerante a falhas ────────────────────────────
 
@@ -1286,9 +1295,11 @@ class AgentSession:
                 return await ask_pep_decision(self.console, act, lvl, reason, footer)
 
         self.renderer.pause()
+        self.status_bar.awaiting = True
         try:
             decision = await asker(action, level)
         finally:
+            self.status_bar.awaiting = False
             self.renderer.resume()
         if decision == "a":
             if not reason:  # escalada vale uma vez: "a" equivale a "y"
@@ -1436,6 +1447,7 @@ class AgentSession:
         finally:
             self.renderer.close()
             self.status_bar.is_busy = False
+            self.refresh_context_display()
             await self.fire_hook("Stop", {"success": succeeded})
 
         self.history = engine.messages

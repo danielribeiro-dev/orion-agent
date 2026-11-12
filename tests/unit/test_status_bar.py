@@ -71,8 +71,7 @@ class TestMonetaryFormatting:
         console.print(bar.render_bottom_bar(width=120))
         output = buf.getvalue()
 
-        assert "$0.0100" in output
-        assert "R$ 0,058" in output
+        assert "$0.010" in output  # Horizon: 3 casas na status line; BRL fica no /cost
 
     def test_clean_status_line_item_4_wireframe(self) -> None:
         """Item 4: Valida a Clean Status Line na faixa de 80 a 109 colunas."""
@@ -89,8 +88,11 @@ class TestMonetaryFormatting:
         console.print(bar.render_bottom_bar(width=80))
         output = buf.getvalue().strip()
 
-        expected = "claude-3-7-sonnet · 3.4k tok · $0.0120 · Ready ●"
-        assert expected in output
+        assert "claude-3-7-sonnet · $0.012 · Ready ●" in output
+        bar.context_pct = 24
+        assert "claude-3-7-sonnet · 24% ctx · $0.012 · Ready ●" in "".join(
+            part for _, part in bar.status_segments(80)
+        )
 
     def test_wide_line_shows_mode_and_split_tokens(self) -> None:
         bar = SessionStatusBar(
@@ -101,8 +103,8 @@ class TestMonetaryFormatting:
             pep_level=1,
         )
         text = "".join(part for _, part in bar.status_segments(120))
-        assert text.startswith("plan · claude-3-7-sonnet · 12.4k in / 3.4k out")
-        assert "PEP: 1" in text
+        assert text.startswith("plan · claude-3-7-sonnet · $0.000")
+        assert "PEP 1" in text
 
     def test_busy_state_shows_working(self) -> None:
         bar = SessionStatusBar(is_busy=True)
@@ -181,8 +183,8 @@ class TestIdentityFallbackCA03:
         console.print(bar.render_header_panel(width=120))
         output = buf.getvalue()
 
-        assert "Not connected" in output or "Local" in output
-        assert "OFFLINE" in output or "Offline" in output
+        assert "sem chave de provedor · /config" in output  # V-07: aviso neutro
+        assert "AUTH" not in output and "GitHub" not in output
 
     def test_from_environment_with_mocked_databases(self, tmp_path, monkeypatch) -> None:
         import sqlite3
@@ -242,7 +244,7 @@ class TestIdentityFallbackCA03:
         console = Console(file=buf, width=120, force_terminal=True, _environ={"COLUMNS": "120"})
         console.print(bar.render_header_panel(width=120))
         output = buf.getvalue()
-        assert "..." in output
+        assert "…" in output
 
 
 class TestZeroAnsiBreakagesCA04:

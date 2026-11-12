@@ -212,7 +212,7 @@ class TestPepChoice:
 
     def test_dialog_shows_command_and_level(self) -> None:
         output = render_ansi(self._choice().render(), width=100)
-        assert "PEP NÍVEL 3" in output
+        assert "[PEP 3] Autorização requerida" in output
         assert "git push" in output
 
 
@@ -263,7 +263,7 @@ class TestDataCommands:
         target.write_text("b\n")
         context.session.tracker.finish("1")
         await registry.dispatch("/diff", context)
-        assert "+1 / -1" in text(context)
+        assert "+1 −1" in text(context)
         result = await registry.dispatch("/undo", context)
         assert result.output_message == "Desfeito: a.py"
         assert target.read_text() == "a\n"

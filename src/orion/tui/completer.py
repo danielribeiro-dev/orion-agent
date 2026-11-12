@@ -17,6 +17,8 @@ from pathlib import Path
 from prompt_toolkit.completion import CompleteEvent, Completer, Completion
 from prompt_toolkit.document import Document
 
+from orion.tui.menu import OrionCompletion
+
 # ---------------------------------------------------------------------------
 # Default directories and patterns to always ignore
 # ---------------------------------------------------------------------------
@@ -354,6 +356,9 @@ class GitIgnoreMatcher:
 # ---------------------------------------------------------------------------
 
 
+_CATEGORY_ORDER = {"cognitive": 0, "memory": 1, "context": 2, "operation": 3}
+
+
 class SlashCommandCompleter(Completer):
     """Autocompletador para comandos slash (/), com busca difusa e metadados."""
 
@@ -405,16 +410,22 @@ class SlashCommandCompleter(Completer):
             elif query.startswith("/") and len(query) > 1 and self._fuzzy_match(query[1:], cmd_lower[1:]):
                 fuzzy_matches.append((cmd, len(cmd_lower)))
 
-        exact_prefix.sort(key=lambda x: x[1])
-        fuzzy_matches.sort(key=lambda x: x[1])
+        # Ordem estável (Horizon): prefixo antes de fuzzy; dentro de cada grupo, por categoria e
+        # nome. O ícone sai da linha: o menu marca só a linha ativa com ❯ (ADR-039).
+        def order(item: tuple[SlashCommandInfo, int]) -> tuple[int, str]:
+            cmd = item[0]
+            return (_CATEGORY_ORDER.get(cmd.category, len(_CATEGORY_ORDER)), cmd.name)
+
+        exact_prefix.sort(key=order)
+        fuzzy_matches.sort(key=order)
 
         for cmd, _ in exact_prefix + fuzzy_matches:
-            display_text = f"{cmd.icon} {cmd.name}" if cmd.icon else cmd.name
-            yield Completion(
+            yield OrionCompletion(
                 text=cmd.name,
                 start_position=-len(word),
-                display=display_text,
+                display=cmd.name,
                 display_meta=cmd.description,
+                category=cmd.category,
             )
 
 

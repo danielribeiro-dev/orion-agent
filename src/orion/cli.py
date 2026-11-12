@@ -89,7 +89,7 @@ def configure_logging(home: Path | None = None) -> Path | None:
 def _clear_screen(prompt: InteractivePrompt) -> None:
     """Redesenha o banner sem perder a sessão."""
     console.clear()
-    prompt.dock_to_bottom(print_banner(prompt.status_bar))
+    print_banner(prompt.status_bar)
 
 
 def _ask_project_trust(session: AgentSession) -> None:
@@ -250,12 +250,10 @@ def cli_root(
         resume_message = _resume_session(session, continue_session, resume)
         if console.is_terminal:
             console.clear()
-        banner_lines = print_banner(status_bar)
+        print_banner(status_bar)  # sem dock (v0.5.1): o prompt vem logo abaixo do banner
         if resume_message:
             console.print(Text(resume_message, style="text_dim"))
-            banner_lines += 1
         prompt = create_prompt(status_bar, session)
-        prompt.dock_to_bottom(banner_lines)
         session.fire_hook_sync("SessionStart", {"source": "resume" if resume_message else "startup"})
         try:
             run_interactive_repl(prompt, session)

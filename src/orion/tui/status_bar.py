@@ -15,8 +15,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 from rich.console import Group, RenderableType
-from rich.rule import Rule
-from rich.table import Table
 from rich.text import Text
 
 from orion import __version__
@@ -30,6 +28,35 @@ class ReasoningEffort(StrEnum):
     MEDIUM = "MEDIUM"
     LOW = "LOW"
     OFF = "OFF"
+
+
+# Tipografia oficial Stellar Cyber Block (6 linhas) e versão reduzida (4 linhas, < 70 colunas)
+STELLAR_CYBER_BLOCK: list[str] = [
+    "  ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗",
+    " ██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║",
+    " ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║",
+    " ██║   ██║██╔══██╗██║██║   ██║██║╚██╗██║",
+    " ╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║",
+    "  ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝",
+]
+STELLAR_COMPACT: list[str] = [
+    "  ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗",
+    " ██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║",
+    " ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║",
+    " ╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║",
+]
+_LOGO_WIDTH = max(len(row) for row in STELLAR_CYBER_BLOCK)
+
+
+def _gradient(index: int, total: int) -> str:
+    """Cor da linha *index* do logo no gradiente vertical cyan → azul Órion."""
+    t = index / (total - 1) if total > 1 else 0.0
+    start, end = ORION_COLORS["accent_cyan"], ORION_COLORS["accent_blue"]
+    channels = [
+        round(int(start[i : i + 2], 16) + (int(end[i : i + 2], 16) - int(start[i : i + 2], 16)) * t)
+        for i in (1, 3, 5)
+    ]
+    return "#" + "".join(f"{c:02x}" for c in channels)
 
 
 def _make_badge(label: str, value: str, dot_style: str = "accent_cyan") -> Text:
@@ -62,6 +89,10 @@ class SessionStatusBar(BaseModel):
     bg_running: int = 0
     bg_unread: int = 0
     fast_mode: bool = False
+    #: % da janela de contexto em uso (calculado pela sessão após cada turno); None: oculto
+    context_pct: int | None = None
+    #: modal de autorização aberto (estado "Aguardando" na status line)
+    awaiting: bool = False
 
     @property
     def session_cost_brl(self) -> float:
@@ -159,13 +190,7 @@ class SessionStatusBar(BaseModel):
             session_tokens_out=session_tokens_out,
         )
 
-    def render_header_panel(self, width: int = 80) -> RenderableType:
-        """Gera o painel de cabeçalho formatado em Rich com layout aberto e arejado."""
-        auth_val = f"GitHub [@{self.github_user}]" if self.github_user else "Local Session"
-        status_text = "ONLINE (Cloud Gateway)" if self.is_online else "OFFLINE (Local Gateway)"
-        status_dot = "status_ok" if self.is_online else "status_offline"
-
-        # Abreviação elegante do caminho do workspace (~/orion-agent)
+    def _workspace_display(self) -> str:
         ws_display = self.workspace_path or str(Path.cwd())
         try:
             home_dir = str(Path.home())
@@ -173,93 +198,74 @@ class SessionStatusBar(BaseModel):
                 ws_display = "~" + ws_display[len(home_dir) :]
         except Exception:
             pass
+        return ws_display if len(ws_display) <= 36 else "…" + ws_display[-35:]
 
-        if len(ws_display) > 36:
-            ws_display = "..." + ws_display[-33:]
+    def _state_line(self, *, workspace: bool = True) -> Text:
+        """`● online · modelo · ~/projeto`, ou o aviso neutro sem provedor (V-07)."""
+        line = Text(no_wrap=True, overflow="ellipsis")
+        sep = ("  ·  ", "faint")
+        if self.is_online:
+            line.append("  ● ", style="status_ok")
+            line.append("online", style="text_primary")
+        else:
+            line.append("  ● ", style="pep_warn")
+            line.append("sem chave de provedor · /config", style="pep_warn")
+        line.append(*sep)
+        line.append(self.model_name, style="text_primary")
+        if workspace:
+            line.append(*sep)
+            line.append(self._workspace_display(), style="text_dim")
+        return line
 
+    def _governance_line(self) -> Text:
+        line = Text(no_wrap=True, overflow="ellipsis")
+        line.append(f"  PEP {self.pep_level} supervisionado", style="pep_warn")
+        line.append("  ·  ", style="faint")
+        line.append("memória 5 esferas", style="text_dim")
+        return line
+
+    def _title_line(self) -> Text:
+        line = Text(no_wrap=True, overflow="ellipsis")
+        line.append("  O.R.I.O.N", style=f"bold {ORION_COLORS['accent_cyan']}")
+        line.append(f"  v{__version__}", style="text_dim")
+        line.append("  ·  ", style="faint")
+        line.append("Non Ducor, Duco", style="text_dim")
+        return line
+
+    def render_header_panel(self, width: int = 80) -> RenderableType:
+        """Cabeçalho Horizon (ADR-039): logo à esquerda e informação à direita, sem badges.
+
+        >= 100 colunas: informação ao lado do logo. 70 a 99: abaixo do logo. < 70: logo reduzido.
+        """
+        if width < 70:
+            out = Text(no_wrap=True, overflow="crop")
+            for compact in STELLAR_COMPACT:
+                out.append(compact[:width] + "\n", style=f"bold {ORION_COLORS['accent_cyan']}")
+            return Group(out, self._title_line(), self._state_line(workspace=False))
+
+        logo = [
+            Text(row, style=f"bold {_gradient(i, len(STELLAR_CYBER_BLOCK))}", no_wrap=True)
+            for i, row in enumerate(STELLAR_CYBER_BLOCK)
+        ]
         if width < 100:
-            # 📐 Cenário A: Modo Compacto (< 100 colunas)
-            cyber_block = [
-                ("  ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗", f"   O.R.I.O.N (ORION)  v{__version__}"),
-                (" ██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║", "   Sovereign Cognitive Agent"),
-                (" ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║", "   Non Ducor, Duco"),
-                (" ╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║", ""),
-            ]
+            return Group(*logo, self._title_line(), self._state_line(), self._governance_line())
 
-            top_content = Text(no_wrap=True)
-            for art, desc in cyber_block:
-                top_content.append(art, style="accent_cyan")
-                if width >= 75:
-                    top_content.append(desc, style="text_user")
-                top_content.append("\n")
-
-            if width < 75:
-                # 1 coluna para terminais estreitos (< 75 cols, ex: 60)
-                grid = Table.grid(padding=(0, 1), expand=True)
-                grid.add_column(ratio=1, no_wrap=True)
-                grid.add_row(_make_badge("STATUS", status_text, status_dot))
-                grid.add_row(_make_badge("MODEL", self.model_name))
-                grid.add_row(_make_badge("WORKSPACE", ws_display))
-                grid.add_row(_make_badge("PEP", f"Level {self.pep_level} (Supervised)"))
-            else:
-                # 2 colunas padrão (80 cols)
-                grid = Table.grid(padding=(0, 2), expand=True)
-                grid.add_column(ratio=1, no_wrap=True)
-                grid.add_column(ratio=1, no_wrap=True)
-                grid.add_row(
-                    _make_badge("STATUS", status_text, status_dot),
-                    _make_badge("MODEL", self.model_name),
-                )
-                grid.add_row(
-                    _make_badge("AUTH", auth_val),
-                    _make_badge("WORKSPACE", ws_display),
-                )
-                grid.add_row(
-                    _make_badge("PEP", f"Level {self.pep_level} (Supervised)"),
-                    _make_badge("MEMORY", "5 Spheres Active"),
-                )
-
-            return Group(
-                top_content,
-                Rule(style=ORION_COLORS["border_subtle"]),
-                grid,
-                Rule(style=ORION_COLORS["border_subtle"]),
-            )
-
-        # 📐 Cenário B: Modo Standard / Amplo (>= 100 colunas)
-        header_text = Text(no_wrap=True)
-        header_text.append(
-            f"  O.R.I.O.N (ORION)  v{__version__} │ Operational Reasoning & Intelligence Orchestration Network\n",
-            style="accent_cyan",
+        desc = Text(
+            "  Operational Reasoning & Intelligence Orchestration Network",
+            style="text_dim", no_wrap=True,
         )
-        header_text.append(
-            '  "Non Ducor, Duco — The Sovereign Cognitive Operating Partner"\n',
-            style="text_dim",
-        )
-
-        grid_wide = Table.grid(padding=(0, 3), expand=True)
-        grid_wide.add_column(ratio=1, no_wrap=True)
-        grid_wide.add_column(ratio=1, no_wrap=True)
-
-        grid_wide.add_row(
-            _make_badge("STATUS", status_text, status_dot),
-            _make_badge("MODEL", f"{self.model_name} [Thinking: {self.reasoning_effort.value}]"),
-        )
-        grid_wide.add_row(
-            _make_badge("AUTH", auth_val),
-            _make_badge("WORKSPACE", ws_display),
-        )
-        grid_wide.add_row(
-            _make_badge("PEP GOVERNANCE", f"Level {self.pep_level} (Supervised)"),
-            _make_badge("MEMORY", "5 Spheres Active"),
-        )
-
-        return Group(
-            header_text,
-            Rule(style=ORION_COLORS["border_subtle"]),
-            grid_wide,
-            Rule(style=ORION_COLORS["border_subtle"]),
-        )
+        side: list[Text | None] = [
+            None, self._title_line(), desc, None, self._state_line(), self._governance_line(),
+        ]
+        rows: list[RenderableType] = []
+        for art, info in zip(logo, side, strict=True):
+            line = art.copy()
+            line.pad_right(_LOGO_WIDTH - len(line.plain))
+            if info is not None:
+                line.append_text(info)
+            line.truncate(width, overflow="ellipsis")
+            rows.append(line)
+        return Group(*rows)
 
     def _background_segment(self) -> list[tuple[str, str]]:
         """``tasks 2 ● · 1 ✔``: em execução e concluídas ainda não vistas (vazio se nada)."""
@@ -288,60 +294,51 @@ class SessionStatusBar(BaseModel):
 
         sep = ("sep", " · ")
         bg = self._background_segment()
-        cost = f"${self.session_cost_usd:.4f}"
+        cost = f"${self.session_cost_usd:.3f}"
         short_model = self.model_name.replace("-thinking", "")
         if self.fast_mode:
             short_model += " (fast)"
+        if self.reasoning_effort != ReasoningEffort.HIGH:
+            short_model += f" · thinking {self.reasoning_effort.value.lower()}"
         if not self.is_online:
-            state = ("offline", "Offline ●")
+            state = [("dim", "Offline "), ("pep", "●")]
+        elif self.awaiting:
+            state = [("dim", "Aguardando "), ("pep", "●")]
         elif self.is_busy:
-            state = ("ok", "Working ●")
+            state = [("dim", "Working "), ("cyan", "●")]
         else:
-            state = ("ok", "Ready ●")
+            state = [("dim", "Ready "), ("ok", "●")]
+        ctx = [("dim", f"{self.context_pct}% ctx"), sep] if self.context_pct is not None else []
 
         if width >= 110:
-            tokens_in = _fmt_tokens(self.session_tokens_in)
-            tokens_out = _fmt_tokens(self.session_tokens_out)
             return [
                 ("mode", self.agent_mode),
                 sep,
                 ("dim", short_model),
                 sep,
-                ("dim", f"{tokens_in} in / {tokens_out} out"),
+                *ctx,
+                ("dim", cost),
                 sep,
-                ("dim", f"{cost} / R$ {self.format_cost_brl()}"),
-                sep,
-                ("dim", f"thinking: {self.reasoning_effort.value.lower()}"),
-                sep,
-                ("pep", f"PEP: {self.pep_level}"),
+                ("pep", f"PEP {self.pep_level}"),
                 sep,
                 *bg,
-                state,
+                *state,
             ]
 
         abbreviated = short_model.split("/")[-1]
         if width >= 80:
-            total = _fmt_tokens(self.session_tokens_in + self.session_tokens_out)
-            return [
-                ("dim", abbreviated),
-                sep,
-                ("dim", f"{total} tok"),
-                sep,
-                ("dim", cost),
-                sep,
-                *bg,
-                state,
-            ]
-        return [("dim", abbreviated), sep, ("dim", cost), sep, *bg, state]
+            return [("dim", abbreviated), sep, *ctx, ("dim", cost), sep, *bg, *state]
+        return [("dim", abbreviated), sep, ("dim", cost), sep, *bg, *state]
 
     def render_bottom_bar(self, width: int = 80) -> RenderableType:
         """Gera a linha de status inferior sobre o fundo nativo do terminal."""
         styles = {
-            "mode": "accent_blue",
+            "mode": f"bold {ORION_COLORS['accent_blue']}",
             "dim": "text_dim",
-            "sep": "border_subtle",
+            "sep": "faint",
             "pep": "pep_warn",
             "ok": "status_ok",
+            "cyan": "accent_cyan",
             "offline": "status_offline",
         }
         line = Text(no_wrap=True)

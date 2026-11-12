@@ -6,10 +6,18 @@ from __future__ import annotations
 from tests.lab.texts import LONG
 
 
-def _footer_on_last_row(lab) -> bool:  # type: ignore[no-untyped-def]
+def _prompt_block_intact(lab) -> bool:  # type: ignore[no-untyped-def]
+    """Régua, ❯, régua e status em sequência, e nada abaixo (sem resíduo do menu, V-16)."""
     rows = [line.rstrip() for line in lab.screen.display]
-    last = max(i for i, line in enumerate(rows) if line)
-    return last == len(rows) - 1 and rows[last].startswith("accept-edits")
+    i = max(n for n, line in enumerate(rows) if line.startswith("❯"))
+    block = rows[i - 1 : i + 3]
+    return (
+        len(block) == 4
+        and set(block[0]) == {"─"}
+        and set(block[2]) == {"─"}
+        and block[3].startswith("accept-edits")
+        and not any(rows[i + 3 :])
+    )
 
 
 def test_escape_closes_completion_menu(open_lab) -> None:  # type: ignore[no-untyped-def]
@@ -20,7 +28,7 @@ def test_escape_closes_completion_menu(open_lab) -> None:  # type: ignore[no-unt
     lab.pump(1.2)
     assert "/context" not in lab.screen_text(), lab.screen_text()
     assert "❯ /c" in lab.screen_text()  # Esc fecha o menu e mantém o texto
-    assert _footer_on_last_row(lab), lab.screen_text()  # sem linhas vazias abaixo (V-16)
+    assert _prompt_block_intact(lab), lab.screen_text()  # sem resíduo do menu (V-16)
     assert lab.alive()
 
 
@@ -32,7 +40,7 @@ def test_ctrl_c_with_menu_closes_menu_and_hints_exit(open_lab) -> None:  # type:
     lab.pump(1.0)
     screen = lab.screen_text()
     assert "/context" not in screen, screen
-    assert _footer_on_last_row(lab), screen
+    assert _prompt_block_intact(lab), screen
     assert lab.alive()
     lab.key("ctrl-c")  # buffer vazio: avisa que o próximo sai
     assert lab.wait_for("Ctrl\\+C de novo para sair", 5), lab.screen_text()

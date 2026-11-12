@@ -74,8 +74,8 @@ class TestDefaultInvocation:
 
     def test_no_args_renders_banner_and_status(self, invoke) -> None:
         result = invoke()
-        assert "ORION" in result.output
-        assert "GATEWAY" in result.output or "STATUS" in result.output
+        assert "O.R.I.O.N" in result.output
+        assert "PEP" in result.output
 
     def test_main_entrypoint_calls_app(self, monkeypatch) -> None:
         from orion.cli import main
@@ -146,7 +146,7 @@ class TestBanner:
         finally:
             cli_module.console = original_console
         output = buf.getvalue()
-        assert "ORION" in output or "PERSONAL OPERATING INTELLIGENCE" in output
+        assert "O.R.I.O.N" in output
 
 
 # ---------------------------------------------------------------------------
