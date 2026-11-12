@@ -135,11 +135,28 @@ _PROTECTED_NAMES = frozenset(
     {
         "web_allowlist.json", "settings.json", "config.json", "blacklist.json", "users.json",
         "token_budget.json", "anthropic_api_key", "openrouter_api_key", "permissions.json",
+        ".env",
     }
 )
+# Segredos: o agente também não os LÊ (o conteúdo iria para o provedor). Buscas recursivas a
+# partir de ~/.orion ou de secrets/ também passariam por eles.
+_SECRET_NAMES = frozenset({".env", "anthropic_api_key", "openrouter_api_key"})
+_READ_TOOLS = frozenset({"read_file", "grep", "search_files"})
 _PROTECTED_PREFIXES = ("audit.", "trust")
 _PROTECTED_DIRS = frozenset({"secrets"})
 _WRITE_TOOLS = frozenset({"write_file", "edit_file", "notebook_edit"})
+
+
+def is_secret_path(path: str, home: Path | None = None) -> bool:
+    """True se ler *path* exporia um segredo de ``~/.orion`` (arquivo, ``secrets/`` ou a raiz)."""
+    try:
+        target = Path(path).expanduser().resolve()
+        root = (home or Path.home() / ".orion").resolve()
+        rel = target.relative_to(root)
+    except (ValueError, OSError):
+        return False
+    parts = rel.parts
+    return not parts or parts[0] == "secrets" or parts[-1] in _SECRET_NAMES
 
 
 def is_protected_state_path(path: str, home: Path | None = None) -> bool:
@@ -467,7 +484,27 @@ class PolicyEnforcementPoint:
         return True
 
     def _assert_not_protected_state(self, action: Action, level: ActionLevel) -> None:
-        """Escritas do agente em arquivos de governança de ``~/.orion`` são sempre negadas."""
+        """Escritas do agente em arquivos de governança de ``~/.orion`` são sempre negadas.
+
+        Leituras de segredos (``.env``, chaves, ``secrets/``) também.
+        """
+        if action.tool in _READ_TOOLS:
+            raw = str(action.params.get("path", ""))
+            if raw and is_secret_path(raw):
+                self._audit.log_denied(
+                    action_id=action.event_id,
+                    tool=action.tool,
+                    params=dict(action.params),
+                    level=level,
+                    reason="protected_secret",
+                    decision_source="mode",
+                )
+                raise ActionDenied(
+                    action.event_id,
+                    action.tool,
+                    f"'{raw}' contém segredos do ORION; o agente não os lê.",
+                )
+            return
         if action.tool not in _WRITE_TOOLS:
             return
         raw = str(action.params.get("path", ""))

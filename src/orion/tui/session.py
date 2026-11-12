@@ -53,7 +53,7 @@ from orion.gateway.agent_gateway import (
 )
 from orion.gateway.budget import BudgetExceededError, BudgetGuard
 from orion.gateway.circuit_breaker import CircuitBreaker
-from orion.gateway.credentials import load_anthropic_key, load_openrouter_key
+from orion.gateway.credentials import ensure_env_file, load_anthropic_key, load_openrouter_key
 from orion.gateway.failover import FailoverEvent, FailoverProvider, build_candidates
 from orion.gateway.ledger import CostLedger
 from orion.gateway.models import (
@@ -278,6 +278,7 @@ class AgentSession:
         self._ask_pep = ask_pep
 
         self.registry = ModelRegistry()
+        ensure_env_file(self.home)
         self.anthropic_key = load_anthropic_key(self.home)
         self.openrouter_key = load_openrouter_key(self.home)
         self.router = ModelRouter(

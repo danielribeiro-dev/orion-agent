@@ -10,7 +10,7 @@ Agente pessoal de engenharia no terminal (Python 3.11+). Visão: um "Jarvis" sem
 ## Regras
 - **Doc-First:** nenhuma linha em `src/` sem comando explícito de início da sprint e spec congelada. Cada sprint roda em sessão própria.
 - **Segurança:** toda ação mutante passa pelo PEP (`governance/pep.py`); deny by default; ações nucleares exigem step-up do SO e nunca são contornáveis (hooks, subagents, agendamentos ou regras). Tool nova precisa de nível PEP definido.
-- **Brain/Body:** `orion.core` não faz I/O direto. Runtime e dados somente em `~/.orion/`, nunca no repositório. Segredos nunca em arquivos versionados.
+- **Brain/Body:** `orion.core` não faz I/O direto. Runtime e dados somente em `~/.orion/`, nunca no repositório. Segredos nunca em arquivos versionados: chaves em `~/.orion/.env` (0600, ADR-042), que o agente não lê nem altera.
 - **Qualidade:** `ruff check`, `mypy` strict, cobertura global ≥ 85%, SQL sempre parametrizado, `asyncio` em tudo.
 - **TUI:** sem emojis; glifos permitidos `❯ ● ✔ ✖ ! [PEP] › · │` (`docs/design/CLI_AGENT_RULES.md`). Novo slash command: classe em `src/orion/tui/commands/` + registro em `tui/completer.py`.
 - **Custos reais:** nenhuma chamada paga a provedor roda em teste automático; use opt-in `ORION_LIVE=1` e respeite o teto de `BudgetGuard`.

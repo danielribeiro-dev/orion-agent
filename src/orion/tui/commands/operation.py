@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import platform
 import shutil
 from typing import Any
@@ -63,6 +62,12 @@ def _anthropic_status(home: Any) -> Any:
     return inspect_anthropic_key(home)
 
 
+def _openrouter_status(home: Any) -> tuple[bool, str]:
+    from orion.gateway.credentials import openrouter_key_status
+
+    return openrouter_key_status(home)
+
+
 class DoctorCommand(BaseSlashCommand):
     name = "/doctor"
     description = "Diagnóstico do ambiente: Python, hardware, Ollama e chaves"
@@ -74,11 +79,7 @@ class DoctorCommand(BaseSlashCommand):
             ("Python", True, platform.python_version()),
             ("Git", shutil.which("git") is not None, shutil.which("git") or "não encontrado"),
             ("ANTHROPIC_API_KEY", _anthropic_status(session.home).ok, _anthropic_status(session.home).detail),
-            (
-                "OPENROUTER_API_KEY",
-                bool(os.environ.get("OPENROUTER_API_KEY")),
-                "configurada" if os.environ.get("OPENROUTER_API_KEY") else "ausente",
-            ),
+            ("OPENROUTER_API_KEY", *_openrouter_status(session.home)),
         ]
         try:
             from orion.gateway.providers.local_ollama import LocalOllamaProvider
