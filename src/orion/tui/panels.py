@@ -295,7 +295,12 @@ def describe_action(tool: str, params: dict[str, Any]) -> tuple[str, str, str]:
 
 
 def render_pep_dialog(
-    tool: str, params: dict[str, Any], level: ActionLevel, reason: str | None = None
+    tool: str,
+    params: dict[str, Any],
+    level: ActionLevel,
+    reason: str | None = None,
+    *,
+    show_keys: bool = True,
 ) -> Group:
     """Blueprint D: autorização operacional."""
     action, target, impact = describe_action(tool, params)
@@ -325,7 +330,8 @@ def render_pep_dialog(
     if not reason:  # escalada vale uma vez: nunca "sempre"
         keys.append("[a]", style="pep_warn")
         keys.append(" Sempre Permitir (salva regra local)", style="text_dim")
-    return Group(orion_panel(body, title, border=ORION_COLORS["pep_warn"]), keys)
+    panel = orion_panel(body, title, border=ORION_COLORS["pep_warn"])
+    return Group(panel, keys) if show_keys else Group(panel)
 
 
 def render_question(

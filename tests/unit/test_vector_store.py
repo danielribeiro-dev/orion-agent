@@ -27,6 +27,7 @@ from orion.memory.models import VectorRecord
 from orion.memory.vector_store import (
     _DEDUP_THRESHOLD,
     _EMBED_DIM,
+    EmbeddingModelUnavailable,
     VectorStore,
     _cosine_similarity,
     _cosine_similarity_batch,
@@ -43,6 +44,10 @@ from orion.memory.vector_store import (
 async def store(tmp_path: Path) -> VectorStore:  # type: ignore[misc]
     """A fresh VectorStore backed by a temporary SQLite file."""
     vs = VectorStore(db_path=tmp_path / "test_timeline.db")
+    try:
+        vs._get_model()  # noqa: SLF001
+    except EmbeddingModelUnavailable:
+        pytest.skip("modelo de embeddings não instalado: testes não baixam nada (ADR-040)")
     await vs.initialize()
     yield vs
     await vs.close()

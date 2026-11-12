@@ -148,12 +148,14 @@ def create_prompt(status_bar: SessionStatusBar, session: AgentSession) -> Intera
         on_expand_reasoning=renderer.expand_reasoning,
         on_expand_output=renderer.expand_output,
     )
-    return InteractivePrompt(
+    prompt = InteractivePrompt(
         status_bar=status_bar,
         custom_key_bindings=bindings,
         dynamic_commands=session.dynamic_slash_infos,
         mcp_resources=session.mcp_resource_choices,
     )
+    prompt.renderer = renderer
+    return prompt
 
 
 def run_interactive_repl(prompt: InteractivePrompt, session: AgentSession) -> None:
@@ -193,7 +195,9 @@ def run_interactive_repl(prompt: InteractivePrompt, session: AgentSession) -> No
                     style = "text_dim" if result.success else "diff_del"
                     console.print(Text(result.output_message, style=style))
             else:
-                asyncio.run(prompt.run_turn(session.run_turn(cleaned), session.session_id))
+                asyncio.run(
+                    prompt.run_turn(session.run_turn(cleaned), session.session_id, typeahead=True)
+                )
             console.print()
 
         except EOFError:
@@ -205,7 +209,7 @@ def run_interactive_repl(prompt: InteractivePrompt, session: AgentSession) -> No
                 console.print("\n[text_dim]● Até logo, Senhor. Sessão finalizada.[/text_dim]\n")
                 break
             last_ctrl_c = now
-            console.print("\n[text_dim]Pressione Ctrl+C novamente para sair (ou digite /exit)[/text_dim]\n")
+            console.print("\n[text_dim]Ctrl+C de novo para sair (ou /exit)[/text_dim]\n")
 
 
 # ---------------------------------------------------------------------------

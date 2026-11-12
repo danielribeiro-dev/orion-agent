@@ -14,7 +14,10 @@ ADR-012: FastEmbed bge-small-en-v1.5 & RRF Hybrid Fusion
 from __future__ import annotations
 
 import json
+import logging
+import os
 import struct
+import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -31,6 +34,73 @@ _DEFAULT_DB_PATH = Path.home() / ".orion" / "timeline.db"
 _EMBED_MODEL = "BAAI/bge-small-en-v1.5"
 _EMBED_DIM = 384
 _DEDUP_THRESHOLD = 0.92  # Cosine similarity threshold for deduplication
+_MODELS_SUBDIR = Path("models") / "fastembed"
+EMBED_MODEL_SIZE_MB = 67
+
+logger = logging.getLogger(__name__)
+
+
+class EmbeddingModelUnavailable(RuntimeError):
+    """O modelo de embeddings não está em cache e o download não foi autorizado (ADR-040)."""
+
+
+def _quiet_fastembed() -> None:
+    """Sem barras tqdm, telemetria ou logs do loguru no terminal: a TUI é do ORION."""
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+    try:
+        from loguru import logger as loguru_logger
+
+        loguru_logger.disable("fastembed")
+    except ImportError:  # pragma: no cover - loguru vem com o fastembed
+        pass
+
+
+def default_model_cache(db_path: Path) -> Path:
+    """Cache persistente do modelo, ao lado dos dados do ORION (``~/.orion/models/fastembed``)."""
+    return db_path.parent / _MODELS_SUBDIR
+
+
+def load_embedding_model(cache_dir: Path, *, local_only: bool = True) -> Any:
+    """Carrega o modelo **sem rede** por padrão (ADR-040).
+
+    Procura primeiro no cache do ORION e depois no cache padrão do fastembed (instalações
+    antigas, ``FASTEMBED_CACHE_PATH`` ou ``/tmp/fastembed_cache``). Sem modelo, levanta
+    ``EmbeddingModelUnavailable`` na hora, sem tentar baixar.
+    """
+    _quiet_fastembed()
+    from fastembed import TextEmbedding
+
+    candidates: list[str | None] = [str(cache_dir)] if not local_only else [str(cache_dir), None]
+    last: Exception | None = None
+    for candidate in candidates:
+        try:
+            with warnings.catch_warnings():  # aviso de barra de progresso iria para o stderr
+                warnings.simplefilter("ignore")
+                return TextEmbedding(
+                    model_name=_EMBED_MODEL, cache_dir=candidate, local_files_only=local_only
+                )
+        except Exception as exc:  # noqa: BLE001 - fastembed levanta ValueError/OSError/etc.
+            last = exc
+    raise EmbeddingModelUnavailable(
+        f"modelo {_EMBED_MODEL} não está em cache em {cache_dir}"
+    ) from last
+
+
+def install_embedding_model(cache_dir: Path) -> Path:
+    """Baixa o modelo para *cache_dir* (só por comando explícito do Senhor). Bloqueante."""
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    load_embedding_model(cache_dir, local_only=False)
+    return cache_dir
+
+
+def embedding_model_installed(cache_dir: Path) -> bool:
+    """True se o modelo carrega do cache local (sem rede)."""
+    try:
+        load_embedding_model(cache_dir)
+    except EmbeddingModelUnavailable:
+        return False
+    return True
 
 _VECTOR_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS vector_embeddings (
@@ -91,10 +161,18 @@ class VectorStore:
         await store.close()
     """
 
-    def __init__(self, db_path: Path = _DEFAULT_DB_PATH) -> None:
+    def __init__(
+        self,
+        db_path: Path = _DEFAULT_DB_PATH,
+        *,
+        local_only: bool = True,
+        cache_dir: Path | None = None,
+    ) -> None:
         self._db_path = db_path
         self._conn: aiosqlite.Connection | None = None
         self._model: Any | None = None  # fastembed.TextEmbedding (lazy loaded)
+        self._local_only = local_only
+        self.model_cache_dir = cache_dir or default_model_cache(db_path)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -109,11 +187,12 @@ class VectorStore:
         await self._conn.commit()
 
     def _get_model(self) -> Any:
-        """Lazy-load the FastEmbed model on first use (downloads on first call)."""
-        if self._model is None:
-            from fastembed import TextEmbedding
+        """Carrega o modelo na primeira vez; sem cache levanta ``EmbeddingModelUnavailable``.
 
-            self._model = TextEmbedding(model_name=_EMBED_MODEL)
+        Download só com ``local_only=False`` (comando explícito do Senhor, ADR-040).
+        """
+        if self._model is None:
+            self._model = load_embedding_model(self.model_cache_dir, local_only=self._local_only)
         return self._model
 
     async def close(self) -> None:

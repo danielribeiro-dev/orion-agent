@@ -65,6 +65,15 @@ def create_key_bindings(
         else:
             event.app.exit(result="")
 
+    @kb.add("escape", filter=has_completions, eager=True)
+    def _close_menu(event: KeyPressEvent) -> None:
+        """Esc com o menu aberto fecha o menu e mantém o texto (V-15).
+
+        ``eager``: sem isso o Esc fica preso como prefixo dos atalhos Alt+tecla até a próxima
+        tecla chegar. As setas não são afetadas (chegam já decodificadas pelo parser).
+        """
+        event.current_buffer.cancel_completion()
+
     @kb.add("escape", "enter")
     def _handle_alt_enter(event: KeyPressEvent) -> None:
         """Permite quebra de linha (Alt+Enter / Meta+Enter) para colar código ou prompt multilinha."""
@@ -104,5 +113,8 @@ def create_key_bindings(
     _bind_state(("escape", "o"), on_toggle_fast)
     _bind_print(("escape", "r"), on_expand_reasoning)
     _bind_print(("escape", "e"), on_expand_output)
+    # Alt+Shift: o mesmo atalho com Shift não pode virar texto no prompt (V-14).
+    _bind_print(("escape", "R"), on_expand_reasoning)
+    _bind_print(("escape", "E"), on_expand_output)
 
     return kb

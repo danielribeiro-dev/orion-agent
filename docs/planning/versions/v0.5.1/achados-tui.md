@@ -39,10 +39,24 @@
 | Duração total do turno | 13,1 a 13,8 s | não piorar mais que 10% |
 | Atualizações de tela | ~12 por segundo (153 em 13 s) | 10 a 12 por segundo, sem pausa maior que 300 ms após o primeiro token |
 | Maior pausa no stream | 0,7 a 1,2 s (início do turno) | <= 1,2 s |
-| CPU do ORION durante o stream | 2,1 a 2,8 s em 13 s (~20% de um núcleo) | <= baseline × 1,2 (gate) e investigar redução (ver Sprint 1, tarefa 1A.4) |
+| CPU do ORION durante o stream | ~10% de um núcleo (medido no lab; os ~20% da sonda inicial estavam superestimados) | <= baseline × 1,2 (gate); sem otimização na Sprint 1 (1A.4) |
 | Primeira mensagem da instalação | +16 s (download) | 0 s de rede; BM25 até haver modelo em cache |
 | Pausa de 6 s no stream | tela muda 13 vezes, sem aviso de travamento | aviso discreto após 5 s sem token (`sem resposta há 5s`) |
 
 ## Não testado (entra como tarefa das sprints)
 
 Modelo real do OpenRouter (`ORION_LIVE=1`, teto 15 das 50 req diárias), colar texto multilinha, `/model` e `/config` interativos, tema claro, reflow real do histórico num terminal gráfico (Ghostty, Kitty, GNOME Terminal) e fonte de glifos ausentes.
+
+## Resolução da Sprint 1 (11/11/2026)
+
+| ID | Estado | Nota |
+|:---|:---|:---|
+| V-05, V-06 | corrigido | Causa: filtro `renderer_height_is_known` da barra do `PromptSession`. Status line em janela própria; aviso de CPR removido |
+| V-09 | corrigido | Só cache local; sem modelo, BM25 + aviso único; `/memory model install` com consentimento. Cache passa a `~/.orion/models/fastembed` (o padrão em `/tmp` some no reboot) |
+| V-10 | corrigido | Duas causas: parte viva maior que a tela e corrida do Rich entre refresh e print. Janela de cauda + print sob o lock do Live |
+| V-11 | corrigido (spike adotado) | `TypeAhead` em `cbreak`, eco na parte viva, fila e texto incompleto devolvido ao prompt |
+| V-12 | corrigido | Tempo pausado pelo modal descontado |
+| V-13 | corrigido | Decisão registrada; status line visível no modal; nível exibido é o real |
+| V-14, V-15, V-16 | corrigido | Cabeçalho na expansão e aliases; Esc `eager` fecha o menu; prompt alinhado ao fundo e aviso de Ctrl+C |
+| V-17 | **falso positivo** | Cenário passou no código antigo; mantido como regressão |
+| V-01 a V-04, V-07, V-08 | Sprint 2 | Visual |

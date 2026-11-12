@@ -1,6 +1,6 @@
 # Spec — v0.5.1 Horizon (Identidade Visual e Estabilidade da TUI)
 
-> **Status:** 🔄 Em Execução — spec congelada e aprovada pelo Senhor em 11/11/2026; Sprint 1 iniciada  
+> **Status:** 🔄 Em Execução — spec aprovada em 11/11/2026; Sprint 1 implementada; Sprint 2 a iniciar  
 > **Criada em:** 2026-11-11  
 > **Concluída em:** —  
 > **Autor(es):** Daniel Dev & Claude (Pair Programming)  
@@ -50,7 +50,7 @@ A rodada manual de 09/11 empurrou toda a interface para esta versão (`rascunho-
 
 | Sprint | Nome da Sprint | Objetivo Principal | Documento | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Sprint 1** | Harness e Bugs Dinâmicos | `tests/lab/` com provider roteirizado; corrigir V-05, V-06, V-09 a V-17 antes de mexer no visual | [`sprint-1.md`](sprints/sprint-1.md) | 🔄 Em execução |
+| **Sprint 1** | Harness e Bugs Dinâmicos | `tests/lab/` com provider roteirizado; corrigir V-05, V-06, V-09 a V-17 antes de mexer no visual | [`sprint-1.md`](sprints/sprint-1.md) | ✅ Implementada (rodada com modelo real pendente) |
 | **Sprint 2** | Horizon Visual | Tokens, banner, prompt, menu, ferramentas, diff, PEP, status line, larguras, fallback de cor; V-01 a V-04, V-07, V-08 | [`sprint-2.md`](sprints/sprint-2.md) | 📋 Planejando |
 
 Ordem deliberada: **primeiro os testes e os bugs, depois a pintura**. A Sprint 2 usa o harness da Sprint 1 como rede de segurança.
@@ -81,14 +81,14 @@ docs/design/horizon/*.txt                            [novo] telas de referência
 
 | ID | Cenário | Comportamento Esperado | Como Validar | Status |
 |:---|:---|:---|:---|:---|
-| CA-01 | Primeiro envio sem rede | Nenhum acesso à rede, nenhuma barra de progresso; recall cai no BM25 e avisa uma vez | `pytest -m lab tests/lab/scenarios/test_first_turn_offline.py` | ⏳ |
-| CA-02 | Resposta longa | 10 a 12 atualizações/s, pausa <= 300 ms após o primeiro token, CPU <= baseline × 1,2, sem quadro duplicado | `pytest -m lab tests/lab/scenarios/test_stream_cadence.py` | ⏳ |
-| CA-03 | Cancelar com Ctrl+C | O texto já visível permanece no histórico; mensagem de interrupção; prompt volta limpo | `pytest -m lab tests/lab/scenarios/test_cancel_keeps_text.py` | ⏳ |
-| CA-04 | Tempo de ferramenta | Não inclui a espera da aprovação | `pytest tests/unit/test_stream_renderer.py` | ⏳ |
-| CA-05 | Modal PEP | Decisão registrada sob o modal; status line visível; nível igual ao do PEP | `pytest -m lab tests/lab/scenarios/test_pep_modal.py` | ⏳ |
-| CA-06 | Menu de comandos | Esc fecha; seleção com fundo; ordem por categoria; rodapé de atalhos; sem resíduo após Ctrl+C | `pytest -m lab tests/lab/scenarios/test_menu.py` | ⏳ |
+| CA-01 | Primeiro envio sem rede | Nenhum acesso à rede, nenhuma barra de progresso; recall cai no BM25 e avisa uma vez | `pytest -m lab tests/lab/scenarios/test_first_turn_offline.py` | ✅ |
+| CA-02 | Resposta longa | 10 a 12 atualizações/s, pausa <= 300 ms após o primeiro token, CPU <= baseline × 1,2, sem quadro duplicado | `pytest -m lab tests/lab/scenarios/test_stream.py::test_long_answer_cadence` | ✅ |
+| CA-03 | Cancelar com Ctrl+C | O texto já visível permanece no histórico; mensagem de interrupção; prompt volta limpo | `pytest -m lab tests/lab/scenarios/test_stream.py::test_cancel_keeps_text_already_shown` | ✅ |
+| CA-04 | Tempo de ferramenta | Não inclui a espera da aprovação | `pytest tests/unit/test_tui_stability.py` + `test_tools_and_pep.py` | ✅ |
+| CA-05 | Modal PEP | Decisão registrada sob o modal; status line visível; nível igual ao do PEP | `pytest -m lab tests/lab/scenarios/test_tools_and_pep.py` | ✅ |
+| CA-06 | Menu de comandos | Esc fecha; seleção com fundo; ordem por categoria; rodapé de atalhos; sem resíduo após Ctrl+C | `pytest -m lab tests/lab/scenarios/test_prompt_keys.py` | ⏳ Esc/Ctrl+C ✅ (Sprint 1); visual na Sprint 2 |
 | CA-07 | Banner e larguras | 110, 80 e 60 colunas sem corte; dica cabe; sem vão entre banner e prompt | `pytest -m lab tests/lab/scenarios/test_layout_widths.py` + golden em `docs/design/horizon/` | ⏳ |
-| CA-08 | Rodapé sem CPR | Status line aparece mesmo com terminal que não responde CPR | `pytest -m lab tests/lab/scenarios/test_footer_no_cpr.py` | ⏳ |
+| CA-08 | Rodapé sem CPR | Status line aparece mesmo com terminal que não responde CPR | `pytest -m lab tests/lab/scenarios/test_prompt_keys.py::test_footer_without_cpr` | ✅ |
 | CA-09 | Tokens e glifos | Só cores de `ORION_COLORS`; nenhum emoji novo; `−` só no diff | `pytest tests/unit/test_theme.py` + `grep` do checklist de `CLI_AGENT_RULES.md` §4 | ⏳ |
 | CA-10 | Degradação de cor | Sem truecolor, mapeia para 256 cores; `NO_COLOR` respeitado; hierarquia legível | `pytest tests/unit/test_theme.py` | ⏳ |
 | CA-11 | Sem regressão | Suíte da v0.5.0 passa; réguas F-07/F-08 sem linhas fantasma | `pytest tests/` + cenários do lab | ⏳ |

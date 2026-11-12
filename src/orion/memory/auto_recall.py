@@ -23,7 +23,7 @@ from orion.memory.facts_store import FactsStore
 from orion.memory.hybrid_retriever import HybridRetriever
 from orion.memory.models import FactStatus, HybridSearchResult, TimelineRecord, VectorRecord
 from orion.memory.timeline import TimelineManager
-from orion.memory.vector_store import VectorStore
+from orion.memory.vector_store import EmbeddingModelUnavailable, VectorStore
 
 logger = logging.getLogger(__name__)
 
@@ -105,10 +105,34 @@ class AutoRecall:
         self._vector_factory = vector_factory or (lambda path: VectorStore(path))
         self._model: Any = None  # modelo de embeddings reaproveitado entre turnos
         self._semantic = True
+        self._notice: str | None = None
+        self._notice_given = False
 
     @property
     def enabled(self) -> bool:
         return self._enabled
+
+    def _disable_semantic(self, exc: Exception) -> None:
+        """Desliga a busca vetorial; se faltar o modelo, prepara um aviso único (ADR-040)."""
+        self._semantic = False
+        if isinstance(exc, EmbeddingModelUnavailable) and not self._notice_given:
+            self._notice = (
+                "Memória semântica desligada: o modelo de embeddings não está instalado e o "
+                "ORION não baixa nada sem pedir. Busca por palavras (BM25) segue ativa. "
+                "Instale com /memory model install."
+            )
+
+    def enable_semantic(self) -> None:
+        """Religa a busca vetorial (ex.: depois de ``/memory model install``)."""
+        self._semantic = True
+        self._model = None
+
+    def take_notice(self) -> str | None:
+        """Aviso pendente para o Senhor, entregue uma única vez por sessão."""
+        notice, self._notice = self._notice, None
+        if notice is not None:
+            self._notice_given = True
+        return notice
 
     # ── Recall ──
 
@@ -184,7 +208,7 @@ class AutoRecall:
                 )
             except Exception as exc:  # noqa: BLE001 - sem modelo de embeddings: só BM25
                 logger.info("AutoRecall: busca vetorial indisponível (%s); usando BM25.", exc)
-                self._semantic = False
+                self._disable_semantic(exc)
                 result = await HybridRetriever(safe, _NoVectors(), token_budget=budget).retrieve(  # type: ignore[arg-type]
                     query, limit=limit, token_budget=budget
                 )
@@ -234,7 +258,7 @@ class AutoRecall:
             self._model = getattr(vectors, "_model", None)
         except Exception as exc:  # noqa: BLE001
             logger.info("AutoRecall: indexação vetorial desligada (%s).", exc)
-            self._semantic = False
+            self._disable_semantic(exc)
         finally:
             await _close(vectors)
 

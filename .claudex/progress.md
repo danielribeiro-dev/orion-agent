@@ -233,7 +233,9 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
 - [ ] **v0.5.1 Horizon (spec em rascunho, 11/11/2026)** — identidade visual + bugs de TUI no mesmo pacote; ADR-039/040/041 propostos; `docs/planning/versions/v0.5.1/` e `docs/design/horizon/`
   - [x] Análise visual (Figma lido, ORION real capturado, comparativo Claude Code/Hermes) e testes dinâmicos (sonda pty+pyte, provider roteirizado, custo zero): V-01 a V-17 em `achados-tui.md`
   - [x] Docs: `VERSION.md`, `sprint-1.md` (harness + bugs), `sprint-2.md` (visual), `CLI_DESIGN_SYSTEM.md` §7, nota na regra 3 de `CLI_AGENT_RULES.md`, telas de referência `docs/design/horizon/*.txt`
-  - [ ] Aprovação do Senhor (spec e ADRs) e comando de início da Sprint 1; rodada com OpenRouter free (<= 15 req, `ORION_LIVE=1`); mock no Figma quando houver cota
+  - [x] Spec e ADR-039/040/041 aprovados (11/11/2026); commit `5e408b0` na branch `feat/v0.5.1-sprint-1`
+  - [x] **Sprint 1 (Harness e Bugs Dinâmicos) implementada (11/11/2026):** `tests/lab/` (pty + pyte, `ScriptedProvider`, `NetworkTrap`, sondas, 15 cenários, `pytest -m lab`); corrigidos V-05, V-06, V-09 a V-16 e o aviso de travamento; V-17 era falso positivo. Detalhes e provas em `sprint-1.md` §8.1
+  - [ ] Sprint 2 (Horizon Visual); rodada com OpenRouter free (<= 15 req, `ORION_LIVE=1`, falta a chave); mock no Figma quando houver cota
 - [ ] Pendências herdadas da v0.4.0: tags `v0.3.0`/`v0.4.0` e merge em `main`; validar turno com provedor real; repetir A/B de MCP com modelo pago
 
 ---

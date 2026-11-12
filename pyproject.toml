@@ -51,6 +51,7 @@ dogfood = [
 ]
 dev = [
     "pytest>=8.0",
+    "pyte>=0.8",
     "pytest-cov>=5.0",
     "pytest-asyncio>=0.23",
     "ruff>=0.4",
@@ -63,8 +64,11 @@ packages = ["src/orion"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--tb=short -q -m 'not live'"
-markers = ["live: chama provedor real e gasta tokens (opt-in: ORION_LIVE=1 pytest -m live)"]
+addopts = "--tb=short -q -m 'not live and not lab'"
+markers = [
+    "live: chama provedor real e gasta tokens (opt-in: ORION_LIVE=1 pytest -m live)",
+    "lab: ORION real num pty com provider roteirizado, sem rede (opt-in: pytest -m lab)",
+]
 
 [tool.ruff]
 line-length = 100

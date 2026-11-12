@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from rich.text import Text
 
 from orion.tui.commands.base import BaseSlashCommand, CommandContext, CommandResult
@@ -25,9 +27,12 @@ class LearnCommand(BaseSlashCommand):
 class MemoryCommand(BaseSlashCommand):
     name = "/memory"
     description = "Inspeciona as 5 Esferas Cognitivas"
-    usage = "/memory"
+    usage = "/memory [model [install]]"
 
     async def execute(self, args: str, context: CommandContext) -> CommandResult:
+        words = args.split()
+        if words[:1] == ["model"]:
+            return await self._model(words[1:], context)
         session = context.session
         persona = session.identity.get_identity().persona_name if session.identity else "—"
         try:
@@ -69,6 +74,39 @@ class MemoryCommand(BaseSlashCommand):
         context.console.print(render_memory(rows))
         context.console.print(key_hints(("/timeline", "Linha do Tempo"), ("/recall", "Buscar")))
         return CommandResult(success=True, data=rows)
+
+
+    async def _model(self, words: list[str], context: CommandContext) -> CommandResult:
+        """Modelo de embeddings: estado ou instalação explícita (ADR-040: rede só com pedido)."""
+        from orion.memory.vector_store import (
+            EMBED_MODEL_SIZE_MB,
+            default_model_cache,
+            embedding_model_installed,
+            install_embedding_model,
+        )
+
+        session = context.session
+        cache = default_model_cache(session.home / "timeline.db")
+        installed = await asyncio.to_thread(embedding_model_installed, cache)
+        if words[:1] != ["install"]:
+            state = "instalado" if installed else "não instalado (memória semântica desligada)"
+            message = f"● Modelo de embeddings: {state} · {cache}"
+            if not installed:
+                message += f"\n  › /memory model install baixa ~{EMBED_MODEL_SIZE_MB} MB uma única vez."
+            return CommandResult(success=True, output_message=message)
+        if installed:
+            return CommandResult(success=True, output_message="✔ Modelo de embeddings já instalado.")
+        with context.console.status(
+            f"Baixando o modelo de embeddings (~{EMBED_MODEL_SIZE_MB} MB)…", spinner="dots"
+        ):
+            try:
+                await asyncio.to_thread(install_embedding_model, cache)
+            except Exception as exc:  # noqa: BLE001 - rede/disco: mensagem, nunca traceback
+                return CommandResult(success=False, output_message=f"✖ Falha ao baixar o modelo: {exc}")
+        enable = getattr(session.recall, "enable_semantic", None)
+        if callable(enable):
+            enable()
+        return CommandResult(success=True, output_message="✔ Modelo instalado. Memória semântica ligada.")
 
 
 class TimelineCommand(BaseSlashCommand):

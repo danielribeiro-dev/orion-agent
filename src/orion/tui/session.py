@@ -1278,8 +1278,11 @@ class AgentSession:
         if asker is None:
             from orion.tui.modal import ask_pep_decision
 
+            status = getattr(self.renderer, "status_renderable", None)
+
             async def asker(act: Action, lvl: ActionLevel) -> Any:
-                return await ask_pep_decision(self.console, act, lvl, reason)
+                footer = status() if callable(status) else None
+                return await ask_pep_decision(self.console, act, lvl, reason, footer)
 
         self.renderer.pause()
         try:
@@ -1383,6 +1386,7 @@ class AgentSession:
         if self._turn_images and self._resolve_model()[0].provider != ProviderName.ANTHROPIC:
             self.renderer.warn("Imagem anexada ignorada: apenas modelos Anthropic recebem imagens.")
         recalled = await self.recall.recall(text, self.session_id)
+        self._show_recall_notice()
         self.last_recall_tokens = estimate_tokens(recalled) if recalled else 0
         if background := self._take_model_notes():
             recalled = f"{recalled}\n\n{background}".strip() if recalled else background
@@ -1437,7 +1441,15 @@ class AgentSession:
         self.branches.record_event(answer[:200], event_type="observation")
         await self._log_timeline("assistant", "agent", answer)
         await self.recall.remember(f"Pedido: {text}\nResposta: {answer[:800]}", self.session_id)
+        self._show_recall_notice()
         return answer
+
+    def _show_recall_notice(self) -> None:
+        """Aviso único da memória (ex.: modelo de embeddings ausente, ADR-040)."""
+        take = getattr(self.recall, "take_notice", None)
+        notice = take() if callable(take) else None
+        if notice:
+            self.renderer.warn(notice)
 
     async def run_subagent(
         self, agent: str, goal: str, context: str = "", *, origin: Origin = "subagent"

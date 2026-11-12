@@ -21,7 +21,7 @@ from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import Window
 from prompt_toolkit.layout.controls import FormattedTextControl
-from rich.console import Console, RenderableType
+from rich.console import Console, Group, RenderableType
 from rich.text import Text
 
 from orion.core.events import Action
@@ -199,14 +199,24 @@ class ConfigPanel:
 class PepChoice:
     """Blueprint D: decisão de uma tecla."""
 
-    def __init__(self, action: Action, level: ActionLevel, reason: str | None = None) -> None:
+    def __init__(
+        self,
+        action: Action,
+        level: ActionLevel,
+        reason: str | None = None,
+        footer: RenderableType | None = None,
+    ) -> None:
         self.action = action
         self.level = level
         self.reason = reason
+        self.footer = footer
         self.choice = "n"
 
     def render(self) -> RenderableType:
-        return render_pep_dialog(self.action.tool, self.action.params, self.level, self.reason)
+        dialog = render_pep_dialog(self.action.tool, self.action.params, self.level, self.reason)
+        if self.footer is None:
+            return dialog
+        return Group(dialog, Text(""), self.footer)
 
     def on_key(self, key: str) -> bool:
         lowered = key.lower()
@@ -224,18 +234,47 @@ class PepChoice:
 
 
 async def ask_pep_decision(
-    console: Console, action: Action, level: ActionLevel, reason: str | None = None
+    console: Console,
+    action: Action,
+    level: ActionLevel,
+    reason: str | None = None,
+    footer: RenderableType | None = None,
 ) -> Any:
-    """Exibe o diálogo; sem terminal interativo a ação é negada."""
-    picker = PepChoice(action, level, reason)
-    await run_modal(picker, console, keep_on_screen=True)
+    """Exibe o diálogo; sem terminal interativo a ação é negada.
+
+    Enquanto o modal está aberto a linha de status continua visível (*footer*). Ao decidir, o
+    histórico guarda o diálogo sem as teclas e a decisão do Senhor (V-13).
+    """
+    interactive = is_interactive()
+    picker = PepChoice(action, level, reason, footer if interactive else None)
+    await run_modal(picker, console, keep_on_screen=not interactive)
+    if interactive:
+        console.print(
+            render_pep_dialog(action.tool, action.params, level, reason, show_keys=False)
+        )
     if picker.choice != "e":
+        _print_decision(console, picker.choice)
         return picker.choice
     session: PromptSession[str] = PromptSession()
     edited = await session.prompt_async("❯ ", default=str(action.params.get("command", "")))
     if not edited.strip():
+        _print_decision(console, "n")
         return "n"
+    _print_decision(console, "e", edited.strip())
     return {**action.params, "command": edited.strip()}
+
+
+def _print_decision(console: Console, choice: str, edited: str = "") -> None:
+    line = Text("  ")
+    if choice in ("y", "a", "e"):
+        line.append("✔ aprovado", style="status_ok")
+        if choice == "a":
+            line.append(" · sempre permitir", style="text_dim")
+        elif choice == "e":
+            line.append(f" · editado: {edited}", style="text_dim")
+    else:
+        line.append("✖ negado", style="diff_del")
+    console.print(line)
 
 
 class AskChoice:
