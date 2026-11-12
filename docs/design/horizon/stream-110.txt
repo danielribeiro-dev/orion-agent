@@ -1,0 +1,34 @@
+❯ adicione o streaming ao vivo sem quebrar a rolagem do terminal
+
+▼ Raciocínio · 4,1s   Alt+R expande
+
+Vou trocar a impressão direta por Rich.Live no StreamRenderer, mantendo a saída em stdout contínuo.
+
+✔ Read  src/orion/tui/stream_renderer.py  ·  0,1s
+  › 212 linhas
+✔ Edit  src/orion/tui/stream_renderer.py  ·  0,2s
+  › +6 −3
+╭─ src/orion/tui/stream_renderer.py  +6 −3 ──────────────────────────────────────────────────────────────────╮
+│ @@ -41,5 +41,8 @@ class StreamRenderer                                                                     │
+│  41  41    async def consume(self, tokens: AsyncIterator[str]) -> None:                                    │
+│  42     −      buffer = ""                                                                                 │
+│  43     −      async for token in tokens:                                                                  │
+│      42 +      self._buffer = StringIO()                                                                   │
+│      43 +      with Live(console=self.console, refresh_per_second=12) as live:                             │
+│      44 +          async for token in tokens:                                                              │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+✔ Bash  pytest tests/unit/test_stream_renderer.py  ·  1,4s  ·  exit 0
+  │ ============ test session starts ============
+  │ collected 14 items
+  │ +9 linhas ocultas  ·  Alt+E expande
+  │ ======= 14 passed in 1.38s =======
+
+Pronto.
+· consume() agora atualiza o Markdown a cada token, 12 vezes por segundo.
+
+⠋ Bash  ruff check src/orion/tui  ·  3s  ·  Ctrl+C cancela
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ digite sua instrução…
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+accept-edits · claude-sonnet-5-5 · 24% ctx · $0.088 · PEP 2 · Working ●

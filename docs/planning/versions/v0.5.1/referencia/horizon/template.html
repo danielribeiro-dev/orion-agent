@@ -1,0 +1,153 @@
+<title>ORION Horizon</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: leitura em coluna única; terminais em grade de células (1ch) com rolagem própria. Dark único, como o produto. */
+:root {
+  --bg: #0B0E14; --panel: #151B23; --line: #262F3D; --text: #E6EDF3; --dim: #8B949E; --faint: #7D8590;
+  --cyan: #00D2FF; --blue: #3A7BD5; --ok: #3FB950; --bad: #F85149; --warn: #D29922;
+  --mono: "JetBrains Mono", ui-monospace, "DejaVu Sans Mono", monospace;
+  --sans: "Inter", system-ui, sans-serif;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--text); font: 15px/1.6 var(--sans); padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width: 960px; margin: 0 auto; display: grid; gap: 56px; }
+h1, h2, h3 { font-weight: 600; line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: 34px; } h2 { font-size: 22px; } h3 { font-size: 15px; color: var(--cyan); font-family: var(--mono); font-weight: 700; }
+p { margin: 0; max-width: 68ch; } .dim { color: var(--dim); } code { font-family: var(--mono); font-size: .9em; color: var(--cyan); }
+section { display: grid; gap: 18px; min-width: 0; }
+.kick { font-family: var(--mono); font-size: 12px; color: var(--faint); letter-spacing: .08em; text-transform: uppercase; }
+.note { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 14px 16px; display: grid; gap: 6px; }
+.note b { color: var(--warn); font-weight: 600; }
+.term { margin: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; min-width: 0; }
+.term .bar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); font: 12px var(--mono); color: var(--faint); }
+.term .bar b { width: 10px; height: 10px; border-radius: 50%; background: var(--line); } .term .bar span { margin-left: 8px; }
+.scr { font: 400 13px/1.55 var(--mono); padding: 12px 0 12px 12px; overflow-x: auto; background: var(--bg); }
+.ln { white-space: pre; width: max-content; min-width: 100%; } .ln i { font-style: normal; display: inline-block; width: 1ch; text-align: center; }
+.pair { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.cap { font: 12px var(--mono); color: var(--faint); margin-bottom: 6px; display: block; }
+.before img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 8px; }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 12px var(--mono); color: var(--faint); letter-spacing: .06em; text-transform: uppercase; background: var(--panel); }
+tr:last-child td { border-bottom: 0; } td:first-child { font-family: var(--mono); color: var(--cyan); white-space: nowrap; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--line); vertical-align: -1px; margin-right: 8px; }
+ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 72ch; }
+.ask li::marker { color: var(--cyan); }
+</style>
+
+<main>
+<header style="display:grid;gap:14px">
+  <span class="kick">O.R.I.O.N · v0.5.1 · proposta visual, nada em src/ foi alterado</span>
+  <h1>ORION Horizon</h1>
+  <p>Mantém a paleta Deep Cosmos e o bloco Stellar do Figma. Corrige o que o terminal real mostrou de errado e aproxima o conjunto do que Claude Code e Hermes já fazem bem: menos moldura, mais hierarquia.</p>
+  <div class="note"><b>Como ler esta página</b>
+    <p>Cada tela abaixo é uma grade de células (fonte monoespaçada, 1 caractere = 1 célula), gerada de um único arquivo de dados. As mesmas cores e textos foram renderizados no terminal real com truecolor, então o que você vê é o que Rich e prompt_toolkit conseguem desenhar.</p>
+    <p class="dim">O Figma recusou escritas nesta sessão (limite de chamadas do plano Starter), então o mock Horizon ainda não está lá. A grade pode ser enviada ao arquivo quando a cota voltar. As telas atuais do Figma não foram tocadas.</p></div>
+</header>
+
+<section>
+  <span class="kick">Antes e depois</span><h2>Splash, 110 colunas</h2>
+  <div class="pair">
+    <div class="before"><span class="cap">ANTES · captura real do orion-agent</span><img alt="Splash atual do ORION" src="{{before_splash}}"></div>
+    <div><span class="cap">DEPOIS · Horizon</span>{{01-splash-110}}</div>
+  </div>
+  <ul>
+    <li>Logo à esquerda e informação à direita: o banner cai de cerca de 16 linhas para 9, e o prompt fica logo abaixo, sem o vão vazio.</li>
+    <li>Seis badges viram duas linhas. Cada dado tem uma cor com função: verde online, âmbar governança, cinza o resto.</li>
+    <li>Gradiente vertical no logo (cyan para azul Órion) e a dica cabe na largura, com variante curta em 80 colunas.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="kick">Antes e depois</span><h2>Menu de comandos</h2>
+  <div class="pair">
+    <div class="before"><span class="cap">ANTES · captura real</span><img alt="Menu de autocomplete atual" src="{{before_menu}}"></div>
+    <div><span class="cap">DEPOIS · Horizon</span>{{02-autocomplete}}</div>
+  </div>
+  <ul>
+    <li>Linha selecionada com fundo próprio, nome em ciano negrito e <code>❯</code> à esquerda. Hoje a seleção só muda a cor do texto.</li>
+    <li>Descrição em cinza, categoria alinhada à direita e rodapé com atalhos e posição (<code>2/23</code>) no lugar das setas ASCII <code>^</code> e <code>v</code>.</li>
+    <li>Ordem estável por categoria: hoje <code>/run, /mcp, /plan…</code> aparece embaralhado.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="kick">Fluxo de trabalho</span><h2>Streaming, ferramentas e diff</h2>
+  {{03-stream}}
+  <ul>
+    <li>Cada ferramenta ganha uma linha de resultado em <code>›</code> (212 linhas, +6 −3). O nome vai em negrito, o argumento em cinza, o tempo em cinza fraco.</li>
+    <li>O atalho do raciocínio é <code>Alt+R</code>. O Figma atual mostra <code>Alt+T</code>, que na especificação é outra função (esforço de raciocínio).</li>
+    <li>O spinner mostra tempo decorrido e o atalho de cancelar. O diff mantém a moldura arredondada, agora em cinza-azulado, com <code>−</code> tipográfico.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="kick">Governança</span><h2>Autorização PEP</h2>
+  {{04-pep}}
+  <ul>
+    <li>Moldura âmbar: é o único ponto da tela que pede decisão, então é o único com cor de alerta em volta.</li>
+    <li>Teclas coloridas por efeito: <code>y</code> verde, <code>n</code> vermelho. O comando em ciano para conferência rápida.</li>
+  </ul>
+</section>
+
+<section>
+  <span class="kick">Terminais estreitos</span><h2>Splash, 80 colunas</h2>
+  {{01b-splash-80}}
+  <p class="dim">Abaixo de 100 colunas o texto desce para baixo do logo. Hoje a dica passa da borda a 110 colunas e é cortada no meio da frase.</p>
+</section>
+
+<section>
+  <span class="kick">Diagnóstico</span><h2>O que está errado hoje</h2>
+  <p class="dim">Achados do ORION real (v0.5.0-alpha) via tui-mcp e ptywright, mais leitura de <code>src/orion/tui/</code>.</p>
+  <div class="tbl"><table>
+    <tr><th>ID</th><th>Sintoma</th><th>Causa</th><th>Correção</th></tr>
+    <tr><td>V-01</td><td>Dica cortada em "Ctrl+C duplo p" a 110 colunas</td><td>Texto fixo sem truncar nem variar por largura (<code>status_bar.py</code>)</td><td>Três variantes por largura</td></tr>
+    <tr><td>V-02</td><td>Vão de ~15 linhas entre o banner e o prompt</td><td><code>PromptSession.dock_to_bottom()</code> empurra o prompt ao rodapé</td><td>Prompt abaixo do banner; sobe com o conteúdo</td></tr>
+    <tr><td>V-03</td><td>Menu cinza chapado, setas <code>^ v</code>, ordem embaralhada</td><td>Estilo <code>completion-menu</code> sem estado selecionado forte; ordem sem categoria (<code>prompt.py</code>, <code>completer.py</code>)</td><td>Token <code>sel</code>, rodapé de atalhos, ordenar por categoria</td></tr>
+    <tr><td>V-04</td><td>Réguas do prompt muito claras e pesadas</td><td>Ficaram em <code>text_primary</code> porque <code>border_subtle</code> some no fundo</td><td>Novo token <code>rule</code>, 3,2:1 sobre o fundo</td></tr>
+    <tr><td>V-05</td><td>Aviso "terminal doesn't support CPR" sobre o menu</td><td>Emulador sem Cursor Position Report; prompt_toolkit avisa na tela</td><td>Detectar e suprimir; confirmar em Ghostty, Kitty e GNOME Terminal</td></tr>
+    <tr><td>V-06</td><td>Rodapé de status ausente em um emulador, presente em outro</td><td>Já registrado em <code>tooling.md</code> §5; provável última linha cortada pelo tui-mcp</td><td>Reproduzir com <code>ptywright</code> e fixar com golden</td></tr>
+    <tr><td>V-07</td><td>Banner mostra OFFLINE em vermelho e modelo <code>qwen2.5-coder:1.5b</code> numa instalação limpa</td><td><code>settings.json</code> legado (K-04) e AUTH do GitHub vindo de fora de <code>~/.orion</code></td><td>Estado "sem provedor" neutro e orientação de <code>/config</code></td></tr>
+    <tr><td>V-08</td><td>Figma e documentos divergem: <code>Alt+T</code> vs <code>Alt+R</code> para expandir o raciocínio, e mock sem réguas enquanto a regra 3 exige duas</td><td>Mock desenhado antes das correções F-07/F-08</td><td>Figma Horizon vira a fonte; <code>CLI_DESIGN_SYSTEM.md</code> é atualizado junto</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <span class="kick">Comparativo</span><h2>O que aproveitar de cada um</h2>
+  <div class="tbl"><table>
+    <tr><th>Ferramenta</th><th>Ponto forte</th><th>O que o ORION leva</th><th>Fonte</th></tr>
+    <tr><td>Claude Code</td><td>Herda a paleta do terminal; tema escuro, claro e ANSI-16; status line configurável que some durante o menu e o pedido de permissão</td><td>Hierarquia por peso e cor, não por caixas. Degradar para 256 cores quando não houver truecolor</td><td>Documentação oficial da status line; o restante é secundário</td></tr>
+    <tr><td>Hermes Agent</td><td>Skins em YAML (<code>/skin</code>), barra de status acima do input com cronômetro e branch, preset claro</td><td>Tokens em arquivo para trocar o visual sem tocar no código. Cronômetro por resposta (hoje só existe o "Pensando")</td><td>Documentação do Hermes</td></tr>
+    <tr><td>Antigravity (agy)</td><td>Não encontrei descrição visual confiável</td><td>Nada adotado. Preciso de um print seu para comparar</td><td>Sem fonte</td></tr>
+    <tr><td>Crush (Charm)</td><td>TUI considerada a mais polida do grupo</td><td>Referência de espaçamento e selecionado com fundo</td><td>Comparativos de terceiros, não verificados</td></tr>
+  </table></div>
+  <p class="dim">Limite da pesquisa: as buscas devolveram sobretudo páginas de terceiros. O que digo sobre tool calls e prompt do Claude Code vem de uso, não de documentação, então tratei como inspiração e não como regra.</p>
+</section>
+
+<section>
+  <span class="kick">Tokens</span><h2>Três cores novas, o resto permanece</h2>
+  <div class="tbl"><table>
+    <tr><th>Token</th><th>Valor</th><th>Uso</th><th>Contraste</th></tr>
+    <tr><td>rule</td><td><span class="sw" style="background:#566377"></span>#566377</td><td>Réguas, molduras de diff, guia <code>│</code></td><td>3,2:1 no fundo</td></tr>
+    <tr><td>faint</td><td><span class="sw" style="background:#7D8590"></span>#7D8590</td><td>Atalhos, tempos, separadores</td><td>5,2:1 no fundo, 4,6:1 no painel</td></tr>
+    <tr><td>sel</td><td><span class="sw" style="background:#1B2634"></span>#1B2634</td><td>Linha selecionada no menu</td><td>texto cinza 5,0:1</td></tr>
+  </table></div>
+  <p class="dim">Separadores continuam <code>·</code> e o único glifo novo é o <code>−</code> tipográfico no diff. Todos os outros já estão na tabela oficial. Sem emojis.</p>
+</section>
+
+<section class="ask">
+  <span class="kick">Para você decidir</span><h2>O que eu preciso que aprove</h2>
+  <ul>
+    <li>Banner lateral compacto no lugar do bloco com seis badges.</li>
+    <li>Prompt logo abaixo do banner, sem encostar no rodapé (remove <code>dock_to_bottom</code>).</li>
+    <li>Menu com seleção em fundo, categorias e rodapé de atalhos.</li>
+    <li>Linha de resultado <code>›</code> sob cada ferramenta.</li>
+    <li>Moldura âmbar no PEP.</li>
+    <li>Os três tokens novos.</li>
+  </ul>
+  <p class="dim">Depois da aprovação: congelar a spec em <code>docs/planning/versions/v0.5.1/</code>, atualizar <code>CLI_DESIGN_SYSTEM.md</code> e abrir a sprint de interface. Cada item tem arquivo de destino em <code>tui/</code> e teste golden no <code>ptywright</code>.</p>
+</section>
+</main>

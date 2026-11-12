@@ -53,6 +53,8 @@ v0.4.0  ── High-Performance Stream CLI, Slash Commands (/) & Native MCP [IMP
   │        (orion-agent CLI puro, prompt_toolkit + Rich, Banner Mão Cósmica, 23 Slash Commands, MCP)
 v0.5.0  ── Claude-Grade Agent: paridade com Claude Code [EM EXECUÇÃO]
   │        (Provider Anthropic nativo, tool_use, contexto/sessões, hooks, MCP completo, subagents, daemon/scheduler)
+v0.5.1  ── Horizon: identidade visual e estabilidade da TUI [EM EXECUÇÃO]
+  │        (tokens rule/faint/sel, banner lateral, menu, PEP; harness tests/lab e bugs V-05, V-06, V-09 a V-17)
 v0.6.0  ── Ambient Mode & Headless Voice Pipeline
   │        (openWakeWord, Faster-Whisper, Piper TTS sobre o daemon, "Senhor, posso executar...")
 v0.7.0  ── Dedicated Desktop App & Sci-Fi Cockpit (eDEX-UI Standalone)
@@ -97,6 +99,11 @@ v3.0.0  ── Full Ambient Symbiosis & Multi-Device Distributed Coordination
 * **Status:** 🚀 EM EXECUÇÃO — Sprint 0 concluída
 * **Foco:** Rodar Claude (API key Anthropic) como cérebro do ORION com paridade ao Claude Code: provider nativo com caching e thinking, `tool_use` estruturado e paralelo, auto-compactação, sessões com resume/rewind, memória e skills ligadas, ferramentas de paridade, hooks e regras, MCP completo, subagents, daemon com scheduler e jobs em segundo plano (zero token em idle). Dogfooding a partir da Sprint 4.
 * **Documentação:** [`docs/planning/versions/v0.5.0/VERSION.md`](versions/v0.5.0/VERSION.md)
+
+### 🌌 v0.5.1 — Horizon (TUI)
+* **Status:** 🔄 EM EXECUÇÃO — spec aprovada em 11/11/2026; Sprint 1 iniciada
+* **Foco:** Identidade visual Horizon e eliminação dos bugs de TUI que só aparecem em movimento, no mesmo pacote. Sprint 1: harness `tests/lab/` e correções de comportamento; Sprint 2: visual.
+* **Documentação:** [`docs/planning/versions/v0.5.1/VERSION.md`](versions/v0.5.1/VERSION.md)
 
 ### 🎙️ v0.6.0 — Ambient Mode & Headless Voice Pipeline
 * **Status:** 📋 Planejado

@@ -1,0 +1,13 @@
+⠋ Bash  git push origin main  ·  aguardando autorização
+
+╭─ [PEP 2] Autorização requerida ────────────────────────────────────────────────────────────────────────────╮
+│  Ação        Executar comando no sistema operacional                                                       │
+│  Comando     git push origin main                                                                          │
+│  Impacto     Atualiza o repositório remoto com os commits locais                                           │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+  y aprovar   n negar   e editar   a sempre nesta sessão   Esc cancela
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ digite sua instrução…
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+accept-edits · claude-sonnet-5-5 · 24% ctx · $0.088 · PEP 2 · Aguardando ●

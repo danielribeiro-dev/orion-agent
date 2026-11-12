@@ -16,6 +16,13 @@ Agente pessoal de engenharia no terminal (Python 3.11+). Visão: um "Jarvis" sem
 - **Custos reais:** nenhuma chamada paga a provedor roda em teste automático; use opt-in `ORION_LIVE=1` e respeite o teto de `BudgetGuard`.
 - **Merge em `main`, tags e push** só com confirmação explícita do Senhor.
 
+## Testes e avaliação da TUI
+Guia completo em `.claudex/tooling.md` (ler antes de testar ou mexer na TUI). Resumo:
+- Testes: `export PATH="$PWD/.venv/bin:$PATH"` e depois os comandos da seção Comandos. Sem CI e sem `ORION_HOME`: isole `HOME`/`tmp_path` para não tocar o `~/.orion` real.
+- Dois MCPs de TUI instalados (escopo de usuário): **`tui-mcp`** para olhar (PNG com cor, leia com `Read`) e **`ptywright`** para regredir (asserções, cor por célula, goldens). Abrir o ORION com HOME temporário, esperar `❯` (partida de 7 a 16 s) e nunca enviar prompt livre ao modelo sem `ORION_LIVE=1`.
+- Mudanças de interface seguem o ciclo capturar → comparar com a referência → mapear arquivo em `tui/` → corrigir em sprint → recapturar.
+- Harness unificado `tests/lab/` está planejado (ver `.claudex/tooling.md` §1), não implementado.
+
 ## Fluxo de sprint
 Escopo (do `sprint-N.md`) → implementar → testes → `ruff`/`mypy`/`pytest --cov=src/orion` → atualizar `.claudex/progress.md`, `active_context.md` e a tabela do `VERSION.md` → um commit `feat(<escopo>): vX.Y.Z Sprint N — <título>` (Conventional Commits; escopos: `mcp`, `tui`, `gateway`, `governance`, `context`, `docs`...).
 
@@ -34,4 +41,4 @@ orion-agent attach     # anexa o terminal ao daemon (Inbox, eventos, prompts)
 `core/` engine ReAct, FSM, eventos · `agents/` subagents (runner, orçamento, definições, portas) · `gateway/` providers, router, ledger, circuit breaker · `runtime/` tools e provider local · `governance/` PEP, auditoria, trust ledger, nuclear · `memory/` timeline, vetores, fatos, manifesto · `timeline/` compactor e branches · `skills/` · `mcp/` cliente MCP · `daemon/` IPC, servidor, boot/pressão, jobs, systemd · `scheduler/` cron e agenda · `notify/` Inbox, desktop, Telegram, roteador · `presence/` política de presença da memória · `tui/` sessão, sink, attach, prompt, renderer, comandos.
 
 ## Estado
-v0.4.0 implementada; v0.5.0 "Claude-Grade Agent" em execução (ver `active_context.md`); Sprint 7 (daemon) implementada, validação manual no GNOME pendente. Daemon é opt-in e nunca liga sem ação explícita do Senhor. Numeração de ADRs duplicada entre versões é desambiguada por sufixo `[vX.Y.Z]`.
+v0.4.0 implementada; v0.5.0 "Claude-Grade Agent" em execução (ver `active_context.md`); Sprint 7 (daemon) implementada, validação manual no GNOME pendente; v0.5.1 "Horizon" (TUI) em execução, Sprint 1 (`docs/planning/versions/v0.5.1/`). Daemon é opt-in e nunca liga sem ação explícita do Senhor. Numeração de ADRs duplicada entre versões é desambiguada por sufixo `[vX.Y.Z]`.

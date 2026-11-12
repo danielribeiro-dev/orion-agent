@@ -4,6 +4,7 @@
 > **Versão de Referência:** v0.4.0+  
 > **Benchmark de Mercado:** Claude Code (Anthropic), Google Antigravity CLI (`agy`), Hermes Agent (Nous Research)  
 > **Referência Visual:** [Figma — O.R.I.O.N Stream CLI (v0.4.0)](https://www.figma.com/design/v4kP8u5X0plLLjjg7TAumJ). Em caso de divergência, este documento e `ORION_COLORS` prevalecem. No Figma, `✔` e `✖` são vetores porque a fonte de fallback ignora a cor do token; no terminal continuam sendo os glifos oficiais.  
+> **v0.5.1 — Horizon:** a identidade Horizon (§7) é a especificação alvo e **vigora a partir da Sprint 2 da v0.5.1** (`docs/planning/versions/v0.5.1/`). Até lá valem as seções 1 a 6. Em conflito entre §7 e as seções anteriores, §7 prevalece para o que ela cobre.  
 > **Propósito:** Definir as regras visuais, arquitetura de componentes, wireframes de telas, catálogo de atalhos e padrões de renderização que **todo desenvolvedor e agente de IA** deve seguir rigorosamente ao criar ou alterar comandos, modais ou saídas da CLI do ORION.
 
 ---
@@ -216,7 +217,7 @@ Qualquer comando que renderize uma interface interativa ou modal **deve seguir o
 Quando o agente tentar executar ações de **Nível PEP 2** (mutações de arquivos ou comandos bash) ou **Nível PEP 3** (ações de alto risco), a CLI exibe a caixa formal de autorização:
 
 ```text
-╭─ [PEP NÍVEL 2] Autorização Operacional Requerida ──────────────────────────────╮
+╭─ [PEP NÍVEL 3] Autorização Operacional Requerida ──────────────────────────────╮
 │  Ação Solicitada: Execução de Comando no Sistema Operacional                   │
 │  Comando:        git push origin main                                          │
 │  Impacto:        Atualiza o repositório remoto com os commits locais           │
@@ -317,3 +318,68 @@ Qualquer alteração na interface da CLI deve respeitar o princípio **Doc-First
 1. Nenhuma cor fora de [`ORION_COLORS`](file:///home/danieldev/orion-agent/src/orion/tui/theme.py) pode ser introduzida sem atualização prévia deste documento.
 2. Nenhum emoji decorativo pode ser adicionado em novos comandos ou mensagens de sistema.
 3. Toda nova tela modal deve implementar navegação via teclado (`↑/↓`, `Tab`, `Enter`, `Esc/q`) e layout delimitado por bordas arredondadas finas.
+
+---
+
+## 7. Identidade Horizon (v0.5.1)
+
+> **Status:** proposta aprovada pelo Senhor em 11/11/2026; vigora a partir da Sprint 2 da v0.5.1 (ADR-039). Referência de telas em [`horizon/`](horizon/README.md) (texto puro, 1 caractere = 1 célula). O mock no Figma ainda não existe (limite de chamadas do MCP); até lá, `horizon/*.txt` é a referência.
+
+### 7.1 Princípio
+Hierarquia por **peso e cor**, não por caixas. Moldura só onde há decisão ou conteúdo próprio (diff, PEP, painéis de comando). Mesma paleta Deep Cosmos; três tokens novos.
+
+### 7.2 Tokens novos (os demais da §2 permanecem)
+
+| Token | Valor | Uso | Contraste |
+| :--- | :--- | :--- | :--- |
+| `rule` | `#566377` | Réguas do prompt, molduras de diff, guia `│` da saída de ferramenta | 3,2:1 sobre `bg_canvas` |
+| `faint` | `#7D8590` | Atalhos, tempos, separadores `·`, placeholder, categoria no menu | 5,2:1 sobre `bg_canvas`; 4,6:1 sobre `surface_panel` |
+| `sel` | `#1B2634` | Fundo da linha selecionada no menu | texto `text_dim` 5,0:1 |
+
+`border_subtle` (`#262F3D`) continua para bordas de painéis internos; réguas e molduras que precisam ser vistas passam a usar `rule`. A regra 3 de `CLI_AGENT_RULES.md` muda só a cor das duas réguas (de `text_primary` para `rule`).
+
+### 7.3 Glifos
+Tabela da §1.2 inalterada, com um acréscimo: **`−`** (U+2212, sinal de menos) para linhas removidas e contagem de remoção no diff. Nenhum outro glifo novo. `[PEP]`, `›`, `·`, `│`, `❯`, `●`, `✔`, `✖`, `!` seguem como estão.
+
+### 7.4 Banner (>= 100 colunas)
+Logo Stellar (6 linhas) à esquerda com gradiente vertical `accent_cyan` para `accent_blue`; à direita, nas linhas 2, 3, 5 e 6: nome e versão (`__version__`) com lema; descrição em `text_dim`; linha de estado (`● online`, modelo, workspace); linha de governança (`PEP n supervisionado` em `pep_warn`, memória, conta). Uma linha em branco, a dica, uma linha em branco, o prompt. **9 linhas** no banner, sem réguas próprias.
+- 80 a 99 colunas: o texto desce para baixo do logo (3 linhas).
+- < 70 colunas: logo reduzido de 4 linhas já existente e uma linha de estado.
+- **Dica** em três variantes que sempre cabem: completa (>= 100), curta (80 a 99: `/ comandos · @ arquivos · Shift+Tab modo · Ctrl+C ×2 sai`) e mínima (< 80: `/ comandos · @ arquivos`).
+- **Sem provedor configurado:** `● sem provedor · /config` em `pep_warn`. Vermelho (`status_offline`) só para falha real de conexão.
+- **Sem `dock_to_bottom`:** o prompt vem logo abaixo do conteúdo e sobe com ele.
+
+### 7.5 Prompt e status line
+- Duas réguas `─` em `rule` (regra 3 mantida). `❯ ` em `accent_cyan` negrito. Texto digitado em negrito na cor nativa. Placeholder `digite sua instrução…` em `faint`.
+- Status line (sem fundo, regra 2 mantida): `modo · modelo · NN% ctx · $custo · PEP n · Estado ●`, separador `·` em `faint`.
+  - Modo em `accent_blue` negrito; modelo e custo em `text_dim`; `PEP n` em `pep_warn`.
+  - Estados: `Ready` (`status_ok`), `Working` (`accent_cyan`), `Aguardando` (`pep_warn`, modal aberto), `Offline` (`status_offline`).
+  - Abreviação por largura mantida (§3.2); `% ctx` vem do cálculo do `/context`.
+- **Independente de CPR (ADR-040):** o rodapé aparece mesmo que o terminal não responda ao pedido de posição do cursor.
+
+### 7.6 Menu de comandos e menções
+- Fundo `surface_panel`; linha ativa em `sel` com `❯` e nome em `accent_cyan` negrito; demais linhas sem ícone, nome em `text_primary`, descrição em `text_dim`, categoria à direita em `faint` (na linha ativa, em `text_dim`).
+- Ordem estável por categoria (cognitivo, memória, contexto, operação, extensão); prefixo antes de fuzzy.
+- Rodapé `↑↓ navegar · Tab aceitar · Esc fechar` com posição `n/N` à direita, em `faint`. Sem setas ASCII de rolagem. Altura máxima de 8 linhas.
+- **Esc fecha o menu** (V-15). Ctrl+C com menu aberto limpa sem resíduo.
+
+### 7.7 Fluxo de trabalho
+- **Usuário:** `❯ ` em `accent_cyan` negrito e texto em `text_user` negrito.
+- **Raciocínio:** `▼ Raciocínio · 4,1s   Alt+R expande` (`▼` em `accent_blue`, texto `text_dim`, atalho `faint`). Expandido: guia `│` em `rule`.
+- **Ferramenta:** `✔ Nome  argumento  ·  0,1s` com `Nome` em negrito `text_primary`, argumento `text_dim`, tempo `faint` (vírgula decimal). Linha de resultado `  › resumo` em `faint`/`text_dim`: leitura = linhas; edição = `+a −b` em `diff_add`/`diff_del`; comando = saída e código; busca = contagem. O tempo **exclui** a espera de aprovação (V-12).
+- **Saída de ferramenta:** guia `│` em `rule`; acima de 5 linhas, 3 + `+N linhas ocultas · Alt+E expande` (`accent_blue` + `faint`) + 2. Alt+E expande com cabeçalho (V-14).
+- **Em execução:** `⠋ Nome  argumento  ·  3s  ·  Ctrl+C cancela`. Após 5 s sem token: `sem resposta há 5s`.
+- **Cancelado:** o texto já exibido permanece no histórico (V-17), seguido da linha `! Turno interrompido`.
+- **Diff:** moldura arredondada `rule`; título `arquivo  +a −b` (`text_primary` negrito, verde, vermelho); hunk em `accent_blue`; números de linha `faint`; fundos `diff_add_tint`/`diff_del_tint` só dentro do painel.
+
+### 7.8 Autorização PEP (HITL)
+Moldura e título em `pep_warn` (é o único ponto da tela que pede decisão). Corpo: rótulos `text_dim` (Ação, Comando, Impacto) e valores `text_primary`; comando em `accent_cyan`. Teclas: `y` em `diff_add`, `n` em `diff_del`, demais em `text_primary` com rótulo `text_dim`; `Esc cancela`. Nível exibido = nível real do PEP (`run_command` é 3). Sob o modal, linha de decisão: `✔ aprovado` (`status_ok`) ou `✖ negado` (`diff_del`). A status line permanece visível em estado `Aguardando`.
+
+### 7.9 Cor e terminais
+- **Truecolor** quando `COLORTERM` for `truecolor` ou `24bit`; senão mapear cada token para a cor mais próxima da paleta de 256; `NO_COLOR` remove cor e mantém negrito.
+- **Fundo:** nunca forçar o fundo do terminal; `bg_canvas` e `surface_panel` são referência de projeto, não pintura de tela cheia (regra 2).
+- **Terminais:** alvo Ghostty, Kitty, WezTerm, Alacritty e GNOME Terminal (suportam CPR). Em emuladores sem CPR o ORION continua funcional (rodapé incluso) e não exibe o aviso do prompt_toolkit.
+- **Fonte:** exige `❯ ● ✔ ✖ ▼ ⠋ › · │ ─ ╭ ╮ ╰ ╯ −` e blocos `█ ╗ ╔ ║ ═ ╝ ╚`. Fontes sem esses glifos degradam alinhamento; registrar em `/doctor`.
+
+### 7.10 Larguras e golden
+Alvos de teste: **110, 80 e 60 colunas**. As cinco telas de `horizon/` são o golden de estrutura e texto (cores conferidas por `snapshot_ansi`). Nenhuma linha pode ultrapassar a largura do terminal.

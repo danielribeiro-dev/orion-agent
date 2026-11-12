@@ -230,6 +230,10 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
   - Pendente (exige o Senhor): manual no GNOME (enable, logout/login, disparo, botão aprova, attach com Inbox), Telegram real, calibração dos limiares de pressão
 - [x] Rodada manual com modelos free (09/11/2026, antes da Sprint 8): modelos `:free` no catálogo + `models.prefer_free`; correções do núcleo R-03/R-04/R-08/R-10 a R-14 + chave OpenRouter por arquivo, `aiohttp` declarado e teste do daemon isolado. Achados e pendências (UI, R-06 a R-09, R-15 a R-17) em `docs/planning/versions/v0.5.0/rascunho-achados-teste-manual.md`; plano em `plano-testes-manuais.md`
 - [ ] Sprint 8: Hardening & Release
+- [ ] **v0.5.1 Horizon (spec em rascunho, 11/11/2026)** — identidade visual + bugs de TUI no mesmo pacote; ADR-039/040/041 propostos; `docs/planning/versions/v0.5.1/` e `docs/design/horizon/`
+  - [x] Análise visual (Figma lido, ORION real capturado, comparativo Claude Code/Hermes) e testes dinâmicos (sonda pty+pyte, provider roteirizado, custo zero): V-01 a V-17 em `achados-tui.md`
+  - [x] Docs: `VERSION.md`, `sprint-1.md` (harness + bugs), `sprint-2.md` (visual), `CLI_DESIGN_SYSTEM.md` §7, nota na regra 3 de `CLI_AGENT_RULES.md`, telas de referência `docs/design/horizon/*.txt`
+  - [ ] Aprovação do Senhor (spec e ADRs) e comando de início da Sprint 1; rodada com OpenRouter free (<= 15 req, `ORION_LIVE=1`); mock no Figma quando houver cota
 - [ ] Pendências herdadas da v0.4.0: tags `v0.3.0`/`v0.4.0` e merge em `main`; validar turno com provedor real; repetir A/B de MCP com modelo pago
 
 ---

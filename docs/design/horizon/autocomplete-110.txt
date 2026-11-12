@@ -1,0 +1,15 @@
+  / comandos  ·  @ arquivos
+
+   /plan     Gerar plano estruturado antes de implementar          cognitivo
+ ❯ /goal     Execução autônoma contínua até concluir               cognitivo
+   /review   Revisão crítica dos diffs recentes                    cognitivo
+   /diff     Alterações pendentes no workspace                      operação
+   /undo     Reverter última alteração                              operação
+   /cost     Custos e consumo acumulado (USD/BRL)                   operação
+   /context  Composição da janela de contexto                       contexto
+   /compact  Compactar contexto preservando a cauda vital           contexto
+ ↑↓ navegar  ·  Tab aceitar  ·  Esc fechar                           2/23
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+accept-edits · claude-sonnet-5-5 · 24% ctx · $0.088 · PEP 2 · Ready ●

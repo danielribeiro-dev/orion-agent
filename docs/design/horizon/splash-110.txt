@@ -1,0 +1,14 @@
+
+  ██████╗ ██████╗ ██╗ ██████╗ ███╗   ██╗
+ ██╔═══██╗██╔══██╗██║██╔═══██╗████╗  ██║  O.R.I.O.N  v0.5.0  ·  Non Ducor, Duco
+ ██║   ██║██████╔╝██║██║   ██║██╔██╗ ██║  Operational Reasoning & Intelligence Orchestration Network
+ ██║   ██║██╔══██╗██║██║   ██║██║╚██╗██║
+ ╚██████╔╝██║  ██║██║╚██████╔╝██║ ╚████║  ● online  ·  claude-sonnet-5-5  ·  ~/orion-agent
+  ╚═════╝ ╚═╝  ╚═╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝  PEP 2 supervisionado  ·  memória 5 esferas  ·  github
+
+  / comandos  ·  @ arquivos  ·  Shift+Tab modo  ·  Alt+T raciocínio  ·  Ctrl+C ×2 sai
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ digite sua instrução…
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+accept-edits · claude-sonnet-5-5 · 24% ctx · $0.088 · PEP 2 · Ready ●
