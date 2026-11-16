@@ -244,3 +244,12 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
 
 ### [PLANEJADO] Fase 6: v0.6.0 Ambient Voice Daemon
 - [ ] Wake word (openWakeWord), Faster-Whisper, Piper TTS com Tone-Mirroring, sobre o daemon da v0.5.0
+
+
+## v0.5.2 Bridge — 15–16/11/2026
+- Sprint 0 (`f03b033`): spec, achados N-01..N-24, auditoria A-01..A-09, ADR-043..045, design system §8, telas `docs/design/bridge/`.
+- Sprint 1 (`1f26578`): `install.py`, `scripts/install.sh`, `orion update [--check|--yes|--rollback]`, `/doctor` (atalho e instalação), autoatualização nuclear no PEP.
+- Sprint 2 (`a11402b`): `tui/screen/` (transcrição, console, renderer, app, modo, host), `/tui`, `cli.run_fullscreen`, lab `test_fullscreen.py`.
+- Sprint 3 (`ac48803`): movimento (pensamento, escrita, rodapé de turno, PEP), status line PT-BR, sinais do terminal, Ctrl+O.
+- Sprint 4 (`2ebdf0f`): `memory_views.py`, `/timeline`, `/recall`, `/memory`, correções A-01..A-07.
+- Validação: suíte verde, cobertura 93,6%, lab 25 cenários verdes; capturas `tui-mcp` em 110 e 72 colunas.

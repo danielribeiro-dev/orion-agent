@@ -1,12 +1,17 @@
 # O.R.I.O.N — Active Context (Memória de Sessão de Desenvolvimento)
 
-> **Data de Atualização:** 11/11/2026  
+> **Data de Atualização:** 16/11/2026  
 > **Status Atual:** v0.4.0 implementada. v0.5.0 em execução: Sprints 0–5 concluídas; **Sprint 6 (Subagents & Tasks) implementada (6A + 6B)**; **Sprint 7 (Daemon, Jobs & Schedules) implementada (7A + 7B + 7C) em 09/11/2026**, validação manual no GNOME pendente. Visão ADR-027 (memória viva, protocolos = skills dinâmicas) documentada em `docs/planning/vision/`. Portão de dogfooding pendente; cobertura 94%.  
 > **Fase Ativa:** v0.5.0 "Claude-Grade Agent" — meta: programar com Claude rodando pelo ORION (`ANTHROPIC_API_KEY`), com tools, memória, MCPs, decisões, loops, schedules, subagents e jobs em segundo plano.  
 > **Branch Ativo:** `feat/v0.5.0-sprint-7` (criada de `feat/v0.5.0-sprint-6`; commits locais, **sem push**)  
 > **Regra Suprema:** Nenhuma linha de código em `src/` é escrita sem o comando explícito de início da Sprint correspondente (Doc-First).
 
 ---
+
+## v0.5.2 Bridge (15–16/11/2026): Sprints 0 a 4 implementadas
+Branch `feat/v0.5.2-bridge` (de `feat/v0.5.1-sprint-1`; commits `f03b033` a `2ebdf0f`, **sem push**), executadas na mesma sessão por ordem do Senhor. Entregue: tela cheia como padrão (ADR-043; `ORION_TUI=classic`, `/tui`), input sempre vivo com fila, transcrição em células com reflow e blocos que abrem no lugar, Ctrl+O com busca, linguagem de movimento (ADR-045), memória legível, correções da auditoria A-01 a A-07, `scripts/install.sh` + `orion update/--rollback` (ADR-044). Testes: suíte verde, cobertura 93,6%, lab completo verde (25 cenários).
+**Próximo (depende do Senhor):** (1) `scripts/install.sh --dev` para usar `orion` sem venv; (2) usar a tela cheia em Ghostty/Kitty/GNOME Terminal e tmux e relatar; (3) rodada real `ORION_LIVE=1` (CA-12 da v0.5.1 e da v0.5.2, <= 15 req); (4) autorizar merge/tags. Depois: spec da v0.5.3 "Memória Viva e Núcleo Enxuto" (ADR-027; R-06, R-16, R-17).
+Pendência conhecida: `tests/unit/test_tasks.py::test_send_message_reaches_the_child_between_its_model_turns` é intermitente (falha ~1 em 3, também sem as mudanças da v0.5.2).
 
 ## Ferramentas de teste/TUI (10/11/2026)
 MCPs `tui-mcp` (olhar, PNG) e `ptywright` (regredir, asserções) instalados no escopo de usuário; guia em `.claudex/tooling.md`, decisão no ADR-038. Harness `tests/lab/` planejado, sem sprint ainda. Achados abertos de partida lenta, banner com conta do GitHub e rodapé divergente estão em `tooling.md` §5.
