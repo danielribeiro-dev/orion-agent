@@ -128,7 +128,7 @@ OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
     ),
     SlashCommandInfo(
         "/memory",
-        "Inspecionar e gerenciar fatos da memória tríplice",
+        "Inspecionar as 5 esferas da memória",
         icon="●",
         category="memory",
     ),
@@ -140,7 +140,7 @@ OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
     ),
     SlashCommandInfo(
         "/recall",
-        "Busca profunda híbrida RRF em episódios e memórias",
+        "Buscar em fatos e episódios da memória",
         icon="●",
         category="memory",
     ),

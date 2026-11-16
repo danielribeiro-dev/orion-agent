@@ -141,16 +141,23 @@ class DaemonController:
         return bool(outcome and outcome.get("resolved"))
 
 
+def _service_state(service: dict[str, Any]) -> str:
+    if not service.get("installed"):
+        return "não instalado"
+    return "instalado e habilitado" if service.get("enabled") else "instalado"
+
+
 def format_status(status: dict[str, Any]) -> list[str]:
     """Linhas de ``/daemon status`` (glifos permitidos, sem emojis)."""
     service = status.get("service") or {}
     live = status.get("daemon")
-    state = "● ativo" if live else "· parado"
+    state = "● Daemon ativo" if live else "● Daemon parado"
+    autostart = status.get("autostart")
     lines = [
-        f"{state} · opt-in {'ligado' if status.get('enabled') else 'desligado'} · autostart {status.get('autostart')}",
-        f"unit {'instalada' if service.get('installed') else 'ausente'} · "
-        f"systemd {'habilitado' if service.get('enabled') else 'desabilitado'} · "
-        f"linger pelo ORION {'sim' if service.get('linger_by_orion') else 'não'}",
+        f"{state} · {'ligado pelo Senhor' if status.get('enabled') else 'desligado (opt-in)'} · "
+        f"início automático: {autostart if autostart not in (None, 'off') else 'não'}",
+        f"serviço systemd {_service_state(service)} · "
+        f"{'roda sem login (linger ligado pelo ORION)' if service.get('linger_by_orion') else 'roda só com o Senhor logado'}",
     ]
     if live:
         lines.append(

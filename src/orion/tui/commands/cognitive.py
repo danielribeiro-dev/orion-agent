@@ -50,6 +50,9 @@ class GrillMeCommand(BaseSlashCommand):
     usage = "/grill-me [tema]"
 
     async def execute(self, args: str, context: CommandContext) -> CommandResult:
+        if not args and not getattr(context.session, "history", None):
+            # A-01: sem tema e sem conversa não há o que entrevistar; não gasta um turno do modelo
+            return CommandResult(success=False, output_message=f"Uso: {self.usage} (sem conversa, informe o tema)")
         topic = args or "a tarefa atual"
         await context.session.run_turn(
             f"Entreviste-me sobre {topic}: faça uma pergunta investigativa por vez, sem escrever código. "

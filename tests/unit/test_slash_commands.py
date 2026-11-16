@@ -219,13 +219,13 @@ class TestPepChoice:
 class TestPanels:
     def test_context_percentages(self) -> None:
         output = render_ansi(render_context({"sistema": 6200, "conversa": 15200}, 200_000), width=100)
-        assert "21.4k / 200k (11%)" in output
-        assert "7.6%" in output
+        assert "21,4k / 200k (11%)" in output
+        assert "7,6%" in output
 
     def test_cost_total(self) -> None:
         output = render_ansi(render_cost(12400, 3400, 0, 0.0372, 0.051, 0.0882, "0,507"), width=100)
-        assert "15,800" in output
-        assert "$0.0882" in output
+        assert "15.800" in output
+        assert "US$ 0,0882" in output
         assert "R$ 0,507" in output
 
     def test_memory_panel(self) -> None:

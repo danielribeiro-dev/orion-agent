@@ -130,10 +130,10 @@ class SphereRow:
 def render_memory(rows: list[SphereRow]) -> Group:
     """Blueprint C."""
     table = _grid(
-        ("  Esfera", 22, "left"),
-        ("Status", 10, "left"),
+        ("  Esfera", 24, "left"),
+        ("Estado", 10, "left"),
         ("Itens", 14, "left"),
-        ("Armazenamento", None, "left"),
+        ("Onde fica", None, "left"),
     )
     for row in rows:
         name = Text()
@@ -189,16 +189,29 @@ def render_context(parts: dict[str, int], window: int, bar_width: int = 72) -> P
 
 def _legend_row(name: str, tokens: int, window: int) -> str:
     percent = tokens / window * 100 if window else 0.0
-    return f"{name:<14}{_fmt_k(tokens):>7}{percent:>7.1f}%"
+    return f"{name:<14}{_fmt_k(tokens):>7}{percent:>7.1f}%".replace(".", ",")
 
 
 def _fmt_k(value: int) -> str:
+    """``468``, ``12,4k``, ``1M`` (vírgula decimal, A-04)."""
+    if value >= 1_000_000:
+        return f"{value / 1_000_000:.1f}M".replace(".0M", "M").replace(".", ",")
     if value >= 1000:
-        return f"{value / 1000:.1f}k".replace(".0k", "k")
+        return f"{value / 1000:.1f}k".replace(".0k", "k").replace(".", ",")
     return str(value)
 
 
 # ── /cost ───────────────────────────────────────────────────────────────
+
+
+def _usd(value: float) -> str:
+    """``US$ 0,0882`` (A-05)."""
+    return f"US$ {value:.4f}".replace(".", ",")
+
+
+def _int_pt(value: int) -> str:
+    """``12.400`` (milhar com ponto, como em PT-BR)."""
+    return f"{value:,}".replace(",", ".")
 
 
 def render_cost(
@@ -215,15 +228,15 @@ def render_cost(
 ) -> Panel:
     """Blueprint F: livro-razão da sessão (``agents_*``: soma dos subagents, já fora de ``cost_total``)."""
     table = _grid(("Tipo", 18, "left"), ("Tokens", 10, "right"), ("USD", 12, "right"), ("", None, "left"))
-    table.add_row("Entrada", f"{tokens_in:,}", f"${cost_in:.4f}", "")
-    table.add_row("Saída", f"{tokens_out:,}", f"${cost_out:.4f}", "")
-    table.add_row("Cache", f"{tokens_cached:,}", "incluso", "")
+    table.add_row("Entrada", _int_pt(tokens_in), _usd(cost_in), "")
+    table.add_row("Saída", _int_pt(tokens_out), _usd(cost_out), "")
+    table.add_row("Cache", _int_pt(tokens_cached), "incluso", "")
     if agents_cost or agents_tokens:
-        table.add_row("Subagents", f"{agents_tokens:,}", f"${agents_cost:.4f}", "")
+        table.add_row("Subagents", _int_pt(agents_tokens), _usd(agents_cost), "")
     table.add_row(
         Text("Total", style="accent_cyan"),
-        Text(f"{tokens_in + tokens_out + agents_tokens:,}", style="accent_cyan"),
-        Text(f"${cost_total + agents_cost:.4f}", style="accent_cyan"),
+        Text(_int_pt(tokens_in + tokens_out + agents_tokens), style="accent_cyan"),
+        Text(_usd(cost_total + agents_cost), style="accent_cyan"),
         Text(f"  R$ {cost_brl}", style="text_dim"),
     )
     return orion_panel(table, plain_title("Livro-Razão da Sessão"))

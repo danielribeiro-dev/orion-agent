@@ -56,7 +56,7 @@
 
 | ID | Comando | Achado | Correção | Sprint |
 |:---|:---|:---|:---|:---:|
-| A-01 | `/learn`, `/grill-me` | Sem argumento enviam um turno ao modelo (gasto sem pedido) | Exigir argumento e mostrar o uso | 4 |
+| A-01 | `/learn`, `/grill-me` | Sem argumento enviam um turno ao modelo (gasto sem pedido) | Recusar quando não há conversa a usar | 4 |
 | A-02 | `/voice` | "O daemon de voz chega na v0.5.0." (versão errada) | "chega na v0.6.0" | 4 |
 | A-03 | `/merge` | "Cannot merge 'main' into itself." em inglês | Mensagem em PT-BR | 4 |
 | A-04 | `/context` | `0.0%` com ponto; janela `1000k` | Vírgula decimal; `1M` | 4 |

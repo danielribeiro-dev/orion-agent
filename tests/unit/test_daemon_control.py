@@ -192,7 +192,7 @@ class TestDaemonControlTool:
         refused = await tool.run(action="start")
         assert not refused.success and ctl.settings().enabled is False
         status = await tool.run(action="status")
-        assert status.success and "opt-in desligado" in status.output
+        assert status.success and "desligado (opt-in)" in status.output
         trusted["v"] = True
         started = await tool.run(action="enable", boot=False)
         assert started.success and ctl.settings().autostart == "login"
@@ -261,7 +261,7 @@ class TestDaemonCommand:
     async def test_status_and_usage(self, context: CommandContext) -> None:
         cmd = DaemonCommand()
         assert (await cmd.execute("", context)).success
-        assert "opt-in desligado" in out(context.console)
+        assert "desligado (opt-in)" in out(context.console)
         bad = await cmd.execute("voar", context)
         assert not bad.success and "Uso" in bad.output_message
         inbox = await cmd.execute("inbox", context)

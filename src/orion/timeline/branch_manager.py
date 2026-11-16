@@ -173,7 +173,7 @@ class BranchManager:
         """
         target_name = branch_name or self._active_branch_name
         if target_name == "main":
-            raise BranchError("Cannot merge 'main' into itself.")
+            raise BranchError("Não há o que mesclar: você já está na linha principal (main).")
 
         branch = self._branches.get(target_name)
         if not branch:

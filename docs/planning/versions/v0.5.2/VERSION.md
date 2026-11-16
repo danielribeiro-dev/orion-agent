@@ -1,6 +1,6 @@
 # Spec — v0.5.2 Bridge (Tela cheia, movimento do agente e instalação sem venv)
 
-> **Status:** 🔄 Em execução (Sprints 0 a 4 na mesma sessão, por ordem do Senhor em 15/11/2026)  
+> **Status:** 🔄 Sprints 0 a 4 implementadas (15–16/11/2026); falta a rodada com modelo real (CA-12) e a validação do Senhor em terminal gráfico  
 > **Criada em:** 2026-11-15  
 > **Concluída em:** —  
 > **Autor(es):** Daniel Dev & Claude (Pair Programming)  
@@ -54,7 +54,7 @@ A rodada de 15/11/2026 (`tui-mcp` + provider roteirizado, custo zero) mostrou qu
 | **Sprint 1** | Instalação | `scripts/install.sh`, `orion update`/`--rollback`, `/doctor` | [`sprint-1.md`](sprints/sprint-1.md) | ✅ |
 | **Sprint 2** | Casco fullscreen | `ScreenRenderer`, app em tela cheia, input vivo com fila, rolagem, reflow, `/tui`, reserva | [`sprint-2.md`](sprints/sprint-2.md) | ✅ |
 | **Sprint 3** | Movimento | Pensamento, ferramentas, rodapé de turno, transcrição, sinais do terminal, PT-BR | [`sprint-3.md`](sprints/sprint-3.md) | ✅ |
-| **Sprint 4** | Memória e comandos | `/timeline`, `/recall`, `/memory` legíveis e correções da auditoria | [`sprint-4.md`](sprints/sprint-4.md) | ⏳ |
+| **Sprint 4** | Memória e comandos | `/timeline`, `/recall`, `/memory` legíveis e correções da auditoria | [`sprint-4.md`](sprints/sprint-4.md) | ✅ |
 
 ---
 
@@ -90,7 +90,7 @@ src/orion/cli.py                           [mod]   escolha do renderizador, upda
 | CA-07 | Reserva | `ORION_TUI=classic`, `TERM=dumb` e duas partidas falhas caem no modo clássico | `tests/unit/test_screen_app.py` | ✅ |
 | CA-08 | Saída | Ao sair, a tela é restaurada e o resumo com `--resume <id>` fica no scrollback | lab | ✅ |
 | CA-09 | Pensamento | Linha viva com tempo e tokens; bloco recolhido `▸`; raciocínio curto absorvido | `tests/unit/test_stream_motion.py` | ✅ |
-| CA-10 | Memória | `/timeline` e `/recall` sem markdown cru, uma linha por evento, papéis em PT-BR | `tests/unit/test_memory_views.py` | ⏳ |
+| CA-10 | Memória | `/timeline` e `/recall` sem markdown cru, uma linha por evento, papéis em PT-BR | `tests/unit/test_memory_views.py` | ✅ |
 | CA-11 | Sem regressão | Suíte padrão e lab da v0.5.1 passam no modo clássico | `pytest tests/` + `pytest -m lab` | ✅ |
 | CA-12 | Rodada real | Turno com modelo real em tela cheia, sem artefatos | manual, `ORION_LIVE=1`, <= 15 req | ⏳ |
 

@@ -137,7 +137,7 @@ class TestBranchIsolation:
     @pytest.mark.asyncio
     async def test_merge_main_raises(self, tmp_path):
         manager = BranchManager(archive_dir=tmp_path / "archive")
-        with pytest.raises(BranchError, match="Cannot merge 'main'"):
+        with pytest.raises(BranchError, match="linha principal"):
             await manager.merge_branch("main")
 
 

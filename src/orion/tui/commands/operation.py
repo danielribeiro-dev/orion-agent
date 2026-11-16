@@ -12,6 +12,7 @@ from rich.text import Text
 
 from orion.tui.commands.base import BaseSlashCommand, CommandContext, CommandResult
 from orion.tui.diff_viewer import DiffViewer
+from orion.tui.menu import CATEGORY_LABELS
 from orion.tui.modal import ConfigPanel, ConfigSetting, ModelPicker, run_modal
 from orion.tui.panels import brand_title, orion_panel, render_cost
 
@@ -240,11 +241,11 @@ class ConfigCommand(BaseSlashCommand):
 
 class VoiceCommand(BaseSlashCommand):
     name = "/voice"
-    description = "Controla o daemon de voz (previsto para a v0.5.0)"
+    description = "Controla a voz (prevista para a v0.6.0)"
     usage = "/voice"
 
     async def execute(self, args: str, context: CommandContext) -> CommandResult:
-        return CommandResult(success=True, output_message="O daemon de voz chega na v0.5.0.")
+        return CommandResult(success=True, output_message="A voz chega na v0.6.0 (Ambient Mode).")
 
 
 class ClearCommand(BaseSlashCommand):
@@ -276,7 +277,7 @@ class HelpCommand(BaseSlashCommand):
         for command in [*OFFICIAL_SLASH_COMMANDS, *extra]:
             table.add_row(
                 Text(command.name, style="accent_cyan"),
-                Text(command.category, style="text_dim"),
+                Text(CATEGORY_LABELS.get(command.category, command.category), style="text_dim"),
                 Text(command.description, style="text_primary"),
             )
         keys = Text(

@@ -29,16 +29,17 @@ Escopo (do `sprint-N.md`) → implementar → testes → `ruff`/`mypy`/`pytest -
 ## Comandos
 ```bash
 pip install -e ".[dev]"
+scripts/install.sh [--dev]   # `orion` em ~/.local/bin sem venv (ADR-044); `orion update [--check|--rollback]`
 pytest tests/ --cov=src/orion --cov-report=term-missing   # ~20 s
 pytest tests/e2e/test_security_audit.py -v
 ruff check src tests && mypy src
-orion-agent            # CLI interativa; `orion` é alias da mesma CLI (ADR-033 emenda o ADR-014 v0.4.0); o desktop será um app instalável, não iniciado por terminal
+orion-agent            # CLI interativa em tela cheia (ADR-043; ORION_TUI=classic ou /tui classic para o modo antigo); `orion` é alias da mesma CLI (ADR-033 emenda o ADR-014 v0.4.0); o desktop será um app instalável, não iniciado por terminal
 orion-agent daemon status|start|stop|enable [--boot]|disable   # daemon opt-in (systemd --user); `daemon run` é o que a unit executa
 orion-agent attach     # anexa o terminal ao daemon (Inbox, eventos, prompts)
 ```
 
 ## Mapa rápido de `src/orion/`
-`core/` engine ReAct, FSM, eventos · `agents/` subagents (runner, orçamento, definições, portas) · `gateway/` providers, router, ledger, circuit breaker · `runtime/` tools e provider local · `governance/` PEP, auditoria, trust ledger, nuclear · `memory/` timeline, vetores, fatos, manifesto · `timeline/` compactor e branches · `skills/` · `mcp/` cliente MCP · `daemon/` IPC, servidor, boot/pressão, jobs, systemd · `scheduler/` cron e agenda · `notify/` Inbox, desktop, Telegram, roteador · `presence/` política de presença da memória · `tui/` sessão, sink, attach, prompt, renderer, comandos.
+`core/` engine ReAct, FSM, eventos · `agents/` subagents (runner, orçamento, definições, portas) · `gateway/` providers, router, ledger, circuit breaker · `runtime/` tools e provider local · `governance/` PEP, auditoria, trust ledger, nuclear · `memory/` timeline, vetores, fatos, manifesto · `timeline/` compactor e branches · `skills/` · `mcp/` cliente MCP · `daemon/` IPC, servidor, boot/pressão, jobs, systemd · `scheduler/` cron e agenda · `notify/` Inbox, desktop, Telegram, roteador · `presence/` política de presença da memória · `tui/` sessão, sink, attach, prompt, renderer, comandos; `tui/screen/` tela cheia (transcrição em células, app, modo, sinais do terminal) · `install.py` instalação, update e rollback.
 
 ## Estado
-v0.4.0 implementada; v0.5.0 "Claude-Grade Agent" em execução (ver `active_context.md`); Sprint 7 (daemon) implementada, validação manual no GNOME pendente; v0.5.1 "Horizon" (TUI): Sprints 1 e 2 implementadas, falta a rodada com modelo real (`docs/planning/versions/v0.5.1/`). Daemon é opt-in e nunca liga sem ação explícita do Senhor. Numeração de ADRs duplicada entre versões é desambiguada por sufixo `[vX.Y.Z]`.
+v0.4.0 implementada; v0.5.0 "Claude-Grade Agent" em execução (ver `active_context.md`); Sprint 7 (daemon) implementada, validação manual no GNOME pendente; v0.5.1 "Horizon" (TUI): Sprints 1 e 2 implementadas; v0.5.2 "Bridge" (tela cheia, movimento, memória legível, instalação sem venv): Sprints 0 a 4 implementadas (`docs/planning/versions/v0.5.2/`); falta a rodada com modelo real das duas. Daemon é opt-in e nunca liga sem ação explícita do Senhor. Numeração de ADRs duplicada entre versões é desambiguada por sufixo `[vX.Y.Z]`.

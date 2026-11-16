@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 
-from rich.text import Text
-
+from orion.memory.models import UserProfile
 from orion.tui.commands.base import BaseSlashCommand, CommandContext, CommandResult
+from orion.tui.memory_views import FactRow, FactsView, TimelineView, entries_from_records
 from orion.tui.panels import SphereRow, key_hints, render_memory
 
 
@@ -16,6 +17,9 @@ class LearnCommand(BaseSlashCommand):
     usage = "/learn [nome]"
 
     async def execute(self, args: str, context: CommandContext) -> CommandResult:
+        if not getattr(context.session, "history", None):
+            # A-01: sem conversa não há solução a destilar; não gasta um turno do modelo
+            return CommandResult(success=False, output_message="Nada a destilar ainda: /learn usa a conversa desta sessão.")
         name = args or "um nome curto em kebab-case"
         await context.session.run_turn(
             "Destile a solução desta sessão em uma skill reutilizável: escreva "
@@ -59,20 +63,23 @@ class MemoryCommand(BaseSlashCommand):
             pass
 
         home = "~/.orion"
+        profile = _load_profile(session.home)
+        inferred = facts_total - facts_confirmed
         rows = [
-            SphereRow("user_profile", "Ativa", session.status_bar.github_user or "—", f"{home}/profile.json"),
-            SphereRow("system_identity", "Ativa", persona, "Imutável + persona.json"),
-            SphereRow("system_environment", "Ativa", environment, "Headroom Guard (> 1.5GB)"),
+            # N-20: o perfil vem de ~/.orion, nunca do usuário do SO ou do git
+            SphereRow("Perfil do Senhor", "Ativa", profile.call_sign, f"{home}/profile.json"),
+            SphereRow("Identidade", "Ativa", persona, "origem imutável + persona"),
+            SphereRow("Ambiente", "Ativa", environment, "folga de RAM > 1,5 GB"),
             SphereRow(
-                "project_decisions",
+                "Decisões do projeto",
                 "Ativa" if session.facts is not None else "Inativa",
-                f"{facts_total} Fatos",
-                f"CONFIRMED ({facts_confirmed}) / INFERRED ({facts_total - facts_confirmed})",
+                f"{facts_total} {'fato' if facts_total == 1 else 'fatos'}",
+                f"{facts_confirmed} confirmados · {inferred} inferidos",
             ),
-            SphereRow("timeline_episodic", "Ativa", f"{events} Eventos", f"{home}/timeline.db (WAL)"),
+            SphereRow("Linha do tempo", "Ativa", f"{events} {'evento' if events == 1 else 'eventos'}", f"{home}/timeline.db"),
         ]
         context.console.print(render_memory(rows))
-        context.console.print(key_hints(("/timeline", "Linha do Tempo"), ("/recall", "Buscar")))
+        context.console.print(key_hints(("/timeline", "linha do tempo"), ("/recall <termo>", "buscar")))
         return CommandResult(success=True, data=rows)
 
 
@@ -124,8 +131,14 @@ class TimelineCommand(BaseSlashCommand):
             await timeline.close()
         if not records:
             return CommandResult(success=True, output_message="Linha do tempo vazia.")
-        for record in records:
-            _print_record(context, record)
+        limit = int(args or 15)
+        context.console.print(
+            TimelineView(
+                entries_from_records(records),
+                "Linha do tempo",
+                footer=f"/timeline {limit * 3} mostra mais · /recall <termo> busca",
+            )
+        )
         return CommandResult(success=True, data=records)
 
 
@@ -138,16 +151,11 @@ class RecallCommand(BaseSlashCommand):
     async def execute(self, args: str, context: CommandContext) -> CommandResult:
         session = context.session
         needle = args.lower()
-        found = 0
+        facts: list[FactRow] = []
         if session.facts is not None:
             for fact in session.facts.search(limit=200):
                 if needle in fact.key.lower() or needle in fact.value.lower():
-                    line = Text(no_wrap=True, overflow="ellipsis")
-                    line.append("● ", style="accent_blue")
-                    line.append(f"[{fact.status.value}] {fact.key}: ", style="text_dim")
-                    line.append(fact.value, style="text_primary")
-                    context.console.print(line)
-                    found += 1
+                    facts.append(FactRow(fact.key, fact.value, str(fact.status.value)))
         timeline = await session.open_timeline()
         try:
             records = await timeline.search_lexical(args, limit=10)
@@ -155,17 +163,19 @@ class RecallCommand(BaseSlashCommand):
             records = []
         finally:
             await timeline.close()
-        for record in records:
-            _print_record(context, record)
-        found += len(records)
+        if facts:
+            context.console.print(FactsView(facts, highlight=args))
+        if records:
+            context.console.print(TimelineView(entries_from_records(records), "Episódios", highlight=args))
+        found = len(facts) + len(records)
         if not found:
             return CommandResult(success=True, output_message=f"Nada encontrado para “{args}”.")
         return CommandResult(success=True, data=found)
 
 
-def _print_record(context: CommandContext, record: object) -> None:
-    line = Text(no_wrap=True, overflow="ellipsis")
-    line.append("› ", style="text_dim")
-    line.append(f"{record.timestamp:%d/%m %H:%M} {record.event_type:<11} ", style="text_dim")  # type: ignore[attr-defined]
-    line.append(" ".join(record.content.split()), style="text_primary")  # type: ignore[attr-defined]
-    context.console.print(line)
+def _load_profile(home: Path) -> UserProfile:
+    """Perfil do Senhor em ``~/.orion/profile.json``; sem arquivo, o padrão (``Senhor``)."""
+    try:
+        return UserProfile.model_validate_json((home / "profile.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return UserProfile()
