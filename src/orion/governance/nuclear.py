@@ -133,6 +133,9 @@ _NUCLEAR_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r">\s+(/etc/|/boot/)", re.IGNORECASE),
     # sudo com comandos destrutivos
     re.compile(r"\bsudo\s+(rm|mkfs|dd|shred|wipe)\b", re.IGNORECASE),
+    # O agente trocando o próprio código instalado (ADR-044)
+    re.compile(r"\borion(-agent)?\s+update\b", re.IGNORECASE),
+    re.compile(r"\bpython[\d.]*\s+-m\s+orion\.install\b", re.IGNORECASE),
     # poweroff/reboot destrutivo (não-gracioso)
     re.compile(r"\b(poweroff|halt|shutdown\s+-h\s+now|reboot\s+--force)\b", re.IGNORECASE),
 ]

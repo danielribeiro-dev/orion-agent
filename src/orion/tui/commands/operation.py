@@ -108,6 +108,9 @@ class DoctorCommand(BaseSlashCommand):
         except Exception:
             checks.append(("RAM livre", False, "indisponível"))
         checks.append(("Memória (fatos)", session.facts is not None, str(session.home / "facts.db")))
+        from orion.install import diagnose
+
+        checks.extend(diagnose())
 
         table = Table.grid(padding=(0, 2))
         table.add_column(no_wrap=True)

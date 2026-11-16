@@ -438,6 +438,49 @@ def cmd_attach() -> None:
     raise typer.Exit(asyncio.run(run_attach(_orion_home(), console)))
 
 
+@app.command(name="update")
+def cmd_update(
+    check: bool = typer.Option(False, "--check", help="Só verifica se há versão nova."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Aplica sem perguntar (obrigatório fora de TTY)."),
+    rollback: bool = typer.Option(False, "--rollback", help="Volta à versão anterior instalada."),
+) -> None:
+    """Atualiza o ORION instalado em ~/.local/share/orion (ADR-044)."""
+    raise typer.Exit(run_update(check=check, yes=yes, rollback=rollback))
+
+
+def run_update(*, check: bool = False, yes: bool = False, rollback: bool = False) -> int:
+    """Executa ``orion update``; devolve o código de saída."""
+    from orion import install
+
+    try:
+        if rollback:
+            version = install.rollback()
+            console.print(Text(f"✔ voltou para {version}", style="status_ok"))
+            return 0
+        plan = install.check_update()
+        if not plan.available:
+            console.print(Text(f"● {plan.current} é a versão mais nova", style="text_dim"))
+            return 0
+        console.print(Text(f"● versão nova: {plan.latest} (instalada: {plan.current})", style="text_primary"))
+        if check:
+            return 0
+        if not yes:
+            if not console.is_terminal:
+                console.print(Text("! sem terminal interativo: use --yes", style="pep_warn"))
+                return 2
+            answer = console.input(f"Atualizar para {plan.latest}? [s/N] ").strip().lower()
+            if answer not in ("s", "sim", "y", "yes"):
+                console.print(Text("✖ cancelado", style="text_dim"))
+                return 1
+        with console.status("instalando…"):
+            version = install.apply_update(plan)
+        console.print(Text(f"✔ O.R.I.O.N {version} instalado · orion update --rollback volta", style="status_ok"))
+        return 0
+    except install.InstallError as exc:
+        console.print(Text(f"✖ {exc}", style="diff_del"))
+        return 1
+
+
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
