@@ -21,7 +21,7 @@ Guia completo em `.claudex/tooling.md` (ler antes de testar ou mexer na TUI). Re
 - Testes: `export PATH="$PWD/.venv/bin:$PATH"` e depois os comandos da seção Comandos. Sem CI e sem `ORION_HOME`: isole `HOME`/`tmp_path` para não tocar o `~/.orion` real.
 - Dois MCPs de TUI instalados (escopo de usuário): **`tui-mcp`** para olhar (PNG com cor, leia com `Read`) e **`ptywright`** para regredir (asserções, cor por célula, goldens). Abrir o ORION com HOME temporário, esperar `❯` (partida de 7 a 16 s) e nunca enviar prompt livre ao modelo sem `ORION_LIVE=1`.
 - Mudanças de interface seguem o ciclo capturar → comparar com a referência → mapear arquivo em `tui/` → corrigir em sprint → recapturar.
-- Harness unificado `tests/lab/` está planejado (ver `.claudex/tooling.md` §1), não implementado.
+- Harness `tests/lab/` (ADR-041): `pytest -m lab tests/lab` (~6 min, opt-in); `open_lab(..., fullscreen=True)` e `tests/lab/launcher.py --fullscreen` abrem a tela cheia com o provider roteirizado (custo zero).
 
 ## Fluxo de sprint
 Escopo (do `sprint-N.md`) → implementar → testes → `ruff`/`mypy`/`pytest --cov=src/orion` → atualizar `.claudex/progress.md`, `active_context.md` e a tabela do `VERSION.md` → um commit `feat(<escopo>): vX.Y.Z Sprint N — <título>` (Conventional Commits; escopos: `mcp`, `tui`, `gateway`, `governance`, `context`, `docs`...).
