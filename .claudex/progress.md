@@ -253,3 +253,7 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
 - Sprint 3 (`ac48803`): movimento (pensamento, escrita, rodapé de turno, PEP), status line PT-BR, sinais do terminal, Ctrl+O.
 - Sprint 4 (`2ebdf0f`): `memory_views.py`, `/timeline`, `/recall`, `/memory`, correções A-01..A-07.
 - Validação: suíte verde, cobertura 93,6%, lab 25 cenários verdes; capturas `tui-mcp` em 110 e 72 colunas.
+
+
+## v0.5.3 Memória Viva e Núcleo Livre
+- Sprint 0 (16/11/2026): spec, pesquisa (`pesquisa-memoria-e-autonomia.md`, achados M-01..M-12 e G-01..G-10), sprints 0 a 6, ADR-046 a 052 e emendas; `system_patterns.md` §1.2 e §3; ROADMAP. Só documentação.

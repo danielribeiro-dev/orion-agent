@@ -52,6 +52,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 * **Contexto:** Segurança e previsibilidade em execuções de ações reais no sistema operacional.
 * **Decisão:** O ORION inicia em Modo Supervisionado, exigindo confirmação explícita `[Y/n]` do usuário para ações modificadoras (LEVEL_2 e LEVEL_3). O usuário pode customizar políticas de autonomia globalmente ou por sessão através de `/config` ou comandos naturais.
 * **Consequências:** Prevenção contra danos ao ambiente de trabalho e total transparência operacional.
+* **Emenda (16/11/2026, ADR-046 [v0.5.3]):** o modo inicial passa a ser `auto` com faixas por reversibilidade; o modo supervisionado continua disponível como `ask`.
 
 ---
 
@@ -156,6 +157,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   2. Em modos `WORKSPACE_AUTO` / `ACCEPT_EDITS`: Mutações confinadas ao workspace autorizado não solicitam confirmação. Comandos de terminal consultam o cache seguro de assinaturas (`command_trust`). Se o comando já foi executado e aprovado anteriormente com sucesso (inclusive comandos com `sudo` benignos como `sudo apt install`), ele roda silenciosamente.
   3. Se for a primeira vez que um comando é executado pelo usuário, o sistema solicita a confirmação formal no primeiro uso e o grava no cache confiável.
 * **Consequências:** Eliminação da fadiga de confirmação sem comprometer a segurança, tornando a experiência fluida e inteligente.
+* **Emenda (16/11/2026, ADR-046 [v0.5.3]):** o ledger nunca foi instanciado em produção; passa a ser ligado na sessão e no daemon, com assinatura por prefixo normalizado e consultado no estágio 1 do classificador.
 
 ---
 
@@ -168,6 +170,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   3. A regra é "popup em qualquer ambiente" (mesmo rodando em terminal gráfico X11/Wayland). Apenas na ausência estrita de servidor gráfico (sessão pura headless SSH sem display), faz fallback seguro solicitando senha mascarada no chat via `/dev/tty` (`getpass`).
   4. No modo de voz (v0.5.0), o ORION anuncia formalmente: *"Senhor, posso executar o comando destrutivo [detalhes]? Ele vai fazer X e Y. Por favor, autorize no dispositivo."* e aciona o popup na tela.
 * **Consequências:** Blindagem física absoluta contra alucinações destrutivas, injeções de prompt e acidentes por áudio ambiente.
+* **Emenda (16/11/2026, ADR-048 [v0.5.3]):** o popup não verificava a senha (qualquer texto valia). A presença passa a ser verificada por polkit, PAM do usuário ou fprintd; o nuclear se restringe ao irreversível que o ORION não consegue desfazer (ADR-046/047), e `sudo` comum usa askpass com verificação do próprio sudo.
 
 ---
 
@@ -259,6 +262,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   6. "Sempre permitir" grava regra `allow` exata na camada local quando expressável; o que não é (composto, glob, sem subject) vale só na sessão.
   7. Auditoria: `decision_source` (`mode|rule|ledger|user|user_escalation|hook`), negações por regra/escalada/hook registradas, `pending` fechado por `log_result`, e o `action_id` do engine propagado ao runtime (`CURRENT_ACTION_ID`).
 * **Consequências:** Menos bloqueios arbitrários e mais decisão do Senhor, ao custo de mais perguntas (mitigado pelo comando exato na tela e por regras persistentes). Revoga o texto "sudo sempre negado em SUPERVISED/WORKSPACE_AUTO" do ADR-018 [v0.3.0].
+* **Emenda (16/11/2026, ADR-046 [v0.5.3]):** caminhos fora do workspace deixam de escalar dentro do espaço do usuário; sem humano, escaladas vão para a Inbox em vez de serem negadas.
 
 ### ADR-024: Hooks que Só Bloqueiam
 * **Status:** Aprovado (08/11/2026)
@@ -292,6 +296,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   6. **Skills por intenção:** skills próprias do Senhor ativam por intenção ("ative o protocolo babá"), sem `/skill-nome`. O `/` continua como atalho explícito.
   7. O formato de memória deve ser **portável** (exportar/importar, cifrado) para suportar multi-dispositivo na v3.0.0.
 * **Consequências:** `IdentityManager` deve carregar este princípio (hoje em `src/orion/core/identity.py`, só alterável em sprint com spec). Monitorar terceiros (ex.: "protocolo babá") exige consentimento claro e vale apenas para contas/dispositivos do Senhor; ações nucleares seguem exigindo step-up.
+* **Emenda (16/11/2026):** mecanismos especificados na v0.5.3 (ADR-050 memória, ADR-051 sessões e daily, ADR-046 escopo do usuário).
 
 ### ADR-028: Subagents — Privilégio Só Diminui, Sem Humano = Nega, Resultado por Referência
 * **Status:** Aprovado (08/11/2026)
@@ -372,6 +377,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 * **Contexto:** A rodada manual com chave OpenRouter sem créditos (50 req/dia) mostrou: catálogo sem modelos `:free`; 429 de limite momentâneo e de cota diária tratados igual; o agente conseguiu gravar `~/.orion/web_allowlist.json` (ampliando a própria política); a auditoria não mostrava o step-up nuclear.
 * **Decisão:** (1) Modelos `:free` entram no catálogo (custo 0, `ModelSpec.is_free`); `models.prefer_free` (padrão desligado) os põe à frente dos pagos por tier, no auto-routing e nos subagents, sem relaxar a regra de tools mutantes (tier >= balanced). (2) `RateLimitError.quota_exhausted` separa cota diária (não retenta, mensagem com hora de renovação) de limite momentâneo (retenta com backoff e honra `Retry-After`/`X-RateLimit-Reset` até 60 s). (3) O PEP nega a qualquer tool de escrita do agente os arquivos de governança de `~/.orion` (allowlist, settings, orçamento, chaves, auditoria, `secrets/`); só o Senhor os edita. Isto não cobre `run_command` com redirecionamento; a defesa nesse caso é o nível 3 e o modo. (4) A auditoria grava `decision_source=nuclear_stepup:<método>+<origem>` e `user_authorized=true` quando o desafio do SO autentica.
 * **Consequências:** Free tem teto de 50 req/dia: testes automáticos continuam sem chamada paga ou free (`ORION_LIVE=1`). Falta um comando do Senhor para ampliar a allowlist sem editar o arquivo à mão (v0.5.1).
+* **Emenda (16/11/2026, ADR-049 [v0.5.3]):** a allowlist da web vira blocklist do Senhor; o restante da proteção do estado de governança continua.
 
 
 ### ADR-038: MCPs de TUI como ferramenta de desenvolvimento (tui-mcp e ptywright)
@@ -421,3 +427,64 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 * **Contexto:** O pensamento é invisível, o spinner some durante o texto e a interface redesenha mesmo ociosa (N-06 a N-10, N-22 a N-24).
 * **Decisão:** (1) Ocioso = 0 quadros. (2) Spinner a 12,5 quadros/s; 2 quadros/s quando o terminal informa perda de foco. (3) Redesenho limitado a 30 quadros/s, cada quadro dentro de synchronized output (`CSI ?2026h/l`; `ORION_SYNC_OUTPUT=0` desliga; desligado em `TERM=linux`). (4) Pensamento: linha viva `Pensando · 3,2s · 412 tok` com a última frase do raciocínio; ao terminar, bloco `▸ Raciocínio · 4,1s · 1,2k tok` recolhido, `▾` quando aberto; raciocínio com menos de 1 s e menos de 80 caracteres não vira bloco. (5) Durante o texto, `Escrevendo · 6,1s`. (6) Rodapé de turno `✔ 12,4s · 3 ferramentas · 2,1k tok · US$ 0,0050`. (7) Glifos novos `▸` e `▾`, só para blocos recolhíveis. (8) Título da aba (OSC 0), progresso indeterminado (OSC 9;4) durante o turno e sino ao terminar turno longo com a janela sem foco.
 * **Consequências:** A tabela de glifos de `CLI_AGENT_RULES.md` ganha `▸ ▾`; `▼` deixa de existir. Valores PT-BR: vírgula decimal e `US$`.
+
+### ADR-046: Governança v2 — o ORION mora no PC e presta contas [v0.5.3]
+* **Status:** Aprovado (16/11/2026, com o plano da v0.5.3). Emenda os ADR-006, 017, 023 e 037.
+* **Contexto:** O PEP decide por tool (LEVEL_0 a 3) e o escopo é o diretório onde o ORION abriu. No modo padrão, todo comando de terminal pergunta, o ledger do ADR-017 nunca foi ligado e escrever em outro repositório pede confirmação toda vez, sem "sempre". O ORION parece mais preso que Claude Code, Antigravity e Hermes, contrariando o ADR-027 ("vive no computador, não em um projeto"). Pesquisa e evidência: `docs/planning/versions/v0.5.3/pesquisa-memoria-e-autonomia.md`.
+* **Decisão:**
+  1. **Escopo = espaço do usuário** (`$HOME` e montagens do usuário). O workspace é filtro de relevância, não fronteira. Caminhos sensíveis (`~/.ssh`, `~/.gnupg`, rc do shell, units do usuário, governança do `~/.orion`) seguem protegidos.
+  2. **Quatro faixas por raio de destruição e reversibilidade**, não por tool: `LIVRE` (leitura, web, escrita reversível no escopo, comandos de leitura), `CLASSIFICADA` (o resto), `PRESENÇA` (alto risco desfazível só com esforço), `NUCLEAR` (irreversível que o ORION não consegue desfazer). Mais uma **blocklist rígida** que nunca roda. Tool sem faixa declarada = `NUCLEAR` (deny by default).
+  3. **Classificador em dois estágios** para a faixa Classificada: regras determinísticas + ledger primeiro; modelo FAST só para o que sobrar. O modelo é **cego ao raciocínio**: vê só as mensagens do Senhor e a chamada de tool, nunca saídas de tool nem texto do assistente. Sem modelo ou orçamento = `escalate`.
+  4. **Modos** `plan`, `ask`, `auto` (padrão), `full` (sem estágio 2; Presença vira Classificada). `accept-edits` e `manual` são aliases. Nenhum modo toca Nuclear ou blocklist.
+  5. Negação volta ao modelo com motivo; 3 negações seguidas ou 20 na sessão devolvem a decisão ao Senhor.
+  6. **Sem humano** (daemon, jobs, subagent sem pai interativo): Presença e Nuclear viram pendência na Inbox/notificação, nunca execução e não mais negação seca.
+  7. `CommandTrustLedger` instanciado; assinatura por prefixo normalizado.
+* **Consequências:** Muito menos perguntas; a segurança passa a depender de três redes independentes (classificador, reversibilidade do ADR-047 e faixa Nuclear determinística), porque o classificador sozinho erra (~17% de falso negativo em ações exageradas no estudo da Anthropic). `test_security_audit.py` é reescrito para as faixas.
+
+### ADR-047: Motor de reversibilidade e aprovação por intenção [v0.5.3]
+* **Status:** Aprovado (16/11/2026, com o plano da v0.5.3).
+* **Contexto:** Pedir senha para ações desfazíveis é ritual repetitivo que o Senhor rejeitou. A maior parte do medo de `rm` é sobre arquivos não commitados.
+* **Decisão:** (1) Antes de deleções e sobrescritas (`rm`, `mv` sobre existente, `>` sobre existente, `git reset --hard`, `git checkout -- .`, `git clean`), o PEP resolve os alvos e faz snapshot em `~/.orion/trash/<ts>-<id>/` (reflink, hardlink seguro ou cópia) ou `refs/orion/undo/<id>` no git; com snapshot, a ação é reversível e cai para Classificada. (2) Alvo que o parser não resolve sobe uma faixa. (3) Teto de 2 GiB por ação e 10 GiB no total, retenção de 7 dias; acima do teto, a ação sobe para Nuclear. (4) `/undo` e tool `undo_last` restauram. (5) **Aprovação por intenção:** um plano com passos de Presença pode ser aprovado uma vez, com escopo listado e TTL de 15 min; nunca cobre Nuclear nem blocklist.
+* **Consequências:** Uso de disco controlado; limpeza do lixo por evento, nunca por relógio ocioso (ADR-022).
+
+### ADR-048: Presença verificada — askpass, chaveiro opt-in e polkit/PAM [v0.5.3]
+* **Status:** Aprovado (16/11/2026, com o plano da v0.5.3). Emenda o ADR-018 [v0.3.0].
+* **Contexto:** O popup nuclear aceita qualquer texto não vazio e descarta a senha; `run_command` roda sem terminal e sem askpass, então o `sudo` nunca consegue pedir senha. Por isso a senha real do Senhor "não era reconhecida".
+* **Decisão:**
+  1. **sudo:** `run_command` usa `sudo -A` com `SUDO_ASKPASS` apontando para um helper do ORION; quem verifica a senha é o próprio sudo. O pedido aparece num overlay mascarado (tela cheia) ou popup do SO.
+  2. **Lembrar a senha (opt-in, `orion setup sudo`):** guardada só no chaveiro do SO (Secret Service), nunca em arquivo ou memória do ORION. O helper só preenche sozinho pedidos que o PEP marcou como não destrutivos; para Nuclear, recusa e exige presença. `--forget` apaga. Alternativa oferecida: `/etc/sudoers.d/orion` com NOPASSWD restrito a uma lista revisada pelo Senhor.
+  3. **Nuclear:** polkit (`pkexec`, ação `org.orion.nuclear`), PAM do usuário com overlay mascarado, ou fprintd. Senha errada nega e é auditada. Fim do "qualquer texto vale". Nunca `/dev/tty` cru com a tela cheia ativa.
+  4. A senha nunca passa pelo contexto do modelo, transcript, auditoria ou logs (estende o ADR-042).
+  5. Presença por voz (v0.6.0) vale para a faixa Presença; Nuclear exige o dispositivo (mantém o espírito do ADR-018: fala de fundo não autoriza o irreversível).
+* **Consequências:** Com o chaveiro ativo, a força da senha para `sudo` comum passa a ser a do classificador; por isso o preenchimento automático nunca cobre Nuclear e o Senhor pode preferir a lista do sudoers.
+
+### ADR-049: Web aberta com blocklist e sessão contaminada [v0.5.3]
+* **Status:** Aprovado (16/11/2026, com o plano da v0.5.3). Emenda o ADR-037 (item 3, quanto à allowlist).
+* **Contexto:** `web_fetch` só abre 11 domínios e o agente não pode ampliar a lista; `web_search` raspa o DuckDuckGo e cai em anti-bot.
+* **Decisão:** (1) `web_fetch` abre qualquer domínio público; a allowlist vira blocklist do Senhor (`/web block|unblock|list`). (2) Mantidos: bloqueio de IP privado em todo redirecionamento, tipos de texto, limites de tamanho e o princípio "conteúdo externo é dado, não instrução". (3) Depois de ler conteúdo externo, a sessão fica **contaminada** e o classificador endurece contra exfiltração (envio a host novo vira Presença). (4) `SearchProvider` em cadeia: Brave (`BRAVE_API_KEY`), `ddgs`, SearXNG (`settings.web.searxng_url`).
+* **Consequências:** Mais superfície de injeção, contida pelo classificador cego às saídas de tool e pela sessão contaminada.
+
+### ADR-050: Memória em cinco camadas, core congelado e Mordomo da Memória [v0.5.3]
+* **Status:** Aprovado (16/11/2026, com o plano da v0.5.3). Implementa o ADR-027 e emenda os ADR-013 e 014 [v0.2.0] (manifesto).
+* **Contexto:** Na rodada real, `facts.db` terminou vazio porque fatos só são gravados quando o modelo chama `memorize`; fatos confirmados só aparecem quando palavras do pedido batem; não há consolidação. Regex extrator é frágil; cutucar o modelo principal gasta o modelo caro e continua dependendo de obediência.
+* **Decisão:**
+  1. **Camadas:** core (sempre no system prompt, congelado por sessão, teto ~1.200 tokens: identidade, diretivas, CONFIRMED global e do projeto), trabalho (transcript + autocompact), episódica (cartões e rollups dia/semana/mês/ano), semântica (fatos com escopo, proveniência e tempo), procedural (skills).
+  2. **Detector de saliência** determinístico decide **quando** olhar; não extrai.
+  3. **Mordomo** em segundo plano (padrão sleep-time da Letta, operações da Mem0): recebe só o delta e os fatos vizinhos e devolve `ADD|UPDATE|SUPERSEDE|CONFIRM|NOOP`. Roda por saliência, a cada ~8 turnos, após 2 min ocioso com delta pendente, ou no fechamento. Modelo competente e barato (classe Haiku/Flash), sem downgrade silencioso para modelo fraco; teto diário `origin=memory`.
+  4. **Regras no código, não no prompt:** pedido explícito do Senhor = CONFIRMED; inferência = PROVISIONAL; CONFIRMED nunca é sobrescrito por inferência (vira pergunta); 3 evidências em sessões distintas promovem; conteúdo de web/MCP nunca vira fato sobre o Senhor.
+  5. Fatos **bitemporais** em SQLite (`valid_from/valid_to`, `supersedes`), sem banco de grafo. Nada é apagado: superado aponta para o sucessor.
+  6. Recuperação do geral para o detalhe: core → auto-recall (FTS5 + vetores multilíngues em `sqlite-vec`) → `session_search` em cartões e rollups → transcript. `<recalled_context>` não é persistido no transcript.
+  7. Transparência: linha `● aprendi: ... · desfazer` na TUI; "hoje aprendi" no cartão da daily; fila de revisão no `/memory`.
+* **Consequências:** Memória independe do modelo principal; custo controlado pela frequência, não pela qualidade. O manifesto que só contava itens deixa o prompt.
+
+### ADR-051: Sessões indexadas, daily e threads [v0.5.3]
+* **Status:** Aprovado (16/11/2026, com o plano da v0.5.3). Emenda o ADR-011 (branches persistidos).
+* **Contexto:** Sessões são UUIDs sem título nem data, presas ao workspace; `/resume` não busca; o daemon troca de id a cada recarga; branches vivem em RAM. Uma daily única que cresce para sempre também não serve.
+* **Decisão:** (1) `~/.orion/sessions.db` indexa sessões (tipo `daily|thread`, título, daily de origem, workspace opcional, cartão) com FTS5; JSONL segue como transcript. (2) Uma **daily por data local** (`daily-YYYY-MM-DD`), padrão do daemon e da voz sem TUI; virada às 04:00 ou na primeira atividade, fechando a anterior com cartão e abrindo a nova com resumo curto. (3) **Threads** filhas da daily: abertas pela TUI fora de `~`, por `/merge`, ou pelo próprio ORION com a tool `session_branch` quando um tópico se sustenta; `session_switch` volta a elas. (4) `/resume` busca por nome e data (`hoje`, `ontem`, `semana`, `mês`, `nov`, `2026-11`, `2026`, `16/11`) em árvore ano › mês › dia, global com filtro de workspace.
+* **Consequências:** Migração idempotente dos JSONL com backup; a voz da v0.6.0 já nasce com sessão padrão e separação de assuntos.
+
+### ADR-052: Núcleo enxuto — tools adiadas e cache de prompt [v0.5.3]
+* **Status:** Aprovado (16/11/2026, com o plano da v0.5.3).
+* **Contexto:** O primeiro "pong" custou 14.871 tokens de prompt (R-16), quase tudo schemas de tools.
+* **Decisão:** (1) Só um núcleo de tools com schema completo; as demais aparecem por nome e uma linha, e `tool_search` carrega o schema sob demanda. (2) Ordem estável do prompt (preâmbulo → core congelado → instruções do projeto → tools) com marcadores de cache nos providers que suportam. (3) Meta: primeiro turno < 6k tokens, verificada em teste. (4) Subagent em 429 tenta outro modelo free do mesmo tier (R-17), sem baixar de tier.
+* **Consequências:** Uma ida extra ao modelo quando uma tool adiada é usada pela primeira vez na sessão.

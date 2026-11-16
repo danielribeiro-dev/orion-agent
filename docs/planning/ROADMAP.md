@@ -57,7 +57,7 @@ v0.5.1  ── Horizon: identidade visual e estabilidade da TUI [EM EXECUÇÃO]
   │        (tokens rule/faint/sel, banner lateral, menu, PEP; harness tests/lab e bugs V-05, V-06, V-09 a V-17)
 v0.5.2  ── Bridge: tela cheia, movimento do agente e instalação sem venv [IMPLEMENTADA; rodada real pendente]
   │        (fullscreen com input vivo e fila, pensamento recolhível, memória legível, orion update)
-v0.5.3  ── [PROPOSTO] Memória Viva e Núcleo Enxuto (ADR-027; R-06, R-16, R-17)
+v0.5.3  ── [SPEC] Memória Viva e Núcleo Livre (ADR-046 a 052; R-06, R-07, R-16, R-17) — docs/planning/versions/v0.5.3/
   │
 v0.6.0  ── Ambient Mode & Headless Voice Pipeline
   │        (openWakeWord, Faster-Whisper, Piper TTS sobre o daemon, "Senhor, posso executar...")

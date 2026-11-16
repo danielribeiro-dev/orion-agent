@@ -13,6 +13,7 @@ Este documento estabelece as **regras imutáveis de engenharia** do `orion-agent
 2. **Nenhuma Ação sem Governança Determinística (Policy Enforcement Point - PEP)**:
    - Nenhuma ferramenta mutante de sistema (gravar arquivo, executar script, abrir porta de rede, matar processo) pode ser disparada sem passar pela validação determinística do PEP.
    - O PEP opera com "Deny by Default" e 4 níveis estritos (`LEVEL_0` a `LEVEL_3`).
+   - **A partir da v0.5.3 (ADR-046 a 048):** o PEP decide por **raio de destruição e reversibilidade** em quatro faixas (`LIVRE`, `CLASSIFICADA`, `PRESENÇA`, `NUCLEAR`) mais uma blocklist rígida; escopo = espaço do usuário, não o cwd. "Deny by default" passa a significar: tool sem faixa declarada é `NUCLEAR`, e sem humano, Presença e Nuclear viram pendência na Inbox, nunca execução. Nuclear exige presença verificada (polkit/PAM/fprintd) e nenhum modo, hook, regra, subagent ou agendamento o contorna. A senha do SO nunca entra no contexto do modelo, no transcript, na auditoria ou nos logs.
 3. **Padrão Action-Observation Event Stream**:
    - Todo o loop cognitivo do agente emite instâncias imutáveis de `Action` e processa retornos encapsulados em `Observation` via `EventBus`.
    - Limite estrito de turn budgeting (teto máximo de 20 passos por tarefa).
@@ -46,6 +47,8 @@ Este documento estabelece as **regras imutáveis de engenharia** do `orion-agent
 ## 3. Princípio Fundacional (ADR-027)
 
 O ORION é a segunda metade do Senhor: vive no computador, não em um projeto, e o acompanhará entre dispositivos se permitido. Memória e capacidade de aprender são suas maiores virtudes. **Nada se perde, tudo se transforma:** a memória consolida, recicla e cria novas; não acumula lixo. O recall é injetado pelo sistema no contexto (nunca depende de o LLM lembrar de chamar uma tool); as tools de memória são a gaveta de apoio. Memória inferida nasce provisória e só se confirma por evidência ou pelo Senhor.
+
+**Mecanismo (v0.5.3, ADR-050/051):** o core (identidade, diretivas, fatos confirmados) fica sempre no system prompt, congelado por sessão; a escrita é feita por um Mordomo em segundo plano disparado por saliência, nunca dependendo de o modelo principal chamar `memorize`; regras de confirmação vivem no código, não no prompt; nada é apagado (superado aponta para o sucessor); a vida se organiza em uma daily por dia e threads filhas.
 
 ---
 
