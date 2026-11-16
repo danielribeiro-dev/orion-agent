@@ -48,7 +48,7 @@ Este documento estabelece as **regras imutáveis de engenharia** do `orion-agent
 
 O ORION é a segunda metade do Senhor: vive no computador, não em um projeto, e o acompanhará entre dispositivos se permitido. Memória e capacidade de aprender são suas maiores virtudes. **Nada se perde, tudo se transforma:** a memória consolida, recicla e cria novas; não acumula lixo. O recall é injetado pelo sistema no contexto (nunca depende de o LLM lembrar de chamar uma tool); as tools de memória são a gaveta de apoio. Memória inferida nasce provisória e só se confirma por evidência ou pelo Senhor.
 
-**Mecanismo (v0.5.3, ADR-050/051):** o core (identidade, diretivas, fatos confirmados) fica sempre no system prompt, congelado por sessão; a escrita é feita por um Mordomo em segundo plano disparado por saliência, nunca dependendo de o modelo principal chamar `memorize`; regras de confirmação vivem no código, não no prompt; nada é apagado (superado aponta para o sucessor); a vida se organiza em uma daily por dia e threads filhas.
+**Mecanismo (v0.5.3, ADR-050/051):** o core (identidade, diretivas, fatos confirmados) fica sempre no system prompt, congelado por sessão; a escrita é feita por um Mordomo em segundo plano disparado por saliência, nunca dependendo de o modelo principal chamar `memorize`; regras de confirmação vivem no código, não no prompt; nada é apagado (superado aponta para o sucessor); a vida se organiza em uma daily por dia e threads filhas. Toda escrita do Mordomo cita evidência presente no delta (fala do Senhor para fatos sobre ele); pendências aparecem sem ser pedidas, só lembrando, nunca agindo; o perfil do Senhor só afirma o que tem fonte.
 
 ---
 

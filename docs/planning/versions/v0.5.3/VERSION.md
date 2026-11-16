@@ -14,6 +14,7 @@
 ### 1.1 Objetivo
 Tornar a memória o ponto mais forte do ORION e tirar as amarras que o fazem parecer menor que Claude Code, Antigravity e Hermes:
 - **Memória Viva:** ele lembra do Senhor sempre, aprende sem depender de o modelo chamar uma tool, consolida em vez de acumular, e organiza a vida em dailies e sessões que se acham por nome e por data.
+- **Memória que conhece o Senhor (emenda de 16/11/2026):** traz pendências sem ser perguntado (daily e entrada em workspace), aprende com o que o Senhor faz e não só com o que diz (sinais implícitos), mantém um perfil curto com fontes, acha detalhe que o resumo não guardou, e prova a qualidade da extração com avaliação ao vivo.
 - **Núcleo Livre:** ele mora no PC e age em todo o espaço do usuário. O PEP continua decidindo, mas por raio de destruição e reversibilidade; a presença do Senhor só é exigida para o que não tem volta.
 - **Núcleo Enxuto:** primeiro turno abaixo de 6k tokens.
 
@@ -77,9 +78,9 @@ Até a Sprint 1, o `CLAUDE.md` atual continua valendo.
 | **Sprint 1** | Liberdade básica | Senha verificada (askpass, chaveiro, polkit/PAM, overlay), escopo do usuário, ledger ligado, web aberta + `SearchProvider` | [`sprint-1.md`](sprints/sprint-1.md) | 📋 |
 | **Sprint 2** | Classificador e reversibilidade | Faixas, classificador em dois estágios, snapshot/`/undo`, aprovação por intenção, modos, blocklist, Inbox, auditoria | [`sprint-2.md`](sprints/sprint-2.md) | 📋 |
 | **Sprint 3** | Sessões e daily | `sessions.db`, títulos, daily e virada, threads e `session_branch`, `/resume` por data, migração | [`sprint-3.md`](sprints/sprint-3.md) | 📋 |
-| **Sprint 4** | Escrita e core | Core congelado, detector de saliência, Mordomo, fatos com escopo/proveniência/tempo, diretivas, "aprendi · desfazer" | [`sprint-4.md`](sprints/sprint-4.md) | 📋 |
-| **Sprint 5** | Consolidação e recall | Cartões, rollups, Reflector, embeddings multilíngues + `sqlite-vec`, `session_search`, `/memory` editar/esquecer | [`sprint-5.md`](sprints/sprint-5.md) | 📋 |
-| **Sprint 6** | Núcleo enxuto e prova | Tools adiadas, cache, R-17, suíte `tests/memory_eval/`, rodada real | [`sprint-6.md`](sprints/sprint-6.md) | 📋 |
+| **Sprint 4** | Escrita e core | Core congelado, detector de saliência, Mordomo com evidência ancorada, observações locais, sinais implícitos, fatos com escopo/proveniência/tempo, diretivas, "aprendi · desfazer" | [`sprint-4.md`](sprints/sprint-4.md) | 📋 |
+| **Sprint 5** | Consolidação e recall | Cartões, rollups, Reflector, pendências proativas, perfil do Senhor, turnos indexados, PT-BR sem modelo, oferta do modelo multilíngue, `sqlite-vec`, `session_search`, `/memory` editar/esquecer/purge | [`sprint-5.md`](sprints/sprint-5.md) | 📋 |
+| **Sprint 6** | Núcleo enxuto e prova | Tools adiadas, cache, R-17, suíte `tests/memory_eval/`, avaliação ao vivo da extração, rodada real | [`sprint-6.md`](sprints/sprint-6.md) | 📋 |
 
 Ordem: 1 → 2 (governança) e 3 → 4 → 5 (memória) são duas trilhas; a 3 pode começar depois da 1. A 6 fecha a versão.
 
@@ -107,6 +108,11 @@ src/orion/memory/steward.py                 [novo]  Mordomo: ops ADD/UPDATE/SUPE
 src/orion/memory/facts_store.py             [mod]   escopo, proveniência, valid_from/valid_to, PROVISIONAL          S4
 src/orion/memory/vector_store.py            [mod]   multilíngue + sqlite-vec                                       S5
 src/orion/memory/rollups.py                 [novo]  cartões de sessão e rollups dia/semana/mês/ano                  S5
+src/orion/memory/observations.py            [novo]  observações compactas de leituras locais (tool_obs)              S4
+src/orion/memory/signals.py                 [novo]  sinais implícitos: PEP, /undo, edição do Senhor, ritmo           S4
+src/orion/memory/commitments.py             [novo]  pendências, superfície na daily/workspace, prazo no scheduler   S5
+src/orion/memory/profile.py                 [novo]  perfil semanal do Senhor com fontes, dentro do core              S5
+src/orion/memory/ptbr.py                    [novo]  stemmer leve PT-BR para FTS5                                     S5
 src/orion/core/engine.py                    [mod]   core no system, recall fora do transcript, tools adiadas       S4, S6
 src/orion/core/identity.py                  [mod]   preâmbulo enxuto + princípio ADR-027                           S6
 ```
@@ -133,6 +139,14 @@ src/orion/core/identity.py                  [mod]   preâmbulo enxuto + princíp
 | CA-14 | Pergunta temporal | "O que fizemos semana passada?" responde a partir dos rollups | `tests/memory_eval/` | 📋 |
 | CA-15 | Núcleo enxuto | Primeiro turno < 6k tokens de prompt | `tests/unit/test_prompt_budget.py` | 📋 |
 | CA-16 | Sem regressão | Suíte padrão e lab passam | `pytest tests/` + `pytest -m lab` | 📋 |
+| CA-18 | Sem autoconfirmação | O Mordomo reafirmando um PROVISIONAL sem nova fala do Senhor não o promove; op sem `evidence_refs` válida é descartada | `tests/unit/test_fact_evidence.py` | 📋 |
+| CA-19 | Fato de leitura local | Ler `pyproject.toml`/`docker-compose.yml` gera fato `scope=project` com `source=tool`; conteúdo de web/MCP nunca vira fato | `tests/memory_eval/` | 📋 |
+| CA-20 | Sinal implícito | Edição do Senhor sobre escrita do agente e negações no PEP viram sinais; com uma fala, viram preferência PROVISÓRIA | `tests/memory_eval/` | 📋 |
+| CA-21 | Proatividade | Pendência de ontem aparece na abertura da daily e ao entrar no workspace dela, sem pergunta e sem token extra fora do core | `tests/memory_eval/` | 📋 |
+| CA-22 | Perfil | O perfil semanal cabe em 400 tokens, toda frase cita fonte e trecho editado pelo Senhor é preservado | `tests/unit/test_profile.py` | 📋 |
+| CA-23 | Detalhe achado | Um detalhe dito numa sessão e ausente do cartão é achado por `session_search` (turnos indexados) | `tests/memory_eval/` | 📋 |
+| CA-24 | Purge | `/memory purge` apaga fato, evidências, vetores, FTS e menções no perfil; auditoria sem conteúdo | `tests/unit/test_memory_purge.py` | 📋 |
+| CA-25 | Extração ao vivo | 30 diálogos PT-BR: precisão >= 0,90, recall >= 0,80, CONFIRMED indevido = 0, fato de web = 0, custo <= US$ 0,50 | `ORION_LIVE=1 pytest -m live tests/memory_eval/live` | 📋 |
 | CA-17 | Rodada real | Sessão real de 1 dia útil com memória, sudo e web | manual, `ORION_LIVE=1`, teto no `BudgetGuard` | 📋 |
 
 ---
@@ -156,7 +170,11 @@ src/orion/core/identity.py                  [mod]   preâmbulo enxuto + princíp
 | Classificador deixa passar ação exagerada (~17% no estudo da Anthropic) | Rede de segurança independente dele: reversibilidade, faixa Nuclear determinística e blocklist |
 | Senha no chaveiro lida por outro processo do usuário | Opt-in; o helper só preenche o que o classificador marcou não destrutivo; alternativa sudoers com lista revisada; `orion setup sudo --forget` |
 | Injeção de prompt por web aberta | Classificador cego às saídas de tool; sessão contaminada endurece contra exfiltração; conteúdo externo é dado, não instrução |
-| Mordomo grava lixo ou alucina | Ops contra vizinhos, PROVISÓRIO por padrão, CONFIRMADO só por Senhor ou repetição, linha "desfazer", fila de revisão |
+| Mordomo grava lixo ou alucina | Ops contra vizinhos, PROVISÓRIO por padrão, CONFIRMADO só por Senhor ou repetição, linha "desfazer", fila de revisão; qualidade medida por avaliação ao vivo (CA-25) |
+| Mordomo confirma a própria inferência por repetição | Evidência ancorada: toda op cita ids do delta; promoção conta só falas do Senhor em 3 sessões distintas (`fact_evidence`), nunca reafirmação do modelo |
+| Perfil vira estereótipo ou inventa | Toda frase cita fonte; sem ref, a frase cai; o perfil nunca vira fato CONFIRMED; o Senhor edita e o trecho dele é preservado |
+| Sinais implícitos viram vigilância | Só eventos que o ORION já produz; agregados de horário; nunca saem da máquina além do resumo ao Mordomo; `/memory purge` apaga |
+| Proatividade vira ruído | Até 5 pendências, só na abertura da daily e na entrada do workspace, dentro do core; pergunta "ainda vale?" uma única vez aos 30 dias |
 | Custo do Mordomo e do classificador | Disparo por saliência e por evento, só o delta, cache por assinatura no ledger, tetos por origem no `BudgetGuard` |
 | Snapshot enche o disco | Teto de tamanho e retenção de 7 dias; acima do teto, a ação sobe para Nuclear |
 | Migração quebra sessões e fatos antigos | Migração idempotente com backup em `~/.orion/backup/v0.5.2/` antes de tocar nos bancos |

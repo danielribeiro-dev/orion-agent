@@ -476,6 +476,15 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   6. Recuperação do geral para o detalhe: core → auto-recall (FTS5 + vetores multilíngues em `sqlite-vec`) → `session_search` em cartões e rollups → transcript. `<recalled_context>` não é persistido no transcript.
   7. Transparência: linha `● aprendi: ... · desfazer` na TUI; "hoje aprendi" no cartão da daily; fila de revisão no `/memory`.
 * **Consequências:** Memória independe do modelo principal; custo controlado pela frequência, não pela qualidade. O manifesto que só contava itens deixa o prompt.
+* **Emenda (16/11/2026, antes da Sprint 1):** a crítica da spec mostrou que o desenho lembrava declarações, mas não trazia nada sem ser perguntado, não aprendia com comportamento e deixava o Mordomo confirmar a própria inferência. Acrescenta-se:
+  8. **Evidência ancorada:** toda op cita ids presentes no delta (`user_msg`, `tool_obs`, `signal`), validados no código; fato sobre o Senhor só com `user_msg`; promoção a CONFIRMED conta falas do Senhor em 3 sessões distintas na tabela `fact_evidence`, nunca o que o modelo declara.
+  9. **Observações locais:** leituras locais viram observações compactas e podem fundamentar fatos `project|device`; web e MCP nunca.
+  10. **Sinais implícitos** (PEP, `/undo`, edição do Senhor sobre escrita do agente, reformulações, ritmo), determinísticos e locais, como evidência auxiliar.
+  11. **Pendências proativas:** `commitments` com superfície no core da daily e na entrada de workspace, e prazo no scheduler; só lembram, nunca agem.
+  12. **Perfil do Senhor:** síntese semanal de até 400 tokens no core (teto do core passa a 1.600), toda frase com fonte, editável e preservada.
+  13. **Turnos indexados** em FTS5 (e vetores quando houver modelo), stemmer leve PT-BR sem modelo, e oferta única do modelo multilíngue na primeira sessão (o "s" do Senhor é a ação explícita do ADR-040).
+  14. **Purge:** esquecer continua reversível; `purge` confirmado apaga de todos os índices.
+  15. **Qualidade provada:** avaliação ao vivo opt-in da extração (precisão >= 0,90, recall >= 0,80, zero CONFIRMED indevido) é critério de fechamento da versão.
 
 ### ADR-051: Sessões indexadas, daily e threads [v0.5.3]
 * **Status:** Aprovado (16/11/2026, com o plano da v0.5.3). Emenda o ADR-011 (branches persistidos).
