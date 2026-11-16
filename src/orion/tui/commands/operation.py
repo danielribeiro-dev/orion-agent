@@ -287,3 +287,33 @@ class HelpCommand(BaseSlashCommand):
         context.console.print(orion_panel(table, brand_title("Catálogo de Slash Commands")))
         context.console.print(keys)
         return CommandResult(success=True)
+
+
+class TuiCommand(BaseSlashCommand):
+    name = "/tui"
+    description = "Modo da tela: cheia (padrão) ou clássico"
+    usage = "/tui [fullscreen|classic]"
+
+    async def execute(self, args: str, context: CommandContext) -> CommandResult:
+        from orion.tui.screen.mode import save_preference
+
+        session = context.session
+        current = "fullscreen" if getattr(session, "tui", None) is not None else "classic"
+        wanted = {"fullscreen": "fullscreen", "cheia": "fullscreen", "classic": "classic", "classico": "classic",
+                  "clássico": "classic", "default": "classic"}.get(args.strip().lower())
+        labels = {"fullscreen": "tela cheia", "classic": "clássico"}
+        if not args.strip():
+            return CommandResult(success=True, output_message=f"Modo atual: {labels[current]} · {self.usage}")
+        if wanted is None:
+            return CommandResult(success=False, output_message=f"Uso: {self.usage}")
+        save_preference(session.home, wanted)  # type: ignore[arg-type]
+        if wanted == current:
+            return CommandResult(success=True, output_message=f"Já está no modo {labels[current]}.")
+        relaunch = getattr(getattr(session, "tui", None), "request_relaunch", None)
+        if callable(relaunch):
+            relaunch()
+            return CommandResult(success=True, output_message=f"Reabrindo no modo {labels[wanted]}…")
+        return CommandResult(
+            success=True,
+            output_message=f"Preferência salva: {labels[wanted]}. Vale na próxima vez que o ORION abrir.",
+        )

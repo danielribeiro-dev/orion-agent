@@ -50,6 +50,7 @@ class LabTerminal:
     rows: int = 36
     cpr: bool = True
     env: dict[str, str] = field(default_factory=dict)
+    args: list[str] = field(default_factory=list)
     pid: int = 0
     fd: int = -1
     samples: list[Sample] = field(default_factory=list)
@@ -76,7 +77,7 @@ class LabTerminal:
         (self.home / "run").mkdir(parents=True, exist_ok=True)
         argv = [
             sys.executable, str(LAUNCHER), "--workspace", str(self.workspace),
-            "--home", str(self.home / ".orion"), "--scripts", str(self.scripts),
+            "--home", str(self.home / ".orion"), "--scripts", str(self.scripts), *self.args,
         ]
         self.pid, self.fd = pty.fork()
         if self.pid == 0:  # filho

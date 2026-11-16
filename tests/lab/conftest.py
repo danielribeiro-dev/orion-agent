@@ -98,6 +98,7 @@ def open_lab(tmp_path: Path, network_trap: NetworkTrap) -> Iterator[Callable[...
         env: dict[str, str] | None = None,
         chunk: int = 6,
         delay: float = 0.03,
+        fullscreen: bool = False,
     ) -> LabTerminal:
         home = tmp_path / "home"
         workspace = tmp_path / "ws"
@@ -113,6 +114,7 @@ def open_lab(tmp_path: Path, network_trap: NetworkTrap) -> Iterator[Callable[...
             cols=cols,
             rows=rows,
             cpr=cpr,
+            args=["--fullscreen"] if fullscreen else [],
             env={
                 **network_trap.env(),
                 "FASTEMBED_CACHE_PATH": str(tmp_path / "fastembed"),

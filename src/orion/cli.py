@@ -246,6 +246,11 @@ def cli_root(
     if ctx.invoked_subcommand is None:
         configure_logging()
         status_bar = SessionStatusBar.from_environment()
+        from orion.tui.screen.mode import choose
+
+        if choose(_orion_home()).mode == "fullscreen":
+            run_fullscreen(status_bar, continue_session, resume)
+            return
         session = create_session(status_bar)
         resume_message = _resume_session(session, continue_session, resume)
         if console.is_terminal:
@@ -259,6 +264,34 @@ def cli_root(
             run_interactive_repl(prompt, session)
         finally:
             session.shutdown()
+
+
+def run_fullscreen(status_bar: SessionStatusBar, continue_session: bool = False, ref: str = "") -> None:
+    """Abre o ORION em tela cheia (ADR-043); ao sair deixa o resumo no scrollback normal."""
+    import sys
+
+    from orion.tui.screen.app import ScreenApp, build_parts
+    from orion.tui.screen.mode import mark_started, mark_starting
+    from orion.tui.session import AgentSession
+
+    parts = build_parts(status_bar)
+    session = AgentSession(status_bar=status_bar, console=parts.console, sink=parts.renderer)
+    _ask_project_trust(session)
+    if os.environ.get("ORION_MCP", "1") != "0":
+        session.start_mcp()
+    notice = _resume_session(session, continue_session, ref)
+    screen = ScreenApp(session, parts, status_bar, home=session.home, notice=notice)
+    session.fire_hook_sync("SessionStart", {"source": "resume" if notice else "startup"})
+    mark_starting(session.home)
+    try:
+        screen.run()
+        mark_started(session.home)
+    finally:
+        session.shutdown()
+    console.print(screen.summary())
+    if screen.relaunch:
+        argv0 = sys.argv[0]
+        os.execv(argv0, [argv0, "--resume", session.session_id])
 
 
 @app.command(name="info")

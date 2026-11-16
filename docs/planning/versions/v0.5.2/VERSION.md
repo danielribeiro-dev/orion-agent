@@ -52,7 +52,7 @@ A rodada de 15/11/2026 (`tui-mcp` + provider roteirizado, custo zero) mostrou qu
 | :--- | :--- | :--- | :--- | :--- |
 | **Sprint 0** | Spec | Achados, auditoria dos comandos, ADR-043 a 045, design system e telas de referência | [`sprint-0.md`](sprints/sprint-0.md) | ✅ |
 | **Sprint 1** | Instalação | `scripts/install.sh`, `orion update`/`--rollback`, `/doctor` | [`sprint-1.md`](sprints/sprint-1.md) | ✅ |
-| **Sprint 2** | Casco fullscreen | `ScreenRenderer`, app em tela cheia, input vivo com fila, rolagem, reflow, `/tui`, reserva | [`sprint-2.md`](sprints/sprint-2.md) | ⏳ |
+| **Sprint 2** | Casco fullscreen | `ScreenRenderer`, app em tela cheia, input vivo com fila, rolagem, reflow, `/tui`, reserva | [`sprint-2.md`](sprints/sprint-2.md) | ✅ |
 | **Sprint 3** | Movimento | Pensamento, ferramentas, rodapé de turno, transcrição, sinais do terminal, PT-BR | [`sprint-3.md`](sprints/sprint-3.md) | ⏳ |
 | **Sprint 4** | Memória e comandos | `/timeline`, `/recall`, `/memory` legíveis e correções da auditoria | [`sprint-4.md`](sprints/sprint-4.md) | ⏳ |
 
@@ -83,15 +83,15 @@ src/orion/cli.py                           [mod]   escolha do renderizador, upda
 |:---|:---|:---|:---|:---|
 | CA-01 | `orion` sem venv | Num HOME limpo, `scripts/install.sh` deixa `orion` no PATH | `pytest tests/unit/test_install.py` + execução manual | ✅ |
 | CA-02 | Atualizar e reverter | `orion update` instala a tag nova ao lado e troca o symlink; `--rollback` volta | `tests/unit/test_install.py` | ✅ |
-| CA-03 | Input vivo | O input aparece e aceita texto durante pensamento, texto e ferramenta; Enter enfileira | `pytest -m lab tests/lab/scenarios/test_fullscreen.py` | ⏳ |
-| CA-04 | Expandir no lugar | Alt+R abre e fecha o raciocínio na mesma posição da transcrição | `tests/unit/test_screen_transcript.py` + lab | ⏳ |
-| CA-05 | Reflow | 110 → 80 colunas refaz a quebra; status line mantém modo e PEP | lab | ⏳ |
-| CA-06 | Ocioso | Nenhuma escrita no pty em 3 s sem atividade | lab | ⏳ |
-| CA-07 | Reserva | `ORION_TUI=classic`, `TERM=dumb` e duas partidas falhas caem no modo clássico | `tests/unit/test_screen_app.py` | ⏳ |
-| CA-08 | Saída | Ao sair, a tela é restaurada e o resumo com `--resume <id>` fica no scrollback | lab | ⏳ |
+| CA-03 | Input vivo | O input aparece e aceita texto durante pensamento, texto e ferramenta; Enter enfileira | `pytest -m lab tests/lab/scenarios/test_fullscreen.py` | ✅ |
+| CA-04 | Expandir no lugar | Alt+R abre e fecha o raciocínio na mesma posição da transcrição | `tests/unit/test_screen_transcript.py` + lab | ✅ |
+| CA-05 | Reflow | 110 → 80 colunas refaz a quebra; status line mantém modo e PEP | lab | 🔄 reflow ✅; modo e PEP na status line ficam para a Sprint 3 |
+| CA-06 | Ocioso | Nenhuma escrita no pty em 3 s sem atividade | lab | ✅ |
+| CA-07 | Reserva | `ORION_TUI=classic`, `TERM=dumb` e duas partidas falhas caem no modo clássico | `tests/unit/test_screen_app.py` | ✅ |
+| CA-08 | Saída | Ao sair, a tela é restaurada e o resumo com `--resume <id>` fica no scrollback | lab | ✅ |
 | CA-09 | Pensamento | Linha viva com tempo e tokens; bloco recolhido `▸`; raciocínio curto absorvido | `tests/unit/test_stream_motion.py` | ⏳ |
 | CA-10 | Memória | `/timeline` e `/recall` sem markdown cru, uma linha por evento, papéis em PT-BR | `tests/unit/test_memory_views.py` | ⏳ |
-| CA-11 | Sem regressão | Suíte padrão e lab da v0.5.1 passam no modo clássico | `pytest tests/` + `pytest -m lab` | ⏳ |
+| CA-11 | Sem regressão | Suíte padrão e lab da v0.5.1 passam no modo clássico | `pytest tests/` + `pytest -m lab` | ✅ |
 | CA-12 | Rodada real | Turno com modelo real em tela cheia, sem artefatos | manual, `ORION_LIVE=1`, <= 15 req | ⏳ |
 
 ---

@@ -34,6 +34,7 @@ from orion.tui.panels import (
     render_plan_approval,
     render_question,
 )
+from orion.tui.screen.host import active_host
 from orion.tui.theme import get_orion_theme
 
 
@@ -69,7 +70,14 @@ def is_interactive() -> bool:
 async def run_modal(
     controller: ModalController, console: Console, keep_on_screen: bool = False
 ) -> None:
-    """Conduz o modal até que o controller peça para fechar."""
+    """Conduz o modal até que o controller peça para fechar.
+
+    Com a tela cheia ativa (ADR-043), o modal é desenhado por ela, acima do input.
+    """
+    host = active_host()
+    if host is not None:
+        await host.run_modal(controller, keep_on_screen)
+        return
     if not is_interactive():
         console.print(controller.render())
         return
@@ -101,6 +109,16 @@ async def run_modal(
     )
     silence_cpr_warning(app)
     await app.run_async()
+
+
+async def _ask_text(question: str, default: str = "") -> str:
+    """Pergunta de texto livre: no input da tela cheia ou num ``PromptSession`` próprio."""
+    host = active_host()
+    if host is not None:
+        return await host.ask_text(question, default)
+    session: PromptSession[str] = PromptSession()
+    silence_cpr_warning(session.app)
+    return await session.prompt_async("❯ ", default=default)
 
 
 class ModelPicker:
@@ -247,7 +265,7 @@ async def ask_pep_decision(
     Enquanto o modal está aberto a linha de status continua visível (*footer*). Ao decidir, o
     histórico guarda o diálogo sem as teclas e a decisão do Senhor (V-13).
     """
-    interactive = is_interactive()
+    interactive = is_interactive() or active_host() is not None
     console.print()  # respiro entre a fala do modelo e o diálogo
     picker = PepChoice(action, level, reason, footer if interactive else None)
     await run_modal(picker, console, keep_on_screen=not interactive)
@@ -258,9 +276,7 @@ async def ask_pep_decision(
     if picker.choice != "e":
         _print_decision(console, picker.choice)
         return picker.choice
-    session: PromptSession[str] = PromptSession()
-    silence_cpr_warning(session.app)
-    edited = await session.prompt_async("❯ ", default=str(action.params.get("command", "")))
+    edited = await _ask_text("comando editado (Enter aprova, vazio nega)", str(action.params.get("command", "")))
     if not edited.strip():
         _print_decision(console, "n")
         return "n"
@@ -339,16 +355,14 @@ async def ask_user_choice(
     console: Console, question: str, options: list[dict[str, str]], multi: bool = False
 ) -> list[str] | None:
     """Pergunta ao Senhor; sem terminal interativo devolve None (a tool falha com clareza)."""
-    if not is_interactive():
+    if not is_interactive() and active_host() is None:
         return None
     picker = AskChoice(question, options, multi)
     if not picker.wants_text:
         await run_modal(picker, console, keep_on_screen=True)
     if picker.wants_text:
-        session: PromptSession[str] = PromptSession()
-        silence_cpr_warning(session.app)
         console.print(Text(question, style="text_primary"))
-        typed = (await session.prompt_async("❯ ")).strip()
+        typed = (await _ask_text("sua resposta")).strip()
         return [typed] if typed else None
     return picker.answers or None
 
@@ -374,7 +388,7 @@ class PlanApproval:
 
 async def approve_plan(console: Console, plan: str, mode_label: str) -> bool:
     """Mostra o plano; sem terminal interativo o plano NÃO é aprovado."""
-    if not is_interactive():
+    if not is_interactive() and active_host() is None:
         return False
     modal = PlanApproval(plan, mode_label)
     await run_modal(modal, console, keep_on_screen=True)

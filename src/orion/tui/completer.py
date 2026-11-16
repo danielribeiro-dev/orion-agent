@@ -201,6 +201,12 @@ OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
         category="operation",
     ),
     SlashCommandInfo(
+        "/tui",
+        "Modo da tela: cheia (padrão) ou clássico",
+        icon="❯",
+        category="operation",
+    ),
+    SlashCommandInfo(
         "/doctor",
         "Diagnóstico de integridade do ambiente e dependências",
         icon="❯",

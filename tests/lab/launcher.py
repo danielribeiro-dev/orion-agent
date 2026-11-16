@@ -20,6 +20,7 @@ def main() -> None:
     parser.add_argument("--home", required=True)
     parser.add_argument("--scripts", required=True)
     parser.add_argument("--model", default="claude-sonnet-5-5")
+    parser.add_argument("--fullscreen", action="store_true", help="tela cheia (ADR-043)")
     args = parser.parse_args()
 
     os.environ["ANTHROPIC_API_KEY"] = "sk-ant-lab-dummy-never-sent"
@@ -35,6 +36,26 @@ def main() -> None:
     cli.configure_logging(home)
     provider = ScriptedProvider(ScriptBook.load(Path(args.scripts)))
     status_bar = SessionStatusBar.from_environment()
+    if args.fullscreen:
+        from orion.tui.screen.app import ScreenApp, build_parts
+
+        parts = build_parts(status_bar)
+        session = AgentSession(
+            status_bar=status_bar,
+            console=parts.console,
+            workspace=Path(args.workspace),
+            home=home,
+            provider_factory=lambda spec: provider,
+            sink=parts.renderer,
+        )
+        session.set_model(args.model)
+        screen = ScreenApp(session, parts, status_bar, home=home)
+        try:
+            screen.run()
+        finally:
+            session.shutdown()
+        cli.console.print(screen.summary())
+        return
     session = AgentSession(
         status_bar=status_bar,
         console=cli.console,
