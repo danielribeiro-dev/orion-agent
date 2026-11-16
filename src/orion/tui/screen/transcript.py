@@ -95,6 +95,7 @@ class Cell:
     collapsed: bool = True
     meta: dict[str, Any] = field(default_factory=dict)
     _cache: dict[tuple[int, bool], list[Line]] = field(default_factory=dict, repr=False)
+    """Linhas por (largura, aberto)."""
 
     @property
     def collapsible(self) -> bool:
@@ -107,16 +108,17 @@ class Cell:
         self.collapsed = not self.collapsed
         return self.collapsed
 
-    def renderables(self) -> Sequence[RenderableType]:
-        if self.expanded is not None and not self.collapsed:
+    def renderables(self, expand: bool = False) -> Sequence[RenderableType]:
+        if self.expanded is not None and (expand or not self.collapsed):
             return self.expanded
         return self.body
 
-    def lines(self, width: int) -> list[Line]:
-        key = (width, self.collapsed)
+    def lines(self, width: int, expand: bool = False) -> list[Line]:
+        opened = expand or not self.collapsed
+        key = (width, opened)
         cached = self._cache.get(key)
         if cached is None:
-            cached = rasterize(self.renderables(), width)
+            cached = rasterize(self.renderables(expand), width)
             if len(self._cache) > 8:
                 self._cache.clear()
             self._cache[key] = cached
@@ -180,11 +182,23 @@ class Transcript:
         with self._lock:
             return list(self.cells)
 
-    def total_lines(self, width: int) -> int:
-        return sum(len(cell.lines(width)) for cell in self.snapshot())
+    def total_lines(self, width: int, expand: bool = False) -> int:
+        return sum(len(cell.lines(width, expand)) for cell in self.snapshot())
+
+    def all_lines(self, width: int, expand: bool = False) -> list[Line]:
+        """Todas as linhas (transcrição completa, busca e despejo no scrollback)."""
+        out: list[Line] = []
+        for cell in self.snapshot():
+            out.extend(cell.lines(width, expand))
+        return out
 
     def window(
-        self, width: int, height: int, offset: int, tail: list[Line] | None = None
+        self,
+        width: int,
+        height: int,
+        offset: int,
+        tail: list[Line] | None = None,
+        expand: bool = False,
     ) -> tuple[list[Line], list[Cell | None], int]:
         """As *height* linhas que terminam *offset* linhas acima do fim (0 = segue o fim).
 
@@ -198,7 +212,7 @@ class Transcript:
         total = len(tail)
         cells = self.snapshot()
         for index in range(len(cells) - 1, -1, -1):
-            cell_lines = cells[index].lines(width)
+            cell_lines = cells[index].lines(width, expand)
             total += len(cell_lines)
             if len(lines) < need:
                 take = cell_lines[-(need - len(lines)):] if need - len(lines) < len(cell_lines) else cell_lines

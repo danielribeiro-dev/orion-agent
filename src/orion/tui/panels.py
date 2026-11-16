@@ -317,7 +317,8 @@ def render_pep_dialog(
         row("Escalada", reason, style="pep_warn", last=True)
 
     title = Text()
-    title.append(f" [PEP {int(level)}] Autorização requerida ", style="pep_warn")
+    # [PEP] + nível da AÇÃO; o "PEP N" da status line é o modo da sessão (N-12)
+    title.append(f" [PEP] Autorização requerida · ação de nível {int(level)} ", style="pep_warn")
 
     keys = Text("  ")
     keys.append("y", style="diff_add")

@@ -184,8 +184,8 @@ class LabTerminal:
         return False
 
     def wait_ready(self, timeout: float = 60.0) -> bool:
-        """Turno concluído: estado Ready na linha de status e prompt vazio."""
-        return self.wait_for(r"Ready ●", timeout)
+        """Turno concluído: estado Pronto na linha de status e prompt vazio."""
+        return self.wait_for(r"Pronto ●", timeout)
 
     def boot(self, timeout: float = 90.0) -> None:
         if not self.wait_for("❯", timeout):

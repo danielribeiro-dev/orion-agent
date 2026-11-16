@@ -71,7 +71,7 @@ class TestMonetaryFormatting:
         console.print(bar.render_bottom_bar(width=120))
         output = buf.getvalue()
 
-        assert "$0.010" in output  # Horizon: 3 casas na status line; BRL fica no /cost
+        assert "US$ 0,010" in output  # Horizon: 3 casas na status line; BRL fica no /cost
 
     def test_clean_status_line_item_4_wireframe(self) -> None:
         """Item 4: Valida a Clean Status Line na faixa de 80 a 109 colunas."""
@@ -88,9 +88,9 @@ class TestMonetaryFormatting:
         console.print(bar.render_bottom_bar(width=80))
         output = buf.getvalue().strip()
 
-        assert "claude-3-7-sonnet · $0.012 · Ready ●" in output
+        assert "claude-3-7-sonnet · US$ 0,012 · PEP 2 · Pronto ●" in output
         bar.context_pct = 24
-        assert "claude-3-7-sonnet · 24% ctx · $0.012 · Ready ●" in "".join(
+        assert "claude-3-7-sonnet · 24% ctx · US$ 0,012 · PEP 2 · Pronto ●" in "".join(
             part for _, part in bar.status_segments(80)
         )
 
@@ -103,12 +103,12 @@ class TestMonetaryFormatting:
             pep_level=1,
         )
         text = "".join(part for _, part in bar.status_segments(120))
-        assert text.startswith("plan · claude-3-7-sonnet · $0.000")
+        assert text.startswith("plan · claude-3-7-sonnet · US$ 0,000")
         assert "PEP 1" in text
 
     def test_busy_state_shows_working(self) -> None:
         bar = SessionStatusBar(is_busy=True)
-        assert "Working ●" in "".join(part for _, part in bar.status_segments(70))
+        assert "Trabalhando ●" in "".join(part for _, part in bar.status_segments(70))
 
     def test_offline_wins_over_busy(self) -> None:
         bar = SessionStatusBar(is_busy=True, is_online=False)

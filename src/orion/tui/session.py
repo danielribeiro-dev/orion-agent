@@ -1418,6 +1418,9 @@ class AgentSession:
         )
         self.status_bar.is_busy = True
         await self._log_timeline("user", "user", text)
+        started = time.monotonic()
+        tokens_before = self.tokens_in + self.tokens_out
+        cost_before = self.cost_total
         succeeded = False
         try:
             answer = await engine.run(
@@ -1451,6 +1454,13 @@ class AgentSession:
             await self.fire_hook("Stop", {"success": succeeded})
 
         self.history = engine.messages
+        summary = getattr(self.renderer, "turn_summary", None)
+        if callable(summary):  # rodapé de turno (N-14); sinks remotos não o têm
+            summary(
+                time.monotonic() - started,
+                self.tokens_in + self.tokens_out - tokens_before,
+                self.cost_total - cost_before,
+            )
         self.branches.record_event(answer[:200], event_type="observation")
         await self._log_timeline("assistant", "agent", answer)
         await self.recall.remember(f"Pedido: {text}\nResposta: {answer[:800]}", self.session_id)

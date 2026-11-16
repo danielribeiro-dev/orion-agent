@@ -77,18 +77,44 @@ class TestStreaming:
 
     def test_code_block_has_rounded_border(self) -> None:
         renderer, buf = _renderer()
-        renderer.add_text("```python\nprint(1)\n```\n")
+        renderer.add_text("```python\na = 1\nb = 2\nc = 3\nprint(a)\n```\n")
         renderer.close()
         assert "╭" in buf.getvalue()
+
+    def test_short_code_has_no_frame(self) -> None:
+        """N-16: até 3 linhas, recuo sem moldura."""
+        renderer, buf = _renderer()
+        renderer.add_text("```python\nprint(1)\n```\n")
+        renderer.close()
+        assert "╭" not in buf.getvalue() and "    print(1)" in buf.getvalue()
+
+    def test_blocks_of_one_message_are_separated(self) -> None:
+        """N-15: blocos da mesma fala gravados em partes ganham uma linha em branco."""
+        renderer, buf = _renderer()
+        renderer.add_text("Pronto, Senhor.\n\n")
+        renderer.add_text("## Mudanças\n\nfeito")
+        renderer.close()
+        lines = [ln.rstrip() for ln in buf.getvalue().splitlines()]
+        assert lines[lines.index("Pronto, Senhor.") + 1] == ""
+
+    def test_short_reasoning_is_absorbed(self) -> None:
+        """N-10: raciocínio curto e rápido não vira bloco."""
+        renderer, buf = _renderer()
+        renderer.begin_thinking()
+        renderer.add_reasoning("ok")
+        renderer.add_text("resposta")
+        renderer.close()
+        assert "Raciocínio" not in buf.getvalue()
+        assert renderer.last_reasoning == "ok"
 
     def test_reasoning_collapses_and_expands(self) -> None:
         renderer, buf = _renderer()
         renderer.begin_thinking()
-        renderer.add_reasoning("linha secreta")
+        renderer.add_reasoning("linha secreta " + "detalhe " * 20)
         renderer.add_text("resposta")
         renderer.close()
         output = buf.getvalue()
-        assert "Raciocínio · " in output and "Alt+R expande" in output
+        assert "▸ Raciocínio · " in output and "Alt+R mostra" in output and " tok" in output
         assert "Alt+R" in output
         assert "linha secreta" not in output
         renderer.expand_reasoning()

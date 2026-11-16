@@ -87,20 +87,20 @@ class TestStatusLine:
 
     def test_states(self) -> None:
         bar = SessionStatusBar(model_name="m")
-        assert self._text(bar).endswith("Ready ●")
+        assert self._text(bar).endswith("Pronto ●")
         bar.is_busy = True
-        assert self._text(bar).endswith("Working ●")
+        assert self._text(bar).endswith("Trabalhando ●")
         bar.awaiting = True
         assert self._text(bar).endswith("Aguardando ●")
         assert ("pep", "●") in bar.status_segments(120)
 
     def test_context_and_effort(self) -> None:
         bar = SessionStatusBar(model_name="m", context_pct=24)
-        assert "m · 24% ctx · $0.000 · PEP 2" in self._text(bar)
+        assert "m · 24% ctx · US$ 0,000 · PEP 2" in self._text(bar)
         from orion.tui.status_bar import ReasoningEffort
 
         bar.reasoning_effort = ReasoningEffort.LOW
-        assert "thinking low" in self._text(bar)  # Alt+T continua visível fora do padrão
+        assert "esforço baixo" in self._text(bar)  # Alt+T continua visível fora do padrão
 
 
 class TestCompleter:

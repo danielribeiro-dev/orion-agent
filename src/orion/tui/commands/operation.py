@@ -280,8 +280,8 @@ class HelpCommand(BaseSlashCommand):
                 Text(command.description, style="text_primary"),
             )
         keys = Text(
-            "\nShift+Tab modo · Alt+T raciocínio · Alt+O fast · Alt+R expandir raciocínio · "
-            "Alt+E expandir saída · Alt+Enter nova linha · Ctrl+C cancelar",
+            "\nShift+Tab modo · Alt+T esforço · Alt+O rápido · Alt+R raciocínio · Alt+E saída · "
+            "Ctrl+O transcrição · PgUp/PgDn rola · Alt+Enter nova linha · Esc interrompe",
             style="text_dim",
         )
         context.console.print(orion_panel(table, brand_title("Catálogo de Slash Commands")))

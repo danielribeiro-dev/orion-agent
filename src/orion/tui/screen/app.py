@@ -54,9 +54,10 @@ from orion.tui.menu import MENU_MAX_HEIGHT, OrionCompletionsMenuControl, menu_fo
 from orion.tui.modal import render_ansi
 from orion.tui.prompt import get_prompt_style
 from orion.tui.screen import host as host_registry
+from orion.tui.screen import terminal
 from orion.tui.screen.console import TranscriptConsole
 from orion.tui.screen.renderer import ScreenRenderer
-from orion.tui.screen.transcript import Cell, Line, Transcript, rasterize
+from orion.tui.screen.transcript import Cell, Line, Transcript, plain, rasterize
 from orion.tui.status_bar import SessionStatusBar
 from orion.tui.theme import ORION_COLORS
 
@@ -68,6 +69,10 @@ IDLE_INTERVAL = 0.5
 MAX_FPS = 30
 DOUBLE_CTRL_C = 2.0
 STARTED_AFTER = 10.0
+UNFOCUSED_INTERVAL = 0.5
+"""Sem foco o spinner anda a 2 quadros/s (ADR-045)."""
+BELL_AFTER = 10.0
+"""Turno mais longo que isso, terminado com a janela sem foco, toca o sino (N-23)."""
 
 
 @dataclass
@@ -104,7 +109,7 @@ def user_cell(text: str) -> Cell:
     line = Text(no_wrap=False)
     line.append("❯ ", style=f"bold {ORION_COLORS['accent_cyan']}")
     line.append(text, style=f"bold {ORION_COLORS['text_primary']}")
-    return Cell("user", [Text(""), Padding(line, (0, 1, 0, 0), style=f"on {ORION_COLORS['sel']}", expand=True), Text("")])
+    return Cell("user", [Text(""), Padding(line, (0, 1, 0, 0), style=f"on {ORION_COLORS['sel']}", expand=True)])
 
 
 class _Placeholder(Processor):
@@ -214,7 +219,7 @@ class ScreenApp:
             history=history or self._history(),
             multiline=False,
             accept_handler=self._accept,
-            read_only=Condition(lambda: self.modal is not None),
+            read_only=Condition(lambda: self.modal is not None or (self.full_view and not self.searching)),
         )
         self.app: Application[None] = Application(
             layout=Layout(self._layout(), focused_element=self._input_window),
@@ -230,6 +235,15 @@ class ScreenApp:
         self.app.timeoutlen = 0.25
         self.app.ttimeoutlen = 0.05
         self.exited = False
+        self.focused = True
+        self.full_view = False  # Ctrl+O: transcrição completa, tudo aberto
+        self.searching = False
+        self.query = ""
+        self.matches: list[int] = []
+        self.match_index = -1
+        self.dump_requested = False
+        self.sync_output = terminal.sync_supported()
+        self.progress = terminal.progress_supported()
         self.transcript.add(Cell("banner", [_Banner(status_bar)]))
         if notice:
             self.transcript.add_renderables("notice", Text(notice, style="text_dim"))
@@ -302,16 +316,22 @@ class ScreenApp:
                 rule(),
                 self._input_window,
                 rule(),
-                Window(FormattedTextControl(self._status_fragments), height=1, style="class:bottom-toolbar"),
+                Window(FormattedTextControl(self._status_fragments), height=1, style="class:bottom-toolbar nobold"),
             ]
         )
 
     def _prompt_symbol(self) -> StyleAndTextTuples:
+        if self.searching:
+            return [("class:prompt.symbol", "/ ")]
         if self._answer is not None:
             return [("class:prompt.symbol", "› ")]
         return [("class:prompt.symbol", "❯ ")]
 
     def _placeholder(self) -> str:
+        if self.searching:
+            return "buscar na transcrição (Enter busca, Esc cancela)"
+        if self.full_view:
+            return "transcrição · / busca · q volta"
         if self.modal is not None:
             return ""
         if self._answer is not None:
@@ -354,9 +374,45 @@ class ScreenApp:
             self.buffer.cursor_position = len(self.buffer.text)
             self.queue.clear()
 
+        terminal.register_focus_keys()
+
+        @extra.add(terminal.FOCUS_IN_KEY)
+        def _focus_in(event: KeyPressEvent) -> None:
+            self.focused = True
+
+        @extra.add(terminal.FOCUS_OUT_KEY)
+        def _focus_out(event: KeyPressEvent) -> None:
+            self.focused = False
+
         @extra.add("c-d", filter=Condition(lambda: not self.buffer.text))
         def _ctrl_d(event: KeyPressEvent) -> None:
             self.exit()
+
+        @extra.add("c-o")
+        def _full_view(event: KeyPressEvent) -> None:
+            self.toggle_full_view()
+
+        view = KeyBindings()
+        view.add("q")(lambda event: self.toggle_full_view())
+        view.add("escape", eager=True)(lambda event: self.toggle_full_view())
+        view.add("c-o")(lambda event: self.toggle_full_view())
+
+        @view.add("/")
+        def _start_search(event: KeyPressEvent) -> None:
+            self.searching = True
+            self.buffer.reset()
+            self.invalidate()
+
+        view.add("n")(lambda event: self.next_match(1))
+        view.add("N")(lambda event: self.next_match(-1))
+        view.add("[")(lambda event: self.request_dump())
+        for key, step in (("j", -1), ("down", -1), ("k", 1), ("up", 1)):
+            view.add(key)(lambda event, step=step: self.scroll(step))
+        view.add("g")(lambda event: self.scroll(10**9))
+        view.add("G")(lambda event: self.scroll(-(10**9)))
+        view.add("pageup")(lambda event: self.scroll(max(self._height() // 2, 1)))
+        view.add("pagedown")(lambda event: self.scroll(-max(self._height() // 2, 1)))
+        view.add("c-c")(lambda event: self.toggle_full_view())
 
         modal = KeyBindings()
 
@@ -378,9 +434,11 @@ class ScreenApp:
             modal.add(key)(lambda event, name=name: dispatch(name))
         modal.add("escape", eager=True)(lambda event: dispatch("escape"))
         modal.add(Keys.Any)(lambda event: dispatch(event.data))
+        browsing = Condition(lambda: self.full_view and not self.searching)
         return merge_key_bindings(
             [
-                ConditionalKeyBindings(merge_key_bindings([base, extra]), filter=~modal_open),
+                ConditionalKeyBindings(merge_key_bindings([base, extra]), filter=~modal_open & ~browsing),
+                ConditionalKeyBindings(view, filter=browsing & ~modal_open),
                 ConditionalKeyBindings(modal, filter=modal_open),
             ]
         )
@@ -411,8 +469,9 @@ class ScreenApp:
 
     def visible_lines(self, width: int, height: int) -> tuple[list[Line], list[Cell | None]]:
         self.console.width = width
-        tail = self.renderer.live_lines(width, max(height - 2, 3))
-        _, _, total = self.transcript.window(width, 0, 0, tail)
+        expand = self.full_view
+        tail = [] if expand else self.renderer.live_lines(width, max(height - 2, 3))
+        _, _, total = self.transcript.window(width, 0, 0, tail, expand)
         if self.offset and total > self._last_total:
             grown = total - self._last_total
             self.offset += grown
@@ -422,7 +481,7 @@ class ScreenApp:
         self.offset = max(0, min(self.offset, max(total - height, 0)))
         if self.offset == 0:
             self.unseen = 0
-        lines, owners, _ = self.transcript.window(width, height, self.offset, tail)
+        lines, owners, _ = self.transcript.window(width, height, self.offset, tail, expand)
         return lines, owners
 
     def scroll(self, lines: int) -> None:
@@ -434,7 +493,15 @@ class ScreenApp:
     def _activity_lines(self) -> list[Line]:
         width = self._width()
         parts: list[RenderableType] = []
-        if self.offset:
+        if self.full_view:
+            head = Text(no_wrap=True, overflow="ellipsis")
+            head.append("Transcrição", style="accent_cyan")
+            if self.query:
+                found = f"{self.match_index + 1}/{len(self.matches)}" if self.matches else "nada encontrado"
+                head.append(f" · “{self.query}” {found}", style="text_dim")
+            head.append("  ·  / busca · n/N próxima · [ despeja no scrollback · q volta", style="faint")
+            parts.append(head)
+        elif self.offset:
             hint = Text(no_wrap=True)
             hint.append("· rolado para cima", style="faint")
             if self.unseen:
@@ -491,6 +558,10 @@ class ScreenApp:
 
     def _accept(self, buffer: Buffer) -> bool:
         text = buffer.text
+        if self.searching:
+            self.searching = False
+            self.search(text.strip())
+            return False
         if self._answer is not None:
             future, self._answer = self._answer, None
             if not future.done():
@@ -515,7 +586,13 @@ class ScreenApp:
                 return
             self.transcript.add(user_cell(text))
             self.offset = 0
+            self._signal_busy(True)
+            started = time.monotonic()
             await self._dispatch(text)
+            if time.monotonic() - started > BELL_AFTER and not self.focused:
+                with contextlib.suppress(Exception):
+                    self.app.output.bell()
+                    self.app.output.flush()
         except asyncio.CancelledError:
             self.renderer.close()
             self.transcript.add_renderables(
@@ -528,6 +605,7 @@ class ScreenApp:
         finally:
             self.turn = None
             self.turns += 1
+            self._signal_busy(False)
             self.invalidate()
         if self.relaunch:
             self.exit()
@@ -547,6 +625,63 @@ class ScreenApp:
             return
         await session.run_turn(text)
 
+    # ── Transcrição completa (Ctrl+O) ───────────────────────────────
+
+    def toggle_full_view(self) -> None:
+        self.full_view = not self.full_view
+        self.searching = False
+        self.offset = 0
+        self._last_total = 0
+        if not self.full_view:
+            self.query, self.matches, self.match_index = "", [], -1
+        self.invalidate()
+
+    def search(self, query: str) -> None:
+        """Acha as linhas com *query* (sem diferenciar maiúsculas) e vai à mais recente."""
+        self.query = query
+        width = self._width()
+        lines = self.transcript.all_lines(width, expand=True)
+        needle = query.lower()
+        self.matches = [n for n, line in enumerate(lines) if needle and needle in plain([line]).lower()]
+        self.match_index = len(self.matches) - 1
+        self._jump(len(lines))
+
+    def next_match(self, step: int) -> None:
+        if not self.matches:
+            return
+        self.match_index = (self.match_index + step) % len(self.matches)
+        self._jump(self.transcript.total_lines(self._width(), expand=True))
+
+    def _jump(self, total: int) -> None:
+        if self.match_index < 0:
+            self.invalidate()
+            return
+        line = self.matches[self.match_index]
+        visible = max(self._height() - 6, 1)
+        self.offset = max(total - line - visible // 2 - 1, 0)
+        self._last_total = total
+        self.invalidate()
+
+    def request_dump(self) -> None:
+        """``[``: sai da tela alternativa, escreve a conversa no scrollback e espera Enter."""
+        self.dump_requested = True
+        with contextlib.suppress(Exception):
+            self.app.exit()
+
+    def dump_text(self, width: int) -> str:
+        """A conversa inteira em ANSI, com tudo aberto (cores preservadas no scrollback)."""
+        from rich.console import Group
+
+        parts = [render_ansi(Group(*cell.renderables(expand=True)), width) for cell in self.transcript.snapshot()]
+        return "\n".join(parts)
+
+    def _signal_busy(self, busy: bool) -> None:
+        """Título da aba e progresso nativo acompanham o turno (N-23)."""
+        output = self.app.output
+        terminal.set_title(output, "ORION · trabalhando" if busy else "ORION")
+        if self.progress:
+            terminal.write(output, terminal.PROGRESS_BUSY if busy else terminal.PROGRESS_CLEAR)
+
     def cancel_turn(self) -> bool:
         if self.turn is not None and not self.turn.done():
             self.turn.cancel()
@@ -554,6 +689,10 @@ class ScreenApp:
         return False
 
     def _on_escape(self, event: KeyPressEvent) -> None:
+        if self.searching:
+            self.searching = False
+            self.buffer.reset()
+            return
         if self._answer is not None:
             future, self._answer = self._answer, None
             if not future.done():
@@ -644,7 +783,7 @@ class ScreenApp:
             moving = self.renderer.busy() or self.flash is not None or self.modal is not None
             if moving:
                 self.invalidate()
-                await asyncio.sleep(SPINNER_INTERVAL)
+                await asyncio.sleep(SPINNER_INTERVAL if self.focused else UNFOCUSED_INTERVAL)
                 continue
             status = self.status_bar.status_segments(self._width())
             if status != last_status:
@@ -667,9 +806,25 @@ class ScreenApp:
         host_registry.set_active_host(self)
         self._started_at = time.monotonic()
         self._ticker = asyncio.ensure_future(self._tick())
+        output = self.app.output
+        if self.sync_output:
+            terminal.enable_sync_output(output)
+        terminal.write(output, terminal.FOCUS_ON)
+        terminal.set_title(output, "ORION")
         try:
-            await self.app.run_async()
+            while True:
+                await self.app.run_async()
+                if not self.dump_requested or self.exited:
+                    break
+                self.dump_requested = False
+                await self._dump_to_scrollback()
         finally:
+            terminal.write(output, terminal.FOCUS_OFF)
+            if self.progress:
+                terminal.write(output, terminal.PROGRESS_CLEAR)
+            with contextlib.suppress(Exception):
+                output.clear_title()
+                output.flush()
             host_registry.set_active_host(None)
             if self._ticker is not None:
                 self._ticker.cancel()
@@ -677,6 +832,18 @@ class ScreenApp:
                 self.turn.cancel()
                 with contextlib.suppress(BaseException):
                     await self.turn
+
+    async def _dump_to_scrollback(self) -> None:
+        """Escreve a conversa no scrollback normal (a busca do terminal passa a vê-la)."""
+        import sys
+
+        width = self._width()
+        stream = sys.__stdout__ or sys.stdout
+        stream.write(self.dump_text(width) + "\n\n")
+        stream.write("── fim da transcrição · Enter volta ao ORION ──\n")
+        stream.flush()
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, sys.stdin.readline)
 
     def run(self) -> None:
         asyncio.run(self.run_async())

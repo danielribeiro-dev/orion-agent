@@ -68,6 +68,13 @@ def _make_badge(label: str, value: str, dot_style: str = "accent_cyan") -> Text:
     return t
 
 
+_EFFORT_PT = {
+    ReasoningEffort.MEDIUM: "esforço médio",
+    ReasoningEffort.LOW: "esforço baixo",
+    ReasoningEffort.OFF: "sem raciocínio",
+}
+
+
 class SessionStatusBar(BaseModel):
     """Estado dinâmico da sessão e renderizador de cabeçalho e rodapé do terminal."""
 
@@ -294,41 +301,31 @@ class SessionStatusBar(BaseModel):
 
         sep = ("sep", " · ")
         bg = self._background_segment()
-        cost = f"${self.session_cost_usd:.3f}"
+        cost = f"US$ {self.session_cost_usd:.3f}".replace(".", ",")
         short_model = self.model_name.replace("-thinking", "")
         if self.fast_mode:
-            short_model += " (fast)"
-        if self.reasoning_effort != ReasoningEffort.HIGH:
-            short_model += f" · thinking {self.reasoning_effort.value.lower()}"
+            short_model += " (rápido)"
+        effort = _EFFORT_PT.get(self.reasoning_effort, "")
+        if effort:
+            short_model += f" · {effort}"
         if not self.is_online:
             state = [("dim", "Offline "), ("pep", "●")]
         elif self.awaiting:
             state = [("dim", "Aguardando "), ("pep", "●")]
         elif self.is_busy:
-            state = [("dim", "Working "), ("cyan", "●")]
+            state = [("dim", "Trabalhando "), ("cyan", "●")]
         else:
-            state = [("dim", "Ready "), ("ok", "●")]
+            state = [("dim", "Pronto "), ("ok", "●")]
         ctx = [("dim", f"{self.context_pct}% ctx"), sep] if self.context_pct is not None else []
-
+        # Modo e PEP nunca somem (N-04): são sinais de segurança; modelo e contexto cedem antes.
+        head = [("mode", self.agent_mode), sep]
+        pep = [("pep", f"PEP {self.pep_level}"), sep]
         if width >= 110:
-            return [
-                ("mode", self.agent_mode),
-                sep,
-                ("dim", short_model),
-                sep,
-                *ctx,
-                ("dim", cost),
-                sep,
-                ("pep", f"PEP {self.pep_level}"),
-                sep,
-                *bg,
-                *state,
-            ]
-
+            return [*head, ("dim", short_model), sep, *ctx, ("dim", cost), sep, *pep, *bg, *state]
         abbreviated = short_model.split("/")[-1]
         if width >= 80:
-            return [("dim", abbreviated), sep, *ctx, ("dim", cost), sep, *bg, *state]
-        return [("dim", abbreviated), sep, ("dim", cost), sep, *bg, *state]
+            return [*head, ("dim", abbreviated), sep, *ctx, ("dim", cost), sep, *pep, *bg, *state]
+        return [*head, ("dim", cost), sep, *pep, *bg, *state]
 
     def render_bottom_bar(self, width: int = 80) -> RenderableType:
         """Gera a linha de status inferior sobre o fundo nativo do terminal."""

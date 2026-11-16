@@ -110,8 +110,8 @@ class TestBottomToolbarIntegration:
 
             assert plain_text.startswith("accept-edits · claude-3-7-sonnet")
             assert "PEP 2" in plain_text
-            assert "$0.013" in plain_text
-            assert "Ready ●" in plain_text
+            assert "US$ 0,013" in plain_text
+            assert "Pronto ●" in plain_text
             assert " · " in plain_text
             assert " │ " not in plain_text
 
@@ -122,14 +122,14 @@ class TestBottomToolbarIntegration:
             assert "─" not in plain_text
 
         # Em terminal padrão 80 colunas (Item 4: Clean Status Line):
-        # Horizon: claude-3-7-sonnet · $0.013 · Ready ● (o % de contexto entra quando conhecido)
+        # Bridge: claude-3-7-sonnet · US$ 0,013 · PEP 2 · Pronto ● (o % de contexto entra quando conhecido)
         with patch("shutil.get_terminal_size", return_value=os.terminal_size((80, 24))):
             toolbar_compact = prompt.get_bottom_toolbar()
             compact_text = "".join(part[1] for part in toolbar_compact)
-            assert "claude-3-7-sonnet · $0.013 · Ready ●" in compact_text
+            assert "claude-3-7-sonnet · US$ 0,013 · PEP 2 · Pronto ●" in compact_text
             assert " · " in compact_text
             assert " │ " not in compact_text
-            assert "Ready ●" in compact_text
+            assert "Pronto ●" in compact_text
             assert "─" not in compact_text
 
     def test_bottom_toolbar_offline_status(self) -> None:

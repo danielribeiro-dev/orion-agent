@@ -23,6 +23,9 @@ from orion.tui.stream_renderer import OrionMarkdown, StreamRenderer, collapse_ou
 class ScreenRenderer(StreamRenderer):
     """StreamRenderer sem ``Rich.Live``: células na transcrição e parte viva sob demanda."""
 
+    cancel_hint = "Esc interrompe"
+    reasoning_hint = "Alt+R abre"
+
     def __init__(
         self,
         console: object,
@@ -69,9 +72,16 @@ class ScreenRenderer(StreamRenderer):
     def activity_renderables(self) -> list[RenderableType]:
         """Linha de atividade acima do input (spinner, aviso de travamento, status de comando)."""
         parts: list[RenderableType] = []
+        if self._paused_at is not None and self._last_event is not None:
+            waiting = Text(no_wrap=True)
+            waiting.append("● ", style="pep_warn")
+            waiting.append("Aguardando autorização do Senhor", style="pep_warn")
+            return [waiting]
         if self._activity is not None:
             self._spinner.update(text=self._activity())
             parts.append(self._spinner)
+            if (ticker := self.thinking_ticker()) is not None:
+                parts.append(ticker)
         elif self.status_text is not None:
             self._spinner.update(text=Text(self.status_text, style="text_dim"))
             parts.append(self._spinner)
@@ -90,20 +100,21 @@ class ScreenRenderer(StreamRenderer):
         if not self._reasoning.strip():
             return
         self.last_reasoning = self._reasoning
+        if self.is_short_reasoning(self._reasoning, elapsed):
+            return
         self._start_block("thinking")
         self.transcript.add(self.thinking_cell(self._reasoning, elapsed))
 
     def thinking_cell(self, reasoning: str, elapsed: float) -> Cell:
-        def header(opened: bool) -> Text:
-            line = Text(no_wrap=True, overflow="ellipsis")
-            line.append("▾ " if opened else "▸ ", style="accent_blue")
-            line.append(f"Raciocínio · {_secs(elapsed)}", style="text_dim")
-            line.append("   Alt+R fecha" if opened else "   Alt+R abre", style="faint")
-            return line
-
-        body = [header(False)]
         text = "\n".join(row for row in reasoning.rstrip().splitlines() if row.strip())
-        return Cell("thinking", body, expanded=[header(True), Guided(Text(text, style="text_dim"))])
+        return Cell(
+            "thinking",
+            [self.reasoning_header(reasoning, elapsed, opened=False)],
+            expanded=[
+                self.reasoning_header(reasoning, elapsed, opened=True),
+                Guided(Text(text, style="text_dim")),
+            ],
+        )
 
     def _print_output(self, output: str, label: str = "", success: bool = True) -> None:
         if not output.strip():
@@ -163,6 +174,3 @@ class Guided:
             yield from line
             yield Segment.line()
 
-
-def _secs(value: float) -> str:
-    return f"{value:.1f}s".replace(".", ",")

@@ -16,7 +16,7 @@ def _rows(lab) -> list[str]:  # type: ignore[no-untyped-def]
 
 @pytest.mark.parametrize(
     ("cols", "must", "must_not"),
-    [(110, "Alt+T raciocínio", ""), (80, "Ctrl+C ×2 sai", "Alt+T"), (60, "@ arquivos", "Ctrl+C")],
+    [(110, "Alt+T esforço", ""), (80, "Ctrl+C ×2 sai", "Alt+T"), (60, "@ arquivos", "Ctrl+C")],
 )
 def test_widths_hint_fits_and_prompt_follows_banner(open_lab, cols, must, must_not) -> None:  # type: ignore[no-untyped-def]
     lab = open_lab(cols=cols)

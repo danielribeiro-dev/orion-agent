@@ -16,6 +16,7 @@ from rich import box
 from rich.console import Console, ConsoleOptions, Group, RenderableType, RenderResult
 from rich.live import Live
 from rich.markdown import CodeBlock, Heading, Markdown
+from rich.padding import Padding
 from rich.panel import Panel
 from rich.segment import Segment
 from rich.spinner import Spinner
@@ -26,6 +27,13 @@ from orion.tui.diff_viewer import DiffViewer, FileDiff
 from orion.tui.theme import ORION_COLORS, get_syntax_theme
 
 MAX_INLINE_OUTPUT_LINES = 5
+SHORT_CODE_LINES = 3
+"""Código com até 3 linhas sai recuado, sem moldura (ADR-045, N-16)."""
+SHORT_THINKING_S = 1.0
+SHORT_THINKING_CHARS = 80
+"""Raciocínio menor que isso não vira bloco próprio (N-10)."""
+CHARS_PER_TOKEN = 4
+_EFFORT_LABELS = {"high": "", "medium": "esforço médio", "low": "esforço baixo", "off": ""}
 STALL_NOTICE_S = 5.0
 """Sem nenhum evento do provedor por este tempo, a parte viva avisa (``sem resposta há Ns``)."""
 _LIVE_MARGIN = 2
@@ -67,6 +75,9 @@ class _RoundedCodeBlock(CodeBlock):
             background_color="default",
             word_wrap=True,
         )
+        if len(code.splitlines()) <= SHORT_CODE_LINES:
+            yield Padding(syntax, (0, 0, 0, 4))  # trecho curto: recuo, sem moldura (N-16)
+            return
         yield Panel(syntax, box=box.ROUNDED, border_style="rule", padding=(0, 1))
 
 
@@ -136,6 +147,30 @@ def _seconds(value: float) -> str:
     return f"{value:.1f}s".replace(".", ",")
 
 
+def format_tokens(count: int) -> str:
+    """``412 tok``, ``1,2k tok`` (vírgula decimal, N-17)."""
+    if count < 1000:
+        return f"{count} tok"
+    value = count / 1000
+    text = f"{value:.1f}".replace(".", ",").removesuffix(",0")
+    return f"{text}k tok"
+
+
+def format_usd(value: float, places: int = 4) -> str:
+    """``US$ 0,0050``: dólar com vírgula decimal, como o resto da interface (N-17)."""
+    return f"US$ {value:.{places}f}".replace(".", ",")
+
+
+def friendly_tool_error(output: str) -> str | None:
+    """Erro de validação de schema traduzido (N-11); None quando não é um erro conhecido."""
+    head = output.strip().splitlines()[0] if output.strip() else ""
+    if head.startswith("Invalid parameters for"):
+        return "parâmetros inválidos do modelo · o ORION devolveu o erro para ele corrigir"
+    if head.startswith("Unknown tool"):
+        return "o modelo chamou uma ferramenta que não existe"
+    return None
+
+
 def tool_result_line(
     tool: str, success: bool, output: str, diff: FileDiff | None = None
 ) -> Text | None:
@@ -170,6 +205,9 @@ def collapse_output(output: str) -> tuple[list[str], list[str], int]:
 class StreamRenderer:
     """Fluxo vivo do turno: raciocínio, Markdown em streaming e cards de ferramenta."""
 
+    cancel_hint = "Ctrl+C cancela"
+    reasoning_hint = "Alt+R mostra"
+
     def __init__(
         self,
         console: Console,
@@ -198,6 +236,9 @@ class StreamRenderer:
         self.last_reasoning = ""
         self.last_output = ""
         self.last_output_label = ""
+        self._writing_started: float | None = None
+        self._turn_tools = 0
+        self._chunks_in_message = 0
 
     # ── Ciclo do Live ───────────────────────────────────────────────
 
@@ -206,6 +247,8 @@ class StreamRenderer:
         if self._activity is not None:
             self._spinner.update(text=self._activity())
             footer.append(self._spinner)
+        if (ticker := self.thinking_ticker()) is not None:
+            footer.append(ticker)
         if (notice := self._stall_notice()) is not None:
             footer.append(notice)
         if self._input_line is not None and (typed := self._input_line()) is not None:
@@ -242,7 +285,7 @@ class StreamRenderer:
         silent = time.monotonic() - self._last_event
         if silent < STALL_NOTICE_S:
             return None
-        return Text(f"sem resposta há {int(silent)}s  ·  Ctrl+C cancela", style="faint")
+        return Text(f"sem resposta há {int(silent)}s  ·  {self.cancel_hint}", style="faint")
 
     def set_input_line(self, render: Callable[[], RenderableType | None] | None) -> None:
         """Linha de digitação durante o turno (V-11); ``None`` remove."""
@@ -312,15 +355,40 @@ class StreamRenderer:
         self._thinking_started = time.monotonic()
         self._touch()
         self._reasoning = ""
-        effort = self._effort()
-        tag = f" [{effort} effort]" if effort != "off" else ""
+        self._writing_started = None
+        self._chunks_in_message = 0
+        effort = _EFFORT_LABELS.get(self._effort(), "")
 
         def activity() -> Text:
             elapsed = time.monotonic() - (self._thinking_started or time.monotonic())
-            return Text(f"Pensando{tag}… ({_seconds(elapsed)})", style="text_dim")
+            line = Text(no_wrap=True, overflow="ellipsis")
+            line.append("Pensando", style="text_primary")
+            line.append(f" · {_seconds(elapsed)}", style="text_dim")
+            if self._reasoning:
+                line.append(f" · {format_tokens(len(self._reasoning) // CHARS_PER_TOKEN)}", style="text_dim")
+            if effort:
+                line.append(f" · {effort}", style="text_dim")
+            line.append(f"  ·  {self.cancel_hint}", style="faint")
+            return line
 
         self._activity = activity
         self._ensure_live()
+
+    def thinking_ticker(self) -> Text | None:
+        """Última frase do raciocínio em curso, uma linha apagada sob o spinner (N-06)."""
+        if self._thinking_started is None or not self._reasoning.strip():
+            return None
+        flat = " ".join(self._reasoning.split())
+        tail = flat[-160:]
+        cut = max(tail.rfind(". ", 0, len(tail) - 2), tail.rfind("! ", 0, len(tail) - 2))
+        if 0 <= cut < len(tail) - 20:
+            tail = tail[cut + 2 :]
+        elif len(flat) > 160:
+            tail = "…" + tail.lstrip()
+        line = Text(no_wrap=True, overflow="ellipsis")
+        line.append("  │ ", style="rule")
+        line.append(tail, style="faint")
+        return line
 
     def add_reasoning(self, delta: str) -> None:
         """Acumula o raciocínio recebido do provedor."""
@@ -335,12 +403,23 @@ class StreamRenderer:
         self._activity = None
         if self._reasoning.strip():
             self.last_reasoning = self._reasoning
+            if self.is_short_reasoning(self._reasoning, elapsed):
+                return
             self._start_block("thinking")
-            line = Text(no_wrap=True)
-            line.append("▼ ", style="accent_blue")
-            line.append(f"Raciocínio · {_seconds(elapsed)}", style="text_dim")
-            line.append("   Alt+R expande", style="faint")
-            self._print(line)
+            self._print(self.reasoning_header(self._reasoning, elapsed, opened=False))
+
+    @staticmethod
+    def is_short_reasoning(reasoning: str, elapsed: float) -> bool:
+        return elapsed < SHORT_THINKING_S and len(reasoning.strip()) < SHORT_THINKING_CHARS
+
+    def reasoning_header(self, reasoning: str, elapsed: float, *, opened: bool) -> Text:
+        """``▸ Raciocínio · 4,1s · 1,2k tok   Alt+R abre`` (ADR-045)."""
+        line = Text(no_wrap=True, overflow="ellipsis")
+        line.append("▾ " if opened else "▸ ", style="accent_blue")
+        line.append(f"Raciocínio · {_seconds(elapsed)}", style="text_dim")
+        line.append(f" · {format_tokens(len(reasoning) // CHARS_PER_TOKEN)}", style="text_dim")
+        line.append("   Alt+R fecha" if opened else f"   {self.reasoning_hint}", style="faint")
+        return line
 
     # ── Texto ───────────────────────────────────────────────────────
 
@@ -348,24 +427,49 @@ class StreamRenderer:
         """Recebe um delta de texto e grava os blocos já concluídos."""
         self._flush_thinking()
         self._touch()
+        if self._activity is None and not self._tools:
+            self._writing_started = time.monotonic()
+
+            def writing() -> Text:
+                elapsed = time.monotonic() - (self._writing_started or time.monotonic())
+                line = Text(no_wrap=True)
+                line.append("Escrevendo", style="text_primary")
+                line.append(f" · {_seconds(elapsed)}", style="text_dim")
+                line.append(f"  ·  {self.cancel_hint}", style="faint")
+                return line
+
+            self._activity = writing
         self._buffer += delta
         done, tail = split_committable(self._buffer)
         if done:
             self._buffer = tail
-            self._start_block("text")
-            self._print(OrionMarkdown(done))
+            self._commit_text(done)
         self._ensure_live()
+
+    def _commit_text(self, markdown: str) -> None:
+        """Grava um bloco de Markdown; blocos seguidos da mesma fala ganham respiro (N-15)."""
+        if not markdown.strip():
+            return
+        if self._chunks_in_message and self._last_block == "text":
+            self._print()
+        self._start_block("text")
+        self._print(OrionMarkdown(markdown))
+        self._chunks_in_message += 1
 
     def _flush_text(self) -> None:
         if self._buffer.strip():
-            self._start_block("text")
-            self._print(OrionMarkdown(self._buffer))
+            self._commit_text(self._buffer)
         self._buffer = ""
 
     def end_message(self) -> None:
         """Fecha a mensagem atual do modelo."""
         self._flush_thinking()
         self._flush_text()
+        self._chunks_in_message = 0
+        if self._writing_started is not None:
+            self._writing_started = None
+            if not self._tools:
+                self._activity = None
 
     # ── Ferramentas ─────────────────────────────────────────────────
 
@@ -389,7 +493,7 @@ class StreamRenderer:
                 if arg:
                     line.append(f"  {arg}", style="text_dim")
             started = min((t for _, t in self._tools.values()), default=time.monotonic())
-            line.append(f"  ·  {int(time.monotonic() - started)}s  ·  Ctrl+C cancela", style="faint")
+            line.append(f"  ·  {int(time.monotonic() - started)}s  ·  {self.cancel_hint}", style="faint")
             return line
 
         self._activity = running
@@ -422,7 +526,12 @@ class StreamRenderer:
             meta += f"  ·  exit {metadata['exit_code']}"
         line.append(meta, style="faint")
         self._print(line)
+        self._turn_tools += 1
         summary = tool_result_line(tool, success, output, diff)
+        if not success and (friendly := friendly_tool_error(output)) is not None:
+            summary = Text(no_wrap=True, overflow="ellipsis")
+            summary.append("  › ", style="faint")
+            summary.append(friendly, style="text_dim")
         if summary is not None:
             self._print(summary)
 
@@ -480,14 +589,31 @@ class StreamRenderer:
             self._guide(text)
 
     def decision(self, approved: bool, note: str = "") -> None:
-        """Registra no histórico a decisão do Senhor sobre uma autorização PEP (V-13)."""
-        line = Text("  ")
+        """Registra no histórico a decisão do Senhor sobre uma autorização PEP (V-13, N-13)."""
+        line = Text()
         if approved:
             line.append("✔ aprovado", style="status_ok")
         else:
             line.append("✖ negado", style="diff_del")
         if note:
             line.append(f" · {note}", style="text_dim")
+        self._print(line)
+
+    def turn_summary(self, seconds: float, tokens: int = 0, cost_usd: float = 0.0) -> None:
+        """``✔ 12,4s · 3 ferramentas · 2,1k tok · US$ 0,0050`` ao fim do turno (N-14)."""
+        tools = self._turn_tools
+        self._turn_tools = 0
+        line = Text(no_wrap=True, overflow="ellipsis")
+        line.append("✔ ", style="status_ok")
+        parts = [_seconds(seconds)]
+        if tools:
+            parts.append(f"{tools} {'ferramenta' if tools == 1 else 'ferramentas'}")
+        if tokens:
+            parts.append(format_tokens(tokens))
+        if cost_usd:
+            parts.append(format_usd(cost_usd))
+        line.append(" · ".join(parts), style="faint")
+        self._print(Text(""))
         self._print(line)
 
     def agent_line(self, text: str, *, style: str = "text_dim") -> None:

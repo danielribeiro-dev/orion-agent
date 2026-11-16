@@ -62,7 +62,7 @@ class FakeSession:
     async def run_turn(self, text: str) -> str:
         self.turns.append(text)
         self.renderer.begin_thinking()
-        self.renderer.add_reasoning("pensando no pedido")
+        self.renderer.add_reasoning("pensando no pedido do Senhor com calma, " * 3)
         self.renderer.add_text(f"resposta para {text}")
         if self.block:
             await self.release.wait()

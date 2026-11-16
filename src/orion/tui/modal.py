@@ -274,26 +274,31 @@ async def ask_pep_decision(
             render_pep_dialog(action.tool, action.params, level, reason, show_keys=False)
         )
     if picker.choice != "e":
-        _print_decision(console, picker.choice)
+        _print_decision(console, picker.choice, level=int(level))
         return picker.choice
     edited = await _ask_text("comando editado (Enter aprova, vazio nega)", str(action.params.get("command", "")))
     if not edited.strip():
-        _print_decision(console, "n")
+        _print_decision(console, "n", level=int(level))
         return "n"
-    _print_decision(console, "e", edited.strip())
+    _print_decision(console, "e", edited.strip(), level=int(level))
     return {**action.params, "command": edited.strip()}
 
 
-def _print_decision(console: Console, choice: str, edited: str = "") -> None:
-    line = Text("  ")
+def _print_decision(console: Console, choice: str, edited: str = "", level: int | None = None) -> None:
+    """Decisão na coluna das ferramentas, com o nível da ação (N-12, N-13)."""
+    line = Text()
     if choice in ("y", "a", "e"):
         line.append("✔ aprovado", style="status_ok")
+        if level is not None:
+            line.append(f" · ação de nível {level}", style="text_dim")
         if choice == "a":
             line.append(" · sempre permitir", style="text_dim")
         elif choice == "e":
             line.append(f" · editado: {edited}", style="text_dim")
     else:
         line.append("✖ negado", style="diff_del")
+        if level is not None:
+            line.append(f" · ação de nível {level}", style="text_dim")
     console.print(line)
 
 

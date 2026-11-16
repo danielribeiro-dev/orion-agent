@@ -98,7 +98,7 @@ def render_hint(width: int) -> Text:
     if width >= 80:
         items.append(("Shift+Tab", " modo"))
     if width >= 100:
-        items.append(("Alt+T", " raciocínio"))
+        items.append(("Alt+T", " esforço"))
     if width >= 80:
         items.append(("Ctrl+C", " ×2 sai"))
     hint = Text("  ", no_wrap=True, overflow="crop")
