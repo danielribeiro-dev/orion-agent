@@ -1,0 +1,9 @@
+❯ /timeline
+
+Linha do tempo · 4 eventos
+hoje
+  02:04  Senhor      ajuste a saudacao do sample.py
+  02:04  ORION       Pronto, Senhor. A saudação agora é formal. Mudanças greet() usa Senhor como tratamento…
+  02:05  Senhor      teste longo
+  02:05  ORION       Esta é uma resposta longa para medir o fluxo do stream. Esta é uma resposta longa para…
+/timeline 50 mostra mais · /recall <termo> busca

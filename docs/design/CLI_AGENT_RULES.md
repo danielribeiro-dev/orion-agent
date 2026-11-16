@@ -10,7 +10,7 @@
 1. **NUNCA UTILIZE EMOJIS EM NENHUM COMPONENTE DA CLI:**
    * É estritamente proibido adicionar emojis (`📋`, `🎯`, `🧠`, `⚠️`, `✅`, `❌`, `📁`, `⚙️`, etc.) em nomes de comandos, ícones de autocompletar, títulos de tabelas, mensagens de log, status bars ou modais.
    * **Por quê:** Emojis quebram o cálculo de largura de caracteres (`wcwidth`), causam *cursor drift*, quebram colunas em emuladores como Kitty, Alacritty, Ghostty e iTerm2, e rebaixam a percepção de seriedade e autoridade do agente.
-   * **O que usar:** Use exclusivamente a **Tabela de Glifos Monospace** aprovada: `❯`, `●`, `✔`, `✖`, `!`, `[PEP]`, `›`, `·`, `│`.
+   * **O que usar:** Use exclusivamente a **Tabela de Glifos Monospace** aprovada: `❯`, `●`, `✔`, `✖`, `!`, `[PEP]`, `›`, `·`, `│`, mais `▸`/`▾` só para blocos recolhíveis (recolhido/aberto, ADR-045) e `−` só no diff (ADR-039).
 
 2. **NUNCA PINTE FUNDO SÓLIDO NA LARGURA TOTAL DA LINHA DE STATUS INFERIOR:**
    * É estritamente proibido aplicar `bg:{surface_panel}` ou qualquer outra cor de fundo em 100% da largura da barra inferior ou em espaçadores vazios (`" " * space_between`).

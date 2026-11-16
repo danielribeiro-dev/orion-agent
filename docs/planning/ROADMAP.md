@@ -55,6 +55,10 @@ v0.5.0  ── Claude-Grade Agent: paridade com Claude Code [EM EXECUÇÃO]
   │        (Provider Anthropic nativo, tool_use, contexto/sessões, hooks, MCP completo, subagents, daemon/scheduler)
 v0.5.1  ── Horizon: identidade visual e estabilidade da TUI [EM EXECUÇÃO]
   │        (tokens rule/faint/sel, banner lateral, menu, PEP; harness tests/lab e bugs V-05, V-06, V-09 a V-17)
+v0.5.2  ── Bridge: tela cheia, movimento do agente e instalação sem venv [EM EXECUÇÃO]
+  │        (fullscreen com input vivo e fila, pensamento recolhível, memória legível, orion update)
+v0.5.3  ── [PROPOSTO] Memória Viva e Núcleo Enxuto (ADR-027; R-06, R-16, R-17)
+  │
 v0.6.0  ── Ambient Mode & Headless Voice Pipeline
   │        (openWakeWord, Faster-Whisper, Piper TTS sobre o daemon, "Senhor, posso executar...")
 v0.7.0  ── Dedicated Desktop App & Sci-Fi Cockpit (eDEX-UI Standalone)
@@ -104,6 +108,11 @@ v3.0.0  ── Full Ambient Symbiosis & Multi-Device Distributed Coordination
 * **Status:** 🔄 Sprints 1 e 2 implementadas (11/11/2026); falta a rodada com modelo real
 * **Foco:** Identidade visual Horizon e eliminação dos bugs de TUI que só aparecem em movimento, no mesmo pacote. Sprint 1: harness `tests/lab/` e correções de comportamento; Sprint 2: visual.
 * **Documentação:** [`docs/planning/versions/v0.5.1/VERSION.md`](versions/v0.5.1/VERSION.md)
+
+### 🛰️ v0.5.2 — Bridge (TUI em tela cheia)
+* **Status:** 🔄 Em execução (15/11/2026)
+* **Foco:** Renderizador em tela cheia como padrão (input sempre vivo, fila, rolagem, reflow), linguagem de movimento (pensamento e ferramentas), memória legível e instalação fora da venv com `orion update`/`--rollback`.
+* **Documentação:** [`docs/planning/versions/v0.5.2/VERSION.md`](versions/v0.5.2/VERSION.md)
 
 ### 🎙️ v0.6.0 — Ambient Mode & Headless Voice Pipeline
 * **Status:** 📋 Planejado

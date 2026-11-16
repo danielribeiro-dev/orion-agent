@@ -379,7 +379,55 @@ Moldura e título em `pep_warn` (é o único ponto da tela que pede decisão). C
 - **Truecolor** quando `COLORTERM` for `truecolor` ou `24bit`; senão mapear cada token para a cor mais próxima da paleta de 256; `NO_COLOR` remove cor e mantém negrito.
 - **Fundo:** nunca forçar o fundo do terminal; `bg_canvas` e `surface_panel` são referência de projeto, não pintura de tela cheia (regra 2).
 - **Terminais:** alvo Ghostty, Kitty, WezTerm, Alacritty e GNOME Terminal (suportam CPR). Em emuladores sem CPR o ORION continua funcional (rodapé incluso) e não exibe o aviso do prompt_toolkit.
-- **Fonte:** exige `❯ ● ✔ ✖ ▼ ⠋ › · │ ─ ╭ ╮ ╰ ╯ −` e blocos `█ ╗ ╔ ║ ═ ╝ ╚`. Fontes sem esses glifos degradam alinhamento; registrar em `/doctor`.
+- **Fonte:** exige `❯ ● ✔ ✖ ▸ ▾ ⠋ › · │ ─ ╭ ╮ ╰ ╯ −` e blocos `█ ╗ ╔ ║ ═ ╝ ╚`. Fontes sem esses glifos degradam alinhamento; registrar em `/doctor`.
 
 ### 7.10 Larguras e golden
 Alvos de teste: **110, 80 e 60 colunas**. As cinco telas de `horizon/` são o golden de estrutura e texto (cores conferidas por `snapshot_ansi`). Nenhuma linha pode ultrapassar a largura do terminal.
+
+---
+
+## 8. Bridge — tela cheia e movimento (v0.5.2)
+
+> Decisões: ADR-043 (tela cheia), ADR-045 (movimento). Telas de referência: `docs/design/bridge/`.
+
+### 8.1 Anatomia da tela
+```
+transcrição (rola; auto-follow; "· N novas · Ctrl+End" quando rolada para cima)
+fila        (· na fila: <pedido>, apagado, uma linha por pedido)
+atividade   (⠋ Pensando · 3,2s · 412 tok  ·  Esc interrompe)
+régua rule
+❯ input     (sempre ativo; multilinha com Alt+Enter)
+régua rule
+status line (modo · modelo · ctx · custo · PEP · estado)
+```
+Overlays (PEP, perguntas, plano, `/model`, `/config`) flutuam sobre a transcrição, acima das réguas; o input e a status line continuam visíveis.
+
+### 8.2 Células da transcrição
+| Célula | Forma |
+|:---|:---|
+| Pedido do Senhor | `❯ texto` em negrito, fundo `sel` na linha, sem réguas |
+| Raciocínio | `▸ Raciocínio · 4,1s · 1,2k tok` (recolhido, `text_dim`); aberto: `▾` e texto com guia `│` em `faint` |
+| Texto | Markdown do modelo; título com uma linha em branco acima; código curto (< 4 linhas) sem moldura |
+| Ferramenta | `✔ Read  arquivo  ·  0,1s` + linha de resultado `›`; saída longa recolhida `+N linhas · Alt+E` |
+| Decisão PEP | `✔ aprovado · nível 3` / `✖ negado` na coluna das ferramentas |
+| Rodapé de turno | `✔ 12,4s · 3 ferramentas · 2,1k tok · US$ 0,0050` em `faint` |
+| Aviso / erro | `! texto` / `✖ texto` |
+
+### 8.3 Estados de movimento
+| Estado | Linha de atividade |
+|:---|:---|
+| Pensando | `⠋ Pensando · 3,2s · 412 tok` + linha `faint` com a última frase do raciocínio |
+| Escrevendo | `⠋ Escrevendo · 6,1s` |
+| Ferramenta | `⠋ Bash  pytest -q  ·  3s` |
+| Aguardando PEP | `● Aguardando autorização` em `pep_warn` |
+| Sem resposta | `sem resposta há 6s · Esc interrompe` |
+Ritmo: spinner 80 ms; redesenho até 30 quadros/s; ocioso não redesenha.
+
+### 8.4 Atalhos
+`Enter` envia (durante o turno, enfileira) · `Esc` interrompe o turno · `Ctrl+C` interrompe, limpa o input ou, duas vezes, sai · `↑` com input vazio retoma a fila · `Alt+R` abre/fecha o último raciocínio · `Alt+E` abre/fecha a última saída · `Alt+T` esforço · `Shift+Tab` modo · `PgUp/PgDn` rola · `Ctrl+End` volta ao fim · `Ctrl+O` transcrição (`/` busca, `n` próxima, `[` despeja no scrollback, `q` sai) · `Ctrl+L` redesenha · roda do mouse rola, clique abre/fecha um bloco.
+
+### 8.5 Listas de memória
+Uma linha por item: `hh:mm  papel  resumo…` com papel `Senhor`, `ORION`, `ferramenta`, `sistema`; agrupado por dia (`hoje`, `ontem`, `dd/mm`); resumo sem markdown (cercas, pipes, `#` e crases removidos) e reticências na largura.
+
+### 8.6 Números
+Vírgula decimal em tudo (`0,2s`, `12%`, `US$ 0,0100`, `R$ 0,06`); milhares como `1,2k tok`.

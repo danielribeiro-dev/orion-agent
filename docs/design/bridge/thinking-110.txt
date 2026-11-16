@@ -1,0 +1,13 @@
+❯ ajuste a saudação do sample.py
+
+▸ Raciocínio · 0,8s · 96 tok
+✔ Read  sample.py  ·  0,0s
+  › 6 linhas
+
+⠋ Pensando · 3,2s · 412 tok  ·  Esc interrompe
+  │ …depois troco o f-string por uma versão formal e rodo os testes para garantir que nada quebrou.
+· na fila: crie também um teste para greet()
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ e atualize o README█
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────
+accept-edits · claude-sonnet-5-5 · 4% ctx · US$ 0,0070 · PEP 2 · Trabalhando ●
