@@ -20,7 +20,7 @@ import threading
 import time
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -77,6 +77,11 @@ from orion.gateway.router import (
 )
 from orion.governance.askpass import SUDO_KEYRING_MARKER, AskpassBroker
 from orion.governance.audit import AuditLogger
+from orion.governance.classifier import (
+    CLASSIFIER_ORIGIN,
+    DEFAULT_CLASSIFIER_BUDGET_USD,
+    RiskClassifier,
+)
 from orion.governance.pep import (
     REMEMBERABLE_ESCALATIONS,
     AutonomyMode,
@@ -84,6 +89,7 @@ from orion.governance.pep import (
     Rejection,
 )
 from orion.governance.permissions import ActionLevel, WorkspaceScope
+from orion.governance.reversibility import ReversibilityEngine
 from orion.governance.rules import RuleSet, is_complex_command, rule_text_for
 from orion.hooks import HookRunner
 from orion.memory.auto_recall import AutoRecall
@@ -91,7 +97,7 @@ from orion.memory.timeline import TimelineManager
 from orion.plugins import discover_plugins
 from orion.runtime.local_provider import LocalRuntimeProvider
 from orion.runtime.tools.ask_user import AskUserTool
-from orion.runtime.tools.plan_mode import EnterPlanModeTool, ExitPlanModeTool
+from orion.runtime.tools.plan_mode import EnterPlanModeTool, ExitPlanModeTool, PresenceSteps
 from orion.runtime.tools.read_file import IMAGE_TYPES, MAX_IMAGE_BYTES, encode_image
 from orion.runtime.tools.shells import ShellManager
 from orion.runtime.tools.task import TaskTool
@@ -103,6 +109,7 @@ from orion.runtime.tools.tasks import (
     TaskStopTool,
 )
 from orion.runtime.tools.todo_write import TodoList, TodoWriteTool
+from orion.runtime.tools.undo import UndoLastTool
 from orion.runtime.tools.web_policy import UNTRUSTED_NOTE
 from orion.sessions import (
     FileSnapshot,
@@ -153,20 +160,32 @@ PLAN_MODE_NOTE = "\nPlan mode is active: read only. Every mutation is denied. Fi
 
 
 class AgentMode(StrEnum):
-    """Modos operacionais de CLI_DESIGN_SYSTEM §5.1."""
+    """Modos operacionais (ADR-046, v0.5.3): ``plan``, ``ask``, ``auto`` (padrão) e ``full``.
+
+    ``accept-edits`` e ``manual`` (v0.5.2) são aliases de ``auto`` e ``ask``; o ``/doctor`` avisa
+    quando o ``settings.json`` ainda usa o nome antigo.
+    """
 
     PLAN = "plan"
-    ACCEPT_EDITS = "accept-edits"
+    ASK = "ask"
     AUTO = "auto"
-    MANUAL = "manual"
+    FULL = "full"
+    ACCEPT_EDITS = "auto"
+    MANUAL = "ask"
+
+    @classmethod
+    def _missing_(cls, value: object) -> AgentMode | None:
+        return MODE_ALIASES.get(str(value).strip().lower())
 
 
-MODE_CYCLE = [AgentMode.PLAN, AgentMode.ACCEPT_EDITS, AgentMode.AUTO, AgentMode.MANUAL]
+#: Nomes antigos (v0.5.2) -> modo novo.
+MODE_ALIASES: dict[str, AgentMode] = {"accept-edits": AgentMode.AUTO, "manual": AgentMode.ASK}
+MODE_CYCLE = [AgentMode.PLAN, AgentMode.ASK, AgentMode.AUTO, AgentMode.FULL]
 _MODE_RULES: dict[AgentMode, tuple[AutonomyMode, int]] = {
     AgentMode.PLAN: (AutonomyMode.SUPERVISED, 1),
-    AgentMode.ACCEPT_EDITS: (AutonomyMode.WORKSPACE_AUTO, 2),
-    AgentMode.AUTO: (AutonomyMode.FULLY_AUTO, 2),
-    AgentMode.MANUAL: (AutonomyMode.SUPERVISED, 3),
+    AgentMode.ASK: (AutonomyMode.SUPERVISED, 3),
+    AgentMode.AUTO: (AutonomyMode.WORKSPACE_AUTO, 2),
+    AgentMode.FULL: (AutonomyMode.FULLY_AUTO, 1),
 }
 EFFORT_CYCLE = [
     ReasoningEffort.HIGH,
@@ -187,6 +206,7 @@ class FileChange:
     before: str | None
     after: str
     agent_id: str | None = None
+    at: float = field(default_factory=time.time)
 
 
 class ChangeTracker:
@@ -302,6 +322,8 @@ class AgentSession:
             ledger=self.ledger,
             origin_budget_usd=dict(self.settings.effective.daemon.origin_budget_usd),
         )
+        # Teto próprio do classificador (ADR-046) mesmo quando o Senhor sobrescreve o dicionário.
+        self.budget.origin_budget_usd.setdefault(CLASSIFIER_ORIGIN, DEFAULT_CLASSIFIER_BUDGET_USD)
         self.compactor = ContextCompactor()
         self.branches = BranchManager()
         self.tracker = ChangeTracker()
@@ -315,7 +337,8 @@ class AgentSession:
         self.mention_tokens = 0
         self.tokens_in = self.tokens_out = self.tokens_cached = 0
         self.cost_in = self.cost_out = self.cost_total = 0.0
-        self.mode = AgentMode.ACCEPT_EDITS
+        self.mode = AgentMode.AUTO
+        self._user_inputs: list[str] = []
         self.always_allowed: set[tuple[str, str]] = set()
         self._branch_snapshots: dict[str, list[LLMMessage]] = {}
         self._active_user_text = ""
@@ -327,12 +350,21 @@ class AgentSession:
 
         scope = WorkspaceScope.user_space(self.workspace)
         self.audit = AuditLogger(self.home / "audit.log")
+        self.reversibility = ReversibilityEngine(self.home)
+        trust_ledger = self._open_trust_ledger()
         self.pep = PolicyEnforcementPoint(
             scope=scope,
             action_confirm=self._confirm,
             audit_logger=self.audit,
-            trust_ledger=self._open_trust_ledger(),
+            trust_ledger=trust_ledger,
+            reversibility=self.reversibility,
+            orion_home=self.home,
         )
+        stage2 = os.environ.get("ORION_CLASSIFIER_MODEL", "1") != "0"
+        self.classifier = RiskClassifier(ledger=trust_ledger, model=self._classifier_model if stage2 else None)
+        self.pep.attach_classifier(self.classifier)
+        self.pep.set_user_messages(lambda: tuple(self._user_inputs))
+        self.pep.session_id = self.session_id
         self.hooks = HookRunner(
             lambda: self.settings.effective.hooks,
             cwd=self.workspace,
@@ -349,7 +381,7 @@ class AgentSession:
         self.memory_syncer = self._open_syncer()
         self.todos = TodoList()
         self.shells = ShellManager(self.home / "shells")
-        self._pre_plan_mode = AgentMode.ACCEPT_EDITS
+        self._pre_plan_mode = AgentMode.AUTO
         self._turn_images: list[dict[str, str]] = []
         self._setup_agents()
         self.runtime = self._build_runtime(scope)
@@ -684,6 +716,7 @@ class AgentSession:
             AskUserTool(self._ask_user),
             EnterPlanModeTool(self._enter_plan_mode),
             ExitPlanModeTool(self._approve_plan, lambda: self.mode == AgentMode.PLAN),
+            UndoLastTool(self._undo_snapshot),
             TaskTool(self._spawner),
             TaskCreateTool(self.tasks, self._parent_handle),
             TaskListTool(self.tasks),
@@ -894,7 +927,7 @@ class AgentSession:
         self.status_bar.pep_level = level
 
     def cycle_mode(self) -> None:
-        """Shift+Tab: plan → accept-edits → auto → manual."""
+        """Shift+Tab: plan → ask → auto → full."""
         self.set_mode(MODE_CYCLE[(MODE_CYCLE.index(self.mode) + 1) % len(MODE_CYCLE)])
 
     def cycle_effort(self) -> None:
@@ -1224,6 +1257,16 @@ class AgentSession:
             diff,
             key=event.action_id,
         )
+        self._announce_snapshot(event.metadata)
+
+    def _announce_snapshot(self, metadata: dict[str, Any]) -> None:
+        """Linha do turno quando a ação foi fotografada antes de rodar (ADR-047)."""
+        snap_id = metadata.get("snapshot_id")
+        if not snap_id:
+            return
+        count = int(metadata.get("snapshot_files", 0) or 0)
+        label = f"{count} arquivo{'s' if count != 1 else ''}" if count else "mudanças do git"
+        self.renderer.agent_line(f"● {label} no lixo do ORION · /undo {snap_id}")
 
     # ── Hooks ───────────────────────────────────────────────────────
 
@@ -1275,21 +1318,95 @@ class AgentSession:
             self._pre_plan_mode = self.mode
             self.set_mode(AgentMode.PLAN)
 
-    async def _approve_plan(self, plan: str) -> bool:
+    async def _approve_plan(self, plan: str, steps: PresenceSteps | None = None) -> bool:
         from orion.tui.modal import approve_plan
 
-        target = self._pre_plan_mode if self._pre_plan_mode != AgentMode.PLAN else AgentMode.ACCEPT_EDITS
+        target = self._pre_plan_mode if self._pre_plan_mode != AgentMode.PLAN else AgentMode.AUTO
         await self.fire_hook("Notification", {"message": "plano aguardando aprovação", "kind": "plan"})
         if self.headless:
             return False  # aprovar plano exige o Senhor no terminal
+        listed = [*steps.commands, *steps.paths] if steps else []
         self.renderer.pause()
         try:
-            approved = await approve_plan(self.console, plan, target.value)
+            approved = await (
+                approve_plan(self.console, plan, target.value, listed)
+                if listed
+                else approve_plan(self.console, plan, target.value)
+            )
         finally:
             self.renderer.resume()
         if approved:
             self.set_mode(target)
+            if steps:
+                grant = self.pep.issue_grant(commands=steps.commands, paths=steps.paths, note=plan[:200])
+                if grant is not None:
+                    self.renderer.agent_line(
+                        f"● {len(listed)} passo(s) de presença aprovados com o plano por 15 min · grant {grant.id}"
+                    )
         return approved
+
+    async def _undo_snapshot(self, snapshot_id: str | None) -> str | None:
+        """``undo_last`` e ``/undo <id>``: restaura um snapshot do lixo do ORION."""
+        try:
+            result = await asyncio.to_thread(
+                self.reversibility.restore, snapshot_id, session_id=None if snapshot_id else self.session_id
+            )
+        except OSError as exc:
+            return f"falha ao restaurar: {exc}"
+        if result is None:
+            return None
+        return result.summary()
+
+    async def undo_latest(self) -> str | None:
+        """``/undo`` sem id: desfaz o mais recente entre edição de arquivo e snapshot do lixo."""
+        change_at = self.tracker.changes[-1].at if self.tracker.changes else None
+        snap = self.reversibility.latest(session_id=self.session_id)
+        if snap is not None and (change_at is None or snap.created_at >= change_at):
+            return await self._undo_snapshot(snap.id)
+        change = self.tracker.undo()
+        if change is None:
+            return None
+        path = change.path
+        if path.is_relative_to(self.workspace):
+            path = path.relative_to(self.workspace)
+        return f"Desfeito: {path}"
+
+    async def _classifier_model(self, system: str, user: str) -> str:
+        """Estágio 2 do classificador: tier FAST, origem ``classifier`` com teto próprio."""
+        if not self.online:
+            raise RuntimeError("offline")
+        spec = self.registry.require(self.router.tier_model(ComplexityTier.FAST))
+        is_local = spec.provider == ProviderName.OLLAMA
+        self.budget.check(is_local_model=is_local, origin=CLASSIFIER_ORIGIN)
+        request = LLMRequest(
+            model=spec.id,
+            messages=[
+                LLMMessage(role=MessageRole.SYSTEM, content=system),
+                LLMMessage(role=MessageRole.USER, content=user),
+            ],
+            max_tokens=200,
+            complexity_tier=ComplexityTier.FAST,
+            extra_params=self._extra_params(spec),
+        )
+        started = time.monotonic()
+        text = ""
+        usage: TokenUsage | None = None
+        async for chunk in self._provider_factory(spec).stream(request):
+            text += chunk.delta
+            if chunk.usage is not None:
+                usage = chunk.usage
+        record = self.ledger.record_turn_cost(
+            provider=spec.provider,
+            model=spec.id,
+            usage=usage or self._estimate_usage(request.messages, text, 0),
+            routing_mode="classifier",
+            complexity=ComplexityTier.FAST,
+            task_id=self.session_id,
+            latency_ms=(time.monotonic() - started) * 1000,
+            origin=CLASSIFIER_ORIGIN,
+        )
+        self.cost_total += record.cost_usd
+        return text
 
     # ── Governança ──────────────────────────────────────────────────
 
@@ -1324,9 +1441,11 @@ class AgentSession:
             )
         reason = self.pep.peek_escalation(action.event_id)  # sudo / fora do escopo / sensível
         kinds = self.pep.peek_escalation_kinds(action.event_id)
-        rememberable = not reason or kinds <= REMEMBERABLE_ESCALATIONS
+        # Dúvida do classificador sobre um comando comum vale como pergunta comum ("sempre" grava).
+        plain = not reason or kinds <= {"classifier"}
+        rememberable = plain or kinds <= REMEMBERABLE_ESCALATIONS | {"classifier"}
         key = (action.tool, str(action.params.get("command", action.params.get("path", ""))))
-        if not reason and key in self.always_allowed:
+        if plain and key in self.always_allowed:
             return True
         await self.fire_hook(
             "Notification",
@@ -1352,7 +1471,7 @@ class AgentSession:
             self.status_bar.awaiting = False
             self.renderer.resume()
         if decision == "a":
-            if not reason:
+            if plain:
                 self._remember_allow(action, key)
             elif rememberable:  # fora do escopo e não sensível: "sempre" vale para a pasta
                 self._remember_outside(action)
@@ -1464,6 +1583,7 @@ class AgentSession:
     async def run_turn(self, text: str) -> str | None:
         """Executa um turno completo; erros operacionais viram mensagem, nunca traceback."""
         self._active_user_text = text
+        self._user_inputs.append(text)  # única fala que o classificador de risco enxerga
         submit = await self.fire_hook("UserPromptSubmit", {"prompt": text})
         if submit is not None and submit.blocked:
             self.renderer.warn(f"Hook UserPromptSubmit bloqueou o pedido: {submit.message}")
@@ -1613,6 +1733,7 @@ class AgentSession:
             session_id = sessions[0].session_id
         entries = self.sessions.load(session_id)
         self.session_id = session_id
+        self.pep.session_id = session_id
         self.history = replay(entries)
         self.tracker.changes.clear()
         return f"Sessão {session_id[:8]} retomada: {len(user_turns(entries))} pedido(s), {len(self.history)} mensagem(ns)."
@@ -1652,6 +1773,7 @@ class AgentSession:
             self.renderer.tool_finished(
                 tool, result.success, result.output or result.error or "", result.metadata
             )
+            self._announce_snapshot(result.metadata)
             return result.success
         finally:
             self.renderer.close()

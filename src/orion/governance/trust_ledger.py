@@ -42,6 +42,8 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger(__name__)
 
 _DEFAULT_DB_PATH = Path.home() / ".orion" / "command_trust.db"
+#: Validade de um ``allow`` do classificador em cache (assinatura canônica).
+CLASSIFIER_CACHE_TTL_S = 7 * 24 * 3600.0
 
 
 # ---------------------------------------------------------------------------
@@ -563,6 +565,37 @@ class CommandTrustLedger:
         logger.warning("TrustLedger: %d registros removidos do ledger.", count)
         return count
 
+    # ── Cache do classificador (ADR-046, v0.5.3 Sprint 2) ─────────────────────
+
+    def classifier_lookup(self, signature: str, max_age_s: float = CLASSIFIER_CACHE_TTL_S) -> str | None:
+        """Motivo do ``allow`` em cache para *signature*, se ainda válido."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT reason, created_at FROM classifier_cache WHERE signature = ?",
+                (signature,),
+            ).fetchone()
+        if row is None:
+            return None
+        try:
+            created = datetime.fromisoformat(row["created_at"])
+        except ValueError:
+            return None
+        if (datetime.now(UTC) - created).total_seconds() > max_age_s:
+            return None
+        return str(row["reason"])
+
+    def classifier_store(self, signature: str, reason: str) -> None:
+        """Guarda um ``allow`` do estágio 2 (só ``allow``: negar depende do contexto do pedido)."""
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO classifier_cache (signature, reason, created_at) VALUES (?, ?, ?)",
+                (signature, reason[:300], datetime.now(UTC).isoformat()),
+            )
+
+    def classifier_clear(self) -> int:
+        with self._connect() as conn:
+            return conn.execute("DELETE FROM classifier_cache").rowcount
+
     # ── Internals ─────────────────────────────────────────────────────────────
 
     def _initialize_db(self) -> None:
@@ -585,6 +618,10 @@ class CommandTrustLedger:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_trust_last_exec "
                 "ON command_trust (last_executed_at)"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS classifier_cache ("
+                "signature TEXT PRIMARY KEY, reason TEXT NOT NULL, created_at TEXT NOT NULL)"
             )
 
     @contextmanager

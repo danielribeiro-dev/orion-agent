@@ -56,6 +56,11 @@ class ScriptedProvider(BaseLLMProvider):
         return "scripted"
 
 
+
+def _create(path: Path) -> str:
+    """Comando de faixa Classificada (interpretador) que cria *path*: no ``auto`` sem estágio 2, pergunta."""
+    return f"python3 -c \"open('{path}', 'w').close()\""
+
 @pytest.fixture
 def make_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped-def]
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
@@ -125,15 +130,24 @@ class TestModes:
         for _ in range(4):
             session.cycle_mode()
             seen.append(session.mode.value)
-        assert seen == ["auto", "manual", "plan", "accept-edits"]
+        assert seen == ["full", "plan", "ask", "auto"]
+
+    def test_old_mode_names_are_aliases(self) -> None:
+        assert AgentMode("accept-edits") is AgentMode.AUTO
+        assert AgentMode("manual") is AgentMode.ASK
+        assert AgentMode.ACCEPT_EDITS is AgentMode.AUTO
+
+    def test_default_mode_is_auto(self, make_session) -> None:  # type: ignore[no-untyped-def]
+        session = make_session(ScriptedProvider([]))
+        assert session.mode is AgentMode.AUTO and session.pep.mode == AutonomyMode.WORKSPACE_AUTO
 
     @pytest.mark.parametrize(
         ("mode", "autonomy", "level"),
         [
             (AgentMode.PLAN, AutonomyMode.SUPERVISED, 1),
-            (AgentMode.ACCEPT_EDITS, AutonomyMode.WORKSPACE_AUTO, 2),
-            (AgentMode.AUTO, AutonomyMode.FULLY_AUTO, 2),
-            (AgentMode.MANUAL, AutonomyMode.SUPERVISED, 3),
+            (AgentMode.ASK, AutonomyMode.SUPERVISED, 3),
+            (AgentMode.AUTO, AutonomyMode.WORKSPACE_AUTO, 2),
+            (AgentMode.FULL, AutonomyMode.FULLY_AUTO, 1),
         ],
     )
     def test_mode_maps_to_pep(self, make_session, mode, autonomy, level) -> None:  # type: ignore[no-untyped-def]
@@ -201,7 +215,7 @@ class TestTurns:
 
     async def test_bash_needs_approval_in_accept_edits(self, make_session, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
         marker = tmp_path / "m"
-        provider = ScriptedProvider([call("run_command", command=f"touch {marker}"), "ok"])
+        provider = ScriptedProvider([call("run_command", command=_create(marker)), "ok"])
         session = make_session(provider, answers=["n"])
         await session.run_turn("rode")
         assert not marker.exists()
@@ -216,16 +230,16 @@ class TestTurns:
 
     async def test_edited_command_is_the_one_executed(self, make_session, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
         first, second = tmp_path / "a", tmp_path / "b"
-        provider = ScriptedProvider([call("run_command", command=f"touch {first}"), "ok"])
-        session = make_session(provider, answers=[{"command": f"touch {second}"}])
+        provider = ScriptedProvider([call("run_command", command=_create(first)), "ok"])
+        session = make_session(provider, answers=[{"command": _create(second)}])
         await session.run_turn("rode")
         assert second.exists()
         assert not first.exists()
 
     async def test_edited_command_cannot_escape_static_checks(self, make_session, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
         marker = tmp_path / "m"
-        provider = ScriptedProvider([call("run_command", command=f"touch {marker}"), "ok"])
-        session = make_session(provider, answers=[{"command": f"sudo touch {marker}"}])
+        provider = ScriptedProvider([call("run_command", command=_create(marker)), "ok"])
+        session = make_session(provider, answers=[{"command": f"sudo {_create(marker)}"}])
         await session.run_turn("rode")
         assert not marker.exists()
 

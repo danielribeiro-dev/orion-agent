@@ -380,14 +380,27 @@ def render_question(
     return Group(orion_panel(body, brand_title("Pergunta do agente")), keys)
 
 
-def render_plan_approval(plan: str, mode_label: str) -> Group:
-    """Plano proposto pelo agente (exit_plan_mode) aguardando aprovação."""
+def render_plan_approval(plan: str, mode_label: str, steps: list[str] | None = None) -> Group:
+    """Plano proposto pelo agente (exit_plan_mode) aguardando aprovação.
+
+    *steps*: passos de faixa Presença que a aprovação cobre por 15 min (aprovação por intenção,
+    ADR-047). Nuclear nunca entra nessa lista.
+    """
     title = Text()
     title.append(" [PEP]", style="pep_warn")
     title.append(" Plano para aprovação ", style="text_primary")
+    body: list[RenderableType] = [Markdown(plan.strip())]
+    if steps:
+        listing = Text()
+        listing.append("\nPassos de presença aprovados junto (15 min):\n", style="pep_warn")
+        for step in steps:
+            listing.append("  › ", style="text_dim")
+            listing.append(f"{step}\n", style="text_primary")
+        body.append(listing)
     keys = Text("   ")
     keys.append("[y]", style="status_ok")
-    keys.append(f" Aprovar e sair do modo plano ({mode_label})   ", style="text_dim")
+    label = "Aprovar o plano" if steps else "Aprovar"
+    keys.append(f" {label} e sair do modo plano ({mode_label})   ", style="text_dim")
     keys.append("[n]", style="diff_del")
     keys.append(" Continuar planejando", style="text_dim")
-    return Group(orion_panel(Markdown(plan.strip()), title, border=ORION_COLORS["pep_warn"]), keys)
+    return Group(orion_panel(Group(*body), title, border=ORION_COLORS["pep_warn"]), keys)

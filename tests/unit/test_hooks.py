@@ -236,7 +236,8 @@ class TestSessionEvents:
         sink = tmp_path / "n.json"
         cmd = _script(tmp_path, "n.sh", f"cat >> {sink}")
         marker = tmp_path / "m"
-        provider = ScriptedProvider([call("run_command", command=f"touch {marker}"), "ok"])
+        command = f"python3 -c \"open('{marker}', 'w').close()\""  # Classificada: pergunta
+        provider = ScriptedProvider([call("run_command", command=command), "ok"])
         session = make_session(provider, {"Notification": [{"command": cmd}]})
         await session.run_turn("rode")
         assert "permission" in sink.read_text(encoding="utf-8")

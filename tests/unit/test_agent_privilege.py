@@ -81,14 +81,31 @@ async def test_child_supervised_parent_denies_writes_but_not_reads(tmp_path: Pat
 async def test_child_workspace_auto_writes_inside_but_not_outside(tmp_path: Path) -> None:
     child = _child(_parent(tmp_path, AutonomyMode.WORKSPACE_AUTO))
     assert await child.evaluate(_action("write_file", path=str(tmp_path / "a.txt"), content="x"))
-    with pytest.raises(ActionDenied, match="workspace"):
+    with pytest.raises(ActionDenied, match="no human"):
         await child.evaluate(_action("write_file", path="/etc/evil.conf", content="x"))
 
 
 async def test_child_run_command_is_denied_below_fully_auto(tmp_path: Path) -> None:
+    """Leitura (faixa Livre) roda; comando que o classificador não decide nega sem humano."""
     child = _child(_parent(tmp_path, AutonomyMode.WORKSPACE_AUTO))
+    assert await child.evaluate(_action("run_command", command="ls"))
     with pytest.raises(ActionDenied):
-        await child.evaluate(_action("run_command", command="ls"))
+        await child.evaluate(_action("run_command", command="make deploy"))
+
+
+async def test_child_presence_escalates_to_parent(tmp_path: Path) -> None:
+    """Sprint 2 item 8: Presença num filho nunca pergunta; volta ao agente pai."""
+    child = _child(_parent(tmp_path, AutonomyMode.WORKSPACE_AUTO))
+    with pytest.raises(ActionDenied, match="parent agent"):
+        await child.evaluate(_action("run_command", command="docker system prune -a"))
+
+
+async def test_child_inherits_valid_grants(tmp_path: Path) -> None:
+    parent = _parent(tmp_path, AutonomyMode.WORKSPACE_AUTO)
+    grant = parent.issue_grant(commands=["docker system prune -a"])
+    assert grant is not None
+    child = _child(parent)
+    assert await child.evaluate(_action("run_command", command="docker system prune -a"))
 
 
 async def test_parent_deny_and_ask_rules_bind_the_child(tmp_path: Path) -> None:
@@ -118,11 +135,17 @@ async def test_parent_allow_rules_are_not_inherited(tmp_path: Path) -> None:
 async def test_child_has_no_trust_ledger_and_never_prompts(tmp_path: Path) -> None:
     ledger = MagicMock()
     ledger.lookup.return_value = MagicMock(is_trusted=True)
+    ledger.classifier_lookup.return_value = None
     parent = _parent(tmp_path, AutonomyMode.WORKSPACE_AUTO, trust_ledger=ledger)
     child = _child(parent)
-    with pytest.raises(ActionDenied):
-        await child.evaluate(_action("run_command", command="ls"))  # ledger do pai não vale
-    ledger.lookup.assert_not_called()
+    # v0.5.3 Sprint 2 item 8: o filho herda o ledger do pai para CONSULTA (estágio 1), nunca
+    # para aprender, e nunca pergunta ao Senhor.
+    assert await child.evaluate(_action("run_command", command="make test"))
+    ledger.lookup.assert_called()
+    assert child.trust_ledger is None
+    ledger.lookup.return_value = MagicMock(is_trusted=False)
+    with pytest.raises(ActionDenied, match="no human"):
+        await child.evaluate(_action("run_command", command="make deploy"))
     assert child.ceiling is parent and child.agent_id == "agent_abc123"
 
 
@@ -132,7 +155,7 @@ async def test_nuclear_is_denied_for_child_without_opening_the_os_prompt(tmp_pat
     with patch.object(child._nuclear_gate, "challenge_async") as challenge, pytest.raises(
         ActionDenied, match="nuclear"
     ):
-        await child.evaluate(_action("run_command", command="rm -rf /"))
+        await child.evaluate(_action("run_command", command="mkfs.ext4 /dev/sdz1"))
     challenge.assert_not_called()
 
 

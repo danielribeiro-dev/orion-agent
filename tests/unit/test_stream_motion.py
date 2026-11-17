@@ -133,7 +133,7 @@ def test_pep_decision_is_aligned_and_names_the_action_level() -> None:
 def test_status_line_never_drops_mode_or_pep(width: int) -> None:
     bar = SessionStatusBar(model_name="anthropic/claude-sonnet-5-5", pep_level=2, context_pct=12)
     text = "".join(part for _, part in bar.status_segments(width))
-    assert text.startswith("accept-edits · ") and "PEP 2" in text and text.endswith("Pronto ●")
+    assert text.startswith("auto · ") and "PEP 2" in text and text.endswith("Pronto ●")
     assert len(text) <= width
 
 

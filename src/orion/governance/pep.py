@@ -32,6 +32,13 @@ Declarative rules (``governance/rules.py``): deny > ask > allow. A deny rule
 blocks; an ask rule forces a confirmation; an allow rule only skips the prompt
 where the mode would have asked, never overriding the invariants above.
 
+Faixas (v0.5.3 Sprint 2, ADR-046/047): além do nível por tool, cada ação recebe uma faixa por raio
+de destruição e reversibilidade (``bands.py``). A blocklist nega em qualquer modo; Nuclear exige
+presença verificada; no modo ``auto`` (WORKSPACE_AUTO) Livre passa, Classificada vai ao
+classificador em dois estágios, Presença pergunta (ou usa um grant de plano). Deleções e
+sobrescritas são fotografadas antes (``reversibility.py``). Sem humano, Presença e Nuclear viram
+pendência na Inbox; num subagent, Presença volta ao agente pai.
+
 Sprint 4 additions (v0.3.0):
   - CircuitBreaker integration: blocks mutations in SAFE_HOLDING state.
   - CommandTrustLedger integration: known-safe commands skip prompt in auto.
@@ -44,18 +51,38 @@ import asyncio
 import inspect
 import logging
 import re
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 from orion.core.events import Action
 from orion.governance.audit import AuditLogger
+from orion.governance.bands import (
+    Band,
+    BandContext,
+    BandVerdict,
+    classify_action,
+    is_external_content_tool,
+)
+from orion.governance.classifier import (
+    ClassifierRequest,
+    ClassifierVerdict,
+    Decision,
+    RiskClassifier,
+    RiskClassifierPort,
+)
+from orion.governance.grants import GrantStore, IntentGrant
 from orion.governance.nuclear import (
-    BlastRadius,
     BlastRadiusClassifier,
     NuclearSafetyGate,
+)
+from orion.governance.paths import (
+    is_protected_state_path,
+    is_secret_path,
+    is_sensitive_path,
+    zone_of,
 )
 from orion.governance.permissions import (
     ActionLevel,
@@ -63,8 +90,29 @@ from orion.governance.permissions import (
     is_dynamic_mutating,
     tool_action_level,
 )
+from orion.governance.reversibility import (
+    ReversibilityEngine,
+    Snapshot,
+    SnapshotError,
+    SnapshotPlan,
+)
 from orion.governance.rules import RuleMatch, RuleSet
 from orion.governance.trust_ledger import CommandCanonicalizer, CommandTrustLedger
+
+__all__ = [
+    "ActionDeferred",
+    "ActionDenied",
+    "AutonomyMode",
+    "Escalation",
+    "PendingAction",
+    "PolicyEnforcementPoint",
+    "REMEMBERABLE_ESCALATIONS",
+    "Rejection",
+    "is_protected_state_path",
+    "is_secret_path",
+    "is_sensitive_path",
+    "min_mode",
+]
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +123,31 @@ logger = logging.getLogger(__name__)
 
 
 class AutonomyMode(StrEnum):
-    """Configurable autonomy level for the PEP."""
+    """Configurable autonomy level for the PEP.
+
+    v0.5.3 (ADR-046): ``ask`` = SUPERVISED (pergunta toda mutação), ``auto`` = WORKSPACE_AUTO
+    (decide por faixa; padrão novo da TUI), ``full`` = FULLY_AUTO (sem estágio 2; Presença vira
+    Classificada). Nenhum modo toca Nuclear nem a blocklist.
+    """
 
     SUPERVISED = "supervised"
     WORKSPACE_AUTO = "workspace_auto"
     FULLY_AUTO = "fully_auto"
+    ASK = "supervised"
+    AUTO = "workspace_auto"
+    FULL = "fully_auto"
+
+    @classmethod
+    def _missing_(cls, value: object) -> AutonomyMode | None:
+        aliases = {
+            "ask": cls.SUPERVISED,
+            "manual": cls.SUPERVISED,
+            "plan": cls.SUPERVISED,
+            "auto": cls.WORKSPACE_AUTO,
+            "accept-edits": cls.WORKSPACE_AUTO,
+            "full": cls.FULLY_AUTO,
+        }
+        return aliases.get(str(value).strip().lower())
 
 
 _MODE_RANK: dict[AutonomyMode, int] = {
@@ -113,6 +181,39 @@ class ActionDenied(Exception):
         super().__init__(f"Action '{tool}' [{action_id}] denied: {reason}")
 
 
+class ActionDeferred(ActionDenied):
+    """Sem humano: a ação virou pendência na Inbox (ADR-046 item 6). Não roda agora."""
+
+    def __init__(self, action_id: str, tool: str, reason: str, pending_id: str = "") -> None:
+        self.pending_id = pending_id
+        super().__init__(action_id, tool, reason)
+
+
+@dataclass(frozen=True)
+class PendingAction:
+    """Pendência entregue ao Senhor quando não há ninguém para responder agora."""
+
+    action_id: str
+    tool: str
+    params: dict[str, Any]
+    band: Band
+    reason: str
+    agent_id: str | None = None
+
+    @property
+    def summary(self) -> str:
+        subject = self.params.get("command") or self.params.get("path") or ""
+        return f"{self.tool}: {str(subject)[:300]}" if subject else self.tool
+
+
+#: Recebe a pendência; devolve o id dela na Inbox (ou None). Pode ser síncrono ou assíncrono.
+DeferralSink = Callable[[PendingAction], Any]
+
+#: Negações automáticas (classificador) antes de devolver a decisão ao Senhor.
+MAX_CONSECUTIVE_DENIALS = 3
+MAX_SESSION_DENIALS = 20
+
+
 # ---------------------------------------------------------------------------
 # Confirmation callback type
 # ---------------------------------------------------------------------------
@@ -129,77 +230,11 @@ class Rejection:
     reason: str
 
 
-# Estado de governança do próprio ORION: nenhuma tool de escrita do agente o altera
-# (o agente não pode ampliar a própria allowlist, orçamento, segredos ou trilha de auditoria).
-_PROTECTED_NAMES = frozenset(
-    {
-        "web_allowlist.json", "settings.json", "config.json", "blacklist.json", "users.json",
-        "token_budget.json", "anthropic_api_key", "openrouter_api_key", "permissions.json",
-        ".env", "web_blocklist.json", "command_trust.db",
-    }
-)
-# Segredos: o agente também não os LÊ (o conteúdo iria para o provedor). Buscas recursivas a
-# partir de ~/.orion ou de secrets/ também passariam por eles.
-_SECRET_NAMES = frozenset({".env", "anthropic_api_key", "openrouter_api_key"})
 _READ_TOOLS = frozenset({"read_file", "grep", "search_files"})
-_PROTECTED_PREFIXES = ("audit.", "trust")
-_PROTECTED_DIRS = frozenset({"secrets"})
 _WRITE_TOOLS = frozenset({"write_file", "edit_file", "notebook_edit"})
 
 
-def is_secret_path(path: str, home: Path | None = None) -> bool:
-    """True se ler *path* exporia um segredo de ``~/.orion`` (arquivo, ``secrets/`` ou a raiz)."""
-    try:
-        target = Path(path).expanduser().resolve()
-        root = (home or Path.home() / ".orion").resolve()
-        rel = target.relative_to(root)
-    except (ValueError, OSError):
-        return False
-    parts = rel.parts
-    return not parts or parts[0] == "secrets" or parts[-1] in _SECRET_NAMES
-
-
-def is_protected_state_path(path: str, home: Path | None = None) -> bool:
-    """True se *path* aponta para um arquivo de governança dentro de ``~/.orion``."""
-    try:
-        target = Path(path).expanduser().resolve()
-        root = (home or Path.home() / ".orion").resolve()
-        rel = target.relative_to(root)
-    except (ValueError, OSError):
-        return False
-    parts = rel.parts
-    if not parts:
-        return False
-    return (
-        parts[0] in _PROTECTED_DIRS
-        or parts[-1] in _PROTECTED_NAMES
-        or any(parts[-1].startswith(p) for p in _PROTECTED_PREFIXES)
-    )
-
-
 _SUDO_RE = re.compile(r"(?:^|[\s;&|(`])sudo(?:\s|$)")
-
-#: Caminhos do Senhor que mudam login, chaves ou o que roda sozinho: escrita sempre pergunta,
-#: mesmo dentro do escopo do usuário, e nunca vira "sempre" (ADR-046).
-_SENSITIVE_HOME = (
-    ".ssh", ".gnupg", ".config/systemd", ".config/autostart", ".local/share/keyrings",
-    ".bashrc", ".zshrc", ".profile", ".bash_profile", ".zprofile", ".zshenv", ".bash_login",
-    ".bash_logout", ".xprofile", ".xinitrc", ".pam_environment", ".netrc", ".pgpass",
-    ".config/git/credentials", ".git-credentials", ".docker/config.json", ".kube/config",
-    ".aws/credentials",
-)
-
-
-def is_sensitive_path(path: str, home: Path | None = None) -> bool:
-    """True se escrever em *path* altera login, chaves, credenciais ou autostart do Senhor."""
-    try:
-        target = Path(path).expanduser().resolve()
-        rel = target.relative_to((home or Path.home()).resolve())
-    except (ValueError, OSError):
-        return False
-    text = rel.as_posix()
-    return any(text == entry or text.startswith(entry + "/") for entry in _SENSITIVE_HOME)
-
 
 #: Escaladas que o Senhor pode transformar em "sempre" (regra allow local).
 REMEMBERABLE_ESCALATIONS = frozenset({"outside_workspace"})
@@ -262,6 +297,9 @@ class PolicyEnforcementPoint:
         interactive: bool = True,
         ceiling: PolicyEnforcementPoint | None = None,
         agent_id: str | None = None,
+        reversibility: ReversibilityEngine | None = None,
+        classifier: RiskClassifierPort | None = None,
+        orion_home: Path | None = None,
     ) -> None:
         self._ceiling = ceiling
         self._agent_id = agent_id
@@ -291,6 +329,24 @@ class PolicyEnforcementPoint:
         self._pending_escalations: dict[str, str] = {}
         self._pending_kinds: dict[str, frozenset[str]] = {}
         self._approval_sources: dict[str, str] = {}
+        # ── Faixas (v0.5.3 Sprint 2) ──
+        self._orion_home = orion_home
+        self._reversibility = reversibility
+        self._classifier: RiskClassifierPort | None = classifier
+        self._user_messages: Callable[[], Sequence[str]] | None = None
+        self._grants = GrantStore()
+        self._deferral: DeferralSink | None = None
+        self._contaminated = False
+        self._known_hosts: set[str] = set()
+        self._action_hosts: dict[str, tuple[str, ...]] = {}
+        self._plans: dict[str, SnapshotPlan] = {}
+        self._snapshots: dict[str, Snapshot] = {}
+        self._denials_consecutive = 0
+        self._denials_total = 0
+        self.session_id: str | None = None
+        self._current_branch: Callable[[Path], str | None] | None = None
+        self._root_devices: Callable[[], frozenset[str]] | None = None
+        self._protected_branches: tuple[str, ...] | None = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -418,32 +474,364 @@ class PolicyEnforcementPoint:
             getattr(circuit_breaker, "state", "unknown"),
         )
 
+    # ------------------------------------------------------------------
+    # Faixas, classificador, grants, reversibilidade (v0.5.3 Sprint 2)
+    # ------------------------------------------------------------------
+
+    def _root(self) -> PolicyEnforcementPoint:
+        """O PEP da sessão (o pai mais alto): dono de grants, contaminação e contadores."""
+        pep = self
+        while pep._ceiling is not None:
+            pep = pep._ceiling
+        return pep
+
+    def attach_reversibility(self, engine: ReversibilityEngine | None) -> None:
+        """Liga o motor de snapshot (``~/.orion/trash``). Subagents usam o do pai."""
+        self._reversibility = engine
+
+    @property
+    def reversibility(self) -> ReversibilityEngine | None:
+        if self._reversibility is None and self._ceiling is not None:
+            return self._ceiling.reversibility
+        return self._reversibility
+
+    def attach_classifier(self, classifier: RiskClassifierPort | None) -> None:
+        """Liga o classificador de dois estágios (o estágio 2 só existe com modelo)."""
+        self._classifier = classifier
+
+    @property
+    def classifier(self) -> RiskClassifierPort:
+        if self._classifier is not None:
+            return self._classifier
+        if self._ceiling is not None:
+            return self._ceiling.classifier
+        return RiskClassifier(ledger=self._trust_ledger)
+
+    def set_user_messages(self, provider: Callable[[], Sequence[str]] | None) -> None:
+        """Fonte das mensagens do Senhor (única entrada do classificador além da chamada)."""
+        self._user_messages = provider
+
+    def user_messages(self) -> tuple[str, ...]:
+        root = self._root()
+        if root._user_messages is None:
+            return ()
+        try:
+            return tuple(str(m) for m in root._user_messages())
+        except Exception:  # noqa: BLE001
+            return ()
+
+    def set_deferral(self, sink: DeferralSink | None) -> None:
+        """Sem humano: para onde vão as pendências de Presença e Nuclear (Inbox)."""
+        self._deferral = sink
+
+    def configure_bands(
+        self,
+        *,
+        current_branch: Callable[[Path], str | None] | None = None,
+        root_devices: Callable[[], frozenset[str]] | None = None,
+        protected_branches: Sequence[str] | None = None,
+    ) -> None:
+        """Ajustes do classificador de faixas (branches protegidas e resolvedores injetáveis)."""
+        if current_branch is not None:
+            self._current_branch = current_branch
+        if root_devices is not None:
+            self._root_devices = root_devices
+        if protected_branches is not None:
+            self._protected_branches = tuple(protected_branches)
+
+    @property
+    def grants(self) -> GrantStore:
+        return self._root()._grants
+
+    def issue_grant(self, *, commands: Sequence[str] = (), paths: Sequence[str] = (), note: str = "") -> IntentGrant | None:
+        """Aprovação por intenção (plano aprovado com passos de Presença), TTL de 15 min."""
+        grant = self.grants.issue(commands=commands, paths=paths, note=note)
+        if grant is not None:
+            self._audit.log(
+                action_id=f"grant_{grant.id}",
+                tool="exit_plan_mode",
+                params={"commands": list(grant.commands), "paths": list(grant.paths)},
+                level=ActionLevel.LEVEL_0,
+                user_authorized=True,
+                result_status="success",
+                decision_source=f"grant:{grant.id}",
+            )
+        return grant
+
+    @property
+    def contaminated(self) -> bool:
+        return self._root()._contaminated
+
+    def mark_contaminated(self) -> None:
+        """A sessão leu conteúdo externo (web/MCP): exfiltração passa a exigir presença."""
+        self._root()._contaminated = True
+
+    def take_snapshot(self, action_id: str) -> Snapshot | None:
+        """Snapshot feito antes de *action_id* (consumido uma vez pelo runtime)."""
+        return self._snapshots.pop(action_id, None)
+
+    def band_context(self, cwd: str | None = None) -> BandContext:
+        root = self._root()
+        hosts = set(root._known_hosts)
+        for message in self.user_messages():
+            hosts.update(h.lower() for h in _HOST_RE.findall(message))
+        ctx = BandContext(
+            scope=self._scope,
+            orion_home=self._orion_home or (root._orion_home if root is not self else None),
+            contaminated=root._contaminated,
+            known_hosts=frozenset(hosts),
+            current_branch=self._current_branch or root._current_branch,
+            root_devices=self._root_devices or root._root_devices,
+        )
+        protected = self._protected_branches or root._protected_branches
+        if protected:
+            ctx.protected_branches = protected
+        if cwd:
+            ctx.cwd = ctx.resolve(cwd)
+        return ctx
+
+    def band_of(self, action: Action) -> BandVerdict:
+        """Faixa final da ação: classificação + plano de snapshot (sem gravar nada)."""
+        verdict, _plan = self._band(action)
+        return verdict
+
+    def _band(self, action: Action) -> tuple[BandVerdict, SnapshotPlan | None]:
+        params = dict(action.params)
+        ctx = self.band_context(str(params.get("cwd", "") or "") or None)
+        verdict = classify_action(action.tool, params, ctx)
+        if verdict.blocked or not verdict.ops:
+            return verdict, None
+        if verdict.band >= Band.NUCLEAR:
+            return verdict, None
+        engine = self.reversibility
+        if engine is None:
+            return verdict.raised(Band.NUCLEAR, "deleção/sobrescrita sem snapshot possível", "no_snapshot"), None
+        try:
+            plan = engine.plan(verdict.ops)
+        except Exception as exc:  # noqa: BLE001 - plano falho = sem snapshot
+            logger.warning("PEP: plano de snapshot falhou: %s", exc)
+            return verdict.raised(Band.NUCLEAR, "deleção/sobrescrita sem snapshot possível", "no_snapshot"), None
+        if plan.unresolved or verdict.unresolved:
+            raised = verdict.band.up()
+            verdict = replace(
+                verdict.raised(raised, f"{verdict.reason}; alvos não resolvidos (sobe uma faixa)", "unresolved"),
+                stage1_allow=False,
+            )
+        for target in plan.files:
+            zone = zone_of(
+                target,
+                in_scope=self._scope.is_allowed(target),
+                home=ctx.home,
+                orion_home=ctx.orion_home or ctx.home / ".orion",
+            )
+            from orion.governance.bands import _band_for_zone
+
+            band, blocked, rule = _band_for_zone(zone)
+            if blocked:
+                return replace(verdict, blocked=True, band=Band.NUCLEAR, reason=f"alvo protegido: {target}", rule=rule), None
+            if band > max(verdict.band, Band.CLASSIFICADA):
+                verdict = verdict.raised(band, f"alvo em zona {zone.value}: {target}", rule)
+        if plan.bytes > engine.action_cap:
+            verdict = verdict.raised(Band.NUCLEAR, f"snapshot de {_human_bytes(plan.bytes)} acima do teto", "snapshot_over_cap")
+            return verdict, None
+        if plan.regenerable_bytes > engine.action_cap:
+            verdict = verdict.raised(Band.PRESENCA, "apaga pastas regeneráveis grandes (recuperáveis, sem snapshot)", "regenerable_over_cap")
+        return verdict, plan
+
+    def _audit_band_denial(self, action: Action, level: ActionLevel, verdict: BandVerdict, reason: str) -> None:
+        self._audit.log_denied(
+            action_id=action.event_id,
+            tool=action.tool,
+            params=dict(action.params),
+            level=level,
+            reason=reason,
+            decision_source=f"band:{verdict.band.label}",
+        )
+
+    def _assert_not_blocked(self, action: Action, level: ActionLevel, verdict: BandVerdict) -> None:
+        """Blocklist e segredos: negados em qualquer modo, por qualquer regra ou hook."""
+        if not verdict.blocked:
+            return
+        self._audit.log_denied(
+            action_id=action.event_id,
+            tool=action.tool,
+            params=dict(action.params),
+            level=level,
+            reason=verdict.rule,
+            decision_source="band:blocklist",
+        )
+        raise ActionDenied(
+            action.event_id,
+            action.tool,
+            f"blocked ({verdict.reason}). This never runs in any mode; do not retry or work around it.",
+        )
+
+    async def _defer(self, action: Action, level: ActionLevel, verdict: BandVerdict) -> None:
+        """Sem humano: Presença/Nuclear viram pendência na Inbox (nunca execução)."""
+        sink = self._deferral
+        pending = PendingAction(
+            action_id=action.event_id,
+            tool=action.tool,
+            params=dict(action.params),
+            band=verdict.band,
+            reason=verdict.reason,
+            agent_id=self._agent_id,
+        )
+        pending_id = ""
+        if sink is not None:
+            try:
+                outcome = sink(pending)
+                if inspect.isawaitable(outcome):
+                    outcome = await outcome
+                pending_id = str(outcome or "")
+            except Exception:  # noqa: BLE001 - Inbox indisponível vira negação comum
+                logger.exception("PEP: falha ao registrar pendência na Inbox")
+                sink = None
+        if sink is None:
+            self._audit_band_denial(action, level, verdict, f"escalation_no_human:{verdict.reason}")
+            raise ActionDenied(
+                action.event_id,
+                action.tool,
+                f"requires the Senhor's presence ({verdict.band.label}: {verdict.reason}) but no human is available",
+            )
+        self._audit_band_denial(action, level, verdict, f"deferred_inbox:{pending_id or '-'}")
+        raise ActionDeferred(
+            action.event_id,
+            action.tool,
+            f"deferred to the Senhor's Inbox ({verdict.band.label}: {verdict.reason}). It did NOT run; "
+            "continue without this step and mention it in your report.",
+            pending_id,
+        )
+
+    async def _presence(
+        self, action: Action, level: ActionLevel, verdict: BandVerdict, escalations: list[Escalation]
+    ) -> tuple[bool, str]:
+        """Faixa Presença: grant do plano, pai (subagent), Inbox (sem humano) ou o Senhor."""
+        grant = self.grants.match(action.tool, dict(action.params), verdict.band)
+        if grant is not None:
+            return True, f"grant:{grant.id}"
+        if self._ceiling is not None:
+            self._audit_band_denial(action, level, verdict, f"presence_to_parent:{verdict.reason}")
+            raise ActionDenied(
+                action.event_id,
+                action.tool,
+                f"needs the Senhor's presence ({verdict.reason}); a subagent cannot ask. Stop and report "
+                "this exact step back to the parent agent, which can ask the Senhor.",
+            )
+        if not self._interactive:
+            await self._defer(action, level, verdict)
+        extra = [Escalation("presence", f"faixa presença: {verdict.reason}")]
+        approved = await self._escalate(action, level, [*escalations, *extra])
+        return approved, "user_escalation"
+
+    async def _classified(
+        self,
+        action: Action,
+        level: ActionLevel,
+        verdict: BandVerdict,
+        match: RuleMatch | None,
+        escalations: list[Escalation],
+    ) -> tuple[bool, str]:
+        """Faixa Classificada no modo ``auto``: regra allow, estágio 1, estágio 2, o Senhor.
+
+        Regra ``allow`` nunca libera ``sudo`` (invariante do v0.5.0); o classificador pode.
+        Aprovação do Senhor numa escalada só do classificador conta como aprovação comum
+        (``user``): o ledger aprende e o "sempre" grava regra.
+        """
+        if match is not None and match.effect == "allow" and not verdict.sudo:
+            return True, "rule"
+        request = ClassifierRequest(
+            tool=action.tool,
+            params=dict(action.params),
+            verdict=verdict,
+            user_messages=self.user_messages(),
+            contaminated=self.contaminated,
+        )
+        try:
+            result: ClassifierVerdict = await self.classifier.classify(request)
+        except Exception as exc:  # noqa: BLE001 - classificador falho = escalate
+            logger.warning("PEP: classificador falhou: %s", exc)
+            result = ClassifierVerdict(Decision.ESCALATE, verdict.band, "classificador falhou", "none")
+        source = f"classifier:{result.stage}"
+        if result.decision == Decision.ALLOW:
+            return True, source
+        if result.band >= Band.PRESENCA:
+            raised = verdict.raised(result.band, result.reason, f"classifier:{result.stage}")
+            return await self._presence(action, level, raised, escalations)
+        root = self._root()
+        if result.decision == Decision.DENY:
+            root._denials_consecutive += 1
+            root._denials_total += 1
+            too_many = (
+                root._denials_consecutive >= MAX_CONSECUTIVE_DENIALS
+                or root._denials_total >= MAX_SESSION_DENIALS
+            )
+            if not (too_many and self._interactive):
+                self._rejection_reasons[action.event_id] = (
+                    f"the risk classifier denied this ({result.reason}). This is not the Senhor's "
+                    "decision; explain the goal and propose a safer alternative, or ask the Senhor."
+                )
+                return False, source
+            root._denials_consecutive = 0
+            reason = f"o classificador negou {MAX_CONSECUTIVE_DENIALS}+ vezes: {result.reason}"
+            approved = await self._escalate(action, level, [*escalations, Escalation("classifier", reason)])
+            return approved, "user" if not escalations else "user_escalation"
+        reason = f"classificador: {result.reason}"
+        approved = await self._escalate(action, level, [*escalations, Escalation("classifier", reason)])
+        return approved, "user" if not escalations else "user_escalation"
+
+    def _take_snapshot(self, action: Action, verdict: BandVerdict, plan: SnapshotPlan | None) -> Snapshot | None:
+        edited = self._edited_params.get(action.event_id)
+        if edited is not None:
+            verdict, plan = self._band(action.model_copy(update={"params": edited}))
+        engine = self.reversibility
+        if plan is None or engine is None or plan.empty or verdict.band >= Band.NUCLEAR:
+            return None
+        command = str((edited or action.params).get("command", "") or (edited or action.params).get("path", ""))
+        try:
+            snap = engine.snapshot(plan, command=command or action.tool, session_id=self._root().session_id)
+        except SnapshotError as exc:
+            self._audit_band_denial(action, tool_action_level(action.tool), verdict, f"snapshot_failed:{exc}")
+            raise ActionDenied(
+                action.event_id,
+                action.tool,
+                f"could not snapshot the targets before running ({exc}); the action would not be "
+                "reversible, so it was not run.",
+            ) from exc
+        if snap is not None:
+            self._snapshots[action.event_id] = snap
+        return snap
+
     async def evaluate(self, action: Action) -> bool:
         """Gate the given Action through the policy.
 
         Evaluation order:
           1. Safe Holding check (circuit breaker): hard block of mutations.
-          2. Nuclear Safety Gate: NUCLEAR_DESTRUCTIVE always needs OS auth.
-          3. Declarative rules: a matching ``deny`` blocks.
-          4. Read-only (plan mode): LEVEL_2+ refused.
-          5. Escalations (sudo, outside workspace): one-shot confirmation.
-          6. ``ask`` rule, Trust Ledger, ``allow`` rule and autonomy mode.
+          2. Protected state, blocklist and secrets: denied in every mode.
+          3. Band ``NUCLEAR``: verified presence (polkit/PAM); no human = Inbox.
+          4. Declarative rules: a matching ``deny`` blocks.
+          5. Read-only (plan mode): anything that mutates is refused.
+          6. Pure reads (Livre, no mutation) pass in every mode.
+          7. Mode: ``ask`` asks; ``full`` approves; ``auto`` decides by band (Livre passes,
+             Classificada goes to the classifier, Presença asks or uses a plan grant).
+          8. Snapshot of deletions/overwrites before returning True.
 
         Returns:
             True  if the action is approved and should proceed.
-            False if the user (or plan mode) refused it.
+            False if the user, the classifier or plan mode refused it.
 
         Raises:
-            ActionDenied  if the action is structurally blocked (safe holding,
-                          nuclear auth denied, deny rule, escalation with no
-                          human available).
+            ActionDenied  if the action is structurally blocked; ``ActionDeferred`` when it became
+                          a pending item in the Senhor's Inbox.
         """
         level = self._effective_level(action)
         params = dict(action.params)
 
         self._assert_safe_holding(action, level)
         self._assert_not_protected_state(action, level)
-        nuclear = await self._assert_nuclear_safe(action, level)
+        verdict, plan = self._band(action)
+        self._assert_not_blocked(action, level, verdict)
+        nuclear = await self._assert_nuclear_safe(action, level, verdict)
 
         match = self._match_rule(action)
         if match is not None and match.effect == "deny":
@@ -459,7 +847,8 @@ class PolicyEnforcementPoint:
                 action.event_id, action.tool, f"blocked by deny rule '{match.rule}'"
             )
 
-        if self.read_only and level >= ActionLevel.LEVEL_2:
+        mutating = level >= ActionLevel.LEVEL_2 and (verdict.mutates or verdict.band >= Band.CLASSIFICADA)
+        if self.read_only and mutating:
             self._rejection_reasons[action.event_id] = (
                 "plan mode is read-only; this is not a user rejection. "
                 "Call exit_plan_mode with a plan to get approval before mutating."
@@ -481,8 +870,11 @@ class PolicyEnforcementPoint:
             # Tools de leitura de um subagent com ``cwd`` fora do escopo: sem humano, nega.
             await self._escalate(action, level, escalations)
 
-        if level <= ActionLevel.LEVEL_1 and not forced_ask:
-            if level == ActionLevel.LEVEL_1:
+        # Leitura pura passa sem pergunta, salvo no modo ``ask`` (que pergunta tudo acima de LEVEL_1).
+        free_read = not mutating and not escalations and (self.mode != AutonomyMode.SUPERVISED or self.read_only)
+        livre = verdict.band == Band.LIVRE
+        if not forced_ask and livre and (level <= ActionLevel.LEVEL_1 or free_read):
+            if level >= ActionLevel.LEVEL_1:
                 self._audit.log(
                     action_id=action.event_id,
                     tool=action.tool,
@@ -490,22 +882,34 @@ class PolicyEnforcementPoint:
                     level=level,
                     user_authorized=False,
                     result_status="success",
-                    decision_source="mode",
+                    decision_source="band:livre" if level > ActionLevel.LEVEL_1 else "mode",
                 )
+            self._note_hosts(action, verdict)
             return True
 
-        if nuclear is not None and not escalations and not forced_ask:
+        mode = self.mode
+        if nuclear is not None and not forced_ask and (not escalations or mode != AutonomyMode.SUPERVISED):
             # A presença verificada (polkit/PAM) já é o consentimento do Senhor para este ato:
             # perguntar "y/n" de novo seria ritual vazio (ADR-048).
             approved, source = True, "user"
-        elif escalations:
-            approved = await self._escalate(action, level, escalations)
-            source = "user_escalation"
         elif forced_ask:
             approved = await self._ask_user(action, level)
             source = "user"
+        elif mode == AutonomyMode.SUPERVISED:
+            if escalations:
+                approved = await self._escalate(action, level, escalations)
+                source = "user_escalation"
+            else:
+                approved, source = await self._gate(action, level, match)
+        elif mode == AutonomyMode.FULLY_AUTO:
+            confined = [e for e in escalations if e.kind == "outside_workspace" and self._cwd_confined]
+            if confined:
+                approved = await self._escalate(action, level, confined)
+                source = "user_escalation"
+            else:
+                approved, source = True, "mode"
         else:
-            approved, source = await self._gate(action, level, match)
+            approved, source = await self._decide_auto(action, level, verdict, match, escalations)
 
         if not approved:
             self._audit.log_denied(
@@ -513,14 +917,20 @@ class PolicyEnforcementPoint:
                 tool=action.tool,
                 params=params,
                 level=level,
-                reason="user_rejected",
+                reason="classifier_denied" if source.startswith("classifier") else "user_rejected",
                 decision_source=source,
             )
             return False
 
+        root = self._root()
+        root._denials_consecutive = 0
+        snap = self._take_snapshot(action, verdict, plan)
         self._approval_sources[action.event_id] = source
         if nuclear is not None:
             source = f"nuclear_stepup:{nuclear}+{source}"
+        if snap is not None:
+            source = f"{source}+snapshot:{snap.id}"
+        self._note_hosts(action, verdict)
         self._audit.log(
             action_id=action.event_id,
             tool=action.tool,
@@ -531,6 +941,34 @@ class PolicyEnforcementPoint:
             decision_source=source,
         )
         return True
+
+    async def _decide_auto(
+        self,
+        action: Action,
+        level: ActionLevel,
+        verdict: BandVerdict,
+        match: RuleMatch | None,
+        escalations: list[Escalation],
+    ) -> tuple[bool, str]:
+        """Modo ``auto`` (ADR-046): a faixa decide; sudo e "fora do escopo" vão ao classificador."""
+        confined = [e for e in escalations if e.kind == "outside_workspace" and self._cwd_confined]
+        if confined:
+            return await self._escalate(action, level, confined), "user_escalation"
+        sensitive = [e for e in escalations if e.kind == "sensitive_path"]
+        band = verdict.band
+        if sensitive and band < Band.PRESENCA:
+            verdict = verdict.raised(Band.PRESENCA, sensitive[0].reason, "zone:sensitive")
+            band = verdict.band
+        if band == Band.LIVRE:
+            return True, "band:livre"
+        if band >= Band.PRESENCA:
+            return await self._presence(action, level, verdict, sensitive)
+        others = [e for e in escalations if e.kind in ("outside_workspace", "sudo")]
+        return await self._classified(action, level, verdict, match, others)
+
+    def _note_hosts(self, action: Action, verdict: BandVerdict) -> None:
+        if verdict.outbound_hosts:
+            self._action_hosts[action.event_id] = verdict.outbound_hosts
 
     def _assert_not_protected_state(self, action: Action, level: ActionLevel) -> None:
         """Escritas do agente em arquivos de governança de ``~/.orion`` são sempre negadas.
@@ -586,7 +1024,18 @@ class PolicyEnforcementPoint:
         )
 
     def record_result(self, action_id: str, tool: str, success: bool, detail: str = "") -> None:
-        """Close the "pending" audit record with the execution outcome."""
+        """Close the "pending" audit record with the execution outcome.
+
+        Também alimenta a sessão contaminada (ADR-049): hosts contatados antes de qualquer
+        conteúdo externo viram conhecidos; o resultado de web/MCP contamina a sessão.
+        """
+        hosts = self._action_hosts.pop(action_id, ())
+        if success:
+            root = self._root()
+            if not root._contaminated:
+                root._known_hosts.update(h for h in hosts if h and h != "?")
+            if is_external_content_tool(tool):
+                root._contaminated = True
         self._audit.log_result(
             action_id=action_id,
             tool=tool,
@@ -615,7 +1064,7 @@ class PolicyEnforcementPoint:
         source = self._approval_sources.pop(action.event_id, "")
         if self._trust_ledger is None or action.tool != "run_command" or exit_code != 0:
             return
-        if source not in ("user", "ledger"):
+        if source not in ("user", "ledger", "classifier:ledger"):
             return
 
         cmd = str(action.params.get("command", ""))
@@ -697,34 +1146,29 @@ class PolicyEnforcementPoint:
                     str(exc),
                 ) from exc
 
-    async def _assert_nuclear_safe(self, action: Action, level: ActionLevel) -> str | None:
-        """Run Nuclear Safety Gate for LEVEL_3 run_command actions.
+    async def _assert_nuclear_safe(
+        self, action: Action, level: ActionLevel, verdict: BandVerdict | None = None
+    ) -> str | None:
+        """Faixa Nuclear: presença verificada do Senhor em TODOS os modos (ADR-046/048).
 
-        NUCLEAR_DESTRUCTIVE commands trigger OS authentication in ALL modes.
-        This invariant cannot be bypassed by any configuration.
-
-        Args:
-            action: Action to check.
-            level: ActionLevel of the action.
+        Vale para qualquer tool (comando, escrita em ``~/.ssh`` ou ``/etc``, tool sem faixa). Sem
+        humano: num subagent é negado; na sessão sem terminal vira pendência na Inbox.
 
         Raises:
-            ActionDenied: If nuclear authentication was denied.
+            ActionDenied: If nuclear authentication was denied or no human is available.
         """
-        # Only applies to run_command
-        if action.tool != "run_command":
+        if verdict is None:
+            verdict, _plan = self._band(action)
+        if verdict.blocked or verdict.band < Band.NUCLEAR:
             return None
-        if level < ActionLevel.LEVEL_3:
-            return None
-
-        cmd = str(action.params.get("command", ""))
+        cmd = str(action.params.get("command", "") or "")
         if not cmd:
-            return None
-
-        blast = self._blast_classifier.classify(cmd)
-        if blast != BlastRadius.NUCLEAR_DESTRUCTIVE:
-            return None
+            subject = action.params.get("path") or action.params.get("url") or ""
+            cmd = f"{action.tool} {subject}".strip()
 
         if not self._interactive:
+            if self._ceiling is None and self._deferral is not None:
+                await self._defer(action, level, verdict)
             # Sem humano para o desafio do SO: nuclear nunca é contornado, é negado.
             self._audit.log_denied(
                 action_id=action.event_id,
@@ -732,23 +1176,18 @@ class PolicyEnforcementPoint:
                 params=dict(action.params),
                 level=level,
                 reason="nuclear_no_human",
-                decision_source="mode",
+                decision_source="band:nuclear",
             )
             raise ActionDenied(
                 action.event_id,
                 action.tool,
                 "nuclear operation requires the Senhor's OS authentication but no human is "
-                f"available. Command: {cmd[:80]}",
+                f"available ({verdict.reason}). Command: {cmd[:80]}",
             )
 
-        # Nuclear command detected — run OS authentication challenge
-        logger.warning(
-            "PEP: NUCLEAR command detected — '%s'. Launching OS auth challenge.",
-            cmd[:80],
-        )
-
+        logger.warning("PEP: faixa NUCLEAR (%s) — '%s'. Desafio do SO.", verdict.rule, cmd[:80])
         try:
-            result = await self._nuclear_gate.challenge_async(cmd)
+            result = await self._nuclear_gate.challenge_async(cmd, required=True)
         except Exception as exc:
             logger.exception("PEP: NuclearSafetyGate challenge raised unexpectedly.")
             raise ActionDenied(
@@ -764,16 +1203,17 @@ class PolicyEnforcementPoint:
                 params=dict(action.params),
                 level=level,
                 reason=f"nuclear_stepup:failed:{result.method_used}",
+                decision_source="band:nuclear",
             )
             raise ActionDenied(
                 action.event_id,
                 action.tool,
-                f"Nuclear operation denied. Authentication cancelled or failed "
+                f"Nuclear operation denied ({verdict.reason}). Authentication cancelled or failed "
                 f"(method: {result.method_used}). Command: {cmd[:80]}",
             )
 
         logger.warning(
-            "PEP: Nuclear command AUTHORIZED by user (method=%s, duration=%.1fs): '%s'",
+            "PEP: Nuclear AUTHORIZED by user (method=%s, duration=%.1fs): '%s'",
             result.method_used,
             result.duration_seconds,
             cmd[:80],
@@ -982,10 +1422,26 @@ class PolicyEnforcementPoint:
             raise ActionDenied(
                 action.event_id, action.tool, f"blocked by deny rule '{edited_match.rule}'"
             )
-        await self._assert_nuclear_safe(edited, level)
+        edited_verdict, _plan = self._band(edited)
+        self._assert_not_blocked(edited, level, edited_verdict)
+        original_verdict, _ = self._band(action)
+        if original_verdict.band < Band.NUCLEAR:
+            await self._assert_nuclear_safe(edited, level, edited_verdict)
         known = {e.kind for e in self._escalations(action, level)}
         fresh = [e for e in self._escalations(edited, level) if e.kind not in known]
         if fresh and not await self._escalate(edited, level, fresh):
             return False
         self._edited_params[action.event_id] = decision
         return True
+
+
+_HOST_RE = re.compile(r"(?:https?://)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?=[/:\s?#]|$)", re.IGNORECASE)
+
+
+def _human_bytes(size: int) -> str:
+    value = float(size)
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if value < 1024 or unit == "GiB":
+            return f"{value:.1f} {unit}".replace(".", ",")
+        value /= 1024
+    return f"{size} B"  # pragma: no cover

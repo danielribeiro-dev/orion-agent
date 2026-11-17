@@ -111,13 +111,27 @@ class TestBehavior:
     async def test_run_goes_through_pep(self, registry, context) -> None:  # type: ignore[no-untyped-def]
         marker = context.session.workspace / "m"
         context.session._ask_pep = AsyncMock(return_value="n")
-        await registry.dispatch(f"/run touch {marker}", context)
+        await registry.dispatch(f"/run python3 -c \"open('{marker}', 'w').close()\"", context)
         context.session._ask_pep.assert_awaited_once()
         assert not marker.exists()
 
     async def test_doctor_never_prints_the_key(self, registry, context) -> None:  # type: ignore[no-untyped-def]
         await registry.dispatch("/doctor", context)
         assert "configurada" in text(context)
+
+    async def test_doctor_shows_governance_and_warns_old_mode_name(self, registry, context) -> None:  # type: ignore[no-untyped-def]
+        """v0.5.3 Sprint 2: modo, classificador e lixo; nome antigo do modo gera aviso."""
+        from orion.tui.session import AgentMode
+
+        session = context.session
+        session.settings.effective.mode = "accept-edits"
+        session._load_settings()
+        assert session.mode is AgentMode.AUTO
+        result = await registry.dispatch("/doctor", context)
+        output = text(context)
+        assert "Classificador" in output and "Lixo do ORION" in output
+        assert "nome antigo" in output and "auto" in output
+        assert not result.success  # o aviso conta como item a corrigir
 
     async def test_clear_uses_callback(self, registry, context) -> None:  # type: ignore[no-untyped-def]
         await registry.dispatch("/clear", context)

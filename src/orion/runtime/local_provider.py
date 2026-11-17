@@ -259,6 +259,11 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
             self._pep.record_result(action.event_id, tool, False, str(exc))
             self._pep.forget_approval(action.event_id)
             return RuntimeResult.fail(f"'{tool}' raised an unexpected error: {exc}")
+        snapshot = self._pep.take_snapshot(action.event_id)
+        if snapshot is not None:
+            # A linha do turno mostra o lixo do ORION e o atalho para desfazer (ADR-047).
+            result.metadata["snapshot_id"] = snapshot.id
+            result.metadata["snapshot_files"] = snapshot.file_count
         self._pep.record_result(
             action.event_id, tool, result.success, "" if result.success else (result.error or "")
         )

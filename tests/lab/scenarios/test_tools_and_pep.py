@@ -7,7 +7,8 @@ import re
 
 TOOLS = {
     "ferramentas": [
-        {"text": "Vou rodar.", "tools": [["run_command", {"command": "seq 1 40"}]]},
+        # Interpretador = faixa Classificada: sem estágio 2 no lab, o modal do PEP abre (v0.5.3).
+        {"text": "Vou rodar.", "tools": [["run_command", {"command": "python3 -c 'print(*range(1, 41), sep=chr(10))'"}]]},
         {"text": "Feito, contei até 40."},
     ]
 }
@@ -34,7 +35,7 @@ def test_pep_decision_is_recorded_and_status_stays(open_lab) -> None:  # type: i
     lab.submit("ferramentas")
     assert lab.wait_for(r"y aprovar", 25)
     lab.pump(0.5)
-    assert re.search(r"accept-edits ·", lab.screen_text()), lab.screen_text()
+    assert re.search(r"auto ·", lab.screen_text()), lab.screen_text()
     lab.send("y")
     assert lab.wait_for("contei até 40", 20, history=True)
     history = lab.history_text()

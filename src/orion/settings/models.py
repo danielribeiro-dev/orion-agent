@@ -155,7 +155,7 @@ class DaemonSettings(BaseModel):
     stabilize_max_wait_s: float = Field(default=300.0, ge=0.0, le=3600.0)
     #: Teto diário em USD por origem (``cron``, ``daemon``, ``loop``). Nunca "sem limite".
     origin_budget_usd: dict[str, float] = Field(
-        default_factory=lambda: {"cron": 0.50, "daemon": 0.25, "loop": 1.00}
+        default_factory=lambda: {"cron": 0.50, "daemon": 0.25, "loop": 1.00, "classifier": 0.20}
     )
     max_concurrent_jobs: int = Field(default=2, ge=1, le=8)
 

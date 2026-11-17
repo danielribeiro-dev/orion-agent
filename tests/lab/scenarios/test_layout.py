@@ -27,7 +27,7 @@ def test_widths_hint_fits_and_prompt_follows_banner(open_lab, cols, must, must_n
         assert must_not not in rows[hint]
     rule = next(i for i, row in enumerate(rows) if row and set(row) == {"─"})
     assert 1 <= rule - hint <= 2, "\n".join(rows)  # sem o vão do dock (V-02)
-    assert rows[rule + 1].startswith("❯") and rows[rule + 3].startswith(("accept-edits", "claude"))
+    assert rows[rule + 1].startswith("❯") and rows[rule + 3].startswith(("auto ·", "claude"))
 
 
 def test_logo_matches_golden(open_lab) -> None:  # type: ignore[no-untyped-def]
@@ -53,4 +53,4 @@ def test_rules_follow_multiline_input(open_lab) -> None:  # type: ignore[no-unty
     rows = _rows(lab)
     i = next(n for n, row in enumerate(rows) if row.startswith("❯ linha um"))
     assert set(rows[i + 1]) == {"─"}, "\n".join(rows[i - 2 : i + 4])  # régua segue o texto
-    assert rows[i + 2].startswith("accept-edits")
+    assert rows[i + 2].startswith("auto ·")

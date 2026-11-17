@@ -90,7 +90,7 @@ class SessionStatusBar(BaseModel):
     session_tokens_out: int = 0
     session_cost_usd: float = 0.0
     usd_to_brl_rate: float = 5.75
-    agent_mode: str = "accept-edits"
+    agent_mode: str = "auto"
     is_busy: bool = False
     #: tasks em segundo plano em execução / notificações ainda não mostradas (Sprint 6B)
     bg_running: int = 0

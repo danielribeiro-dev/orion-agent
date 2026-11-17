@@ -418,6 +418,8 @@ class OrionDaemon:
                 return FireOutcome(status="denied", detail="projeto não confiável: agendamento não roda")
             session.pep.set_interactive(False)
             session.pep.set_mode(min_mode(session.pep.mode, schedule.autonomy))
+            # Sem humano: Presença e Nuclear viram pendência na Inbox, nunca execução (ADR-046).
+            session.pep.set_deferral(self._inbox_deferral(f"cron:{schedule.id}"))
             await session.fire_hook("ScheduleFire", {"schedule_id": schedule.id, "spec": schedule.spec})
             if schedule.action == "command":
                 outcome = await self._fire_command(session, schedule, Action, ActionDenied)
@@ -443,6 +445,28 @@ class OrionDaemon:
         )
         return outcome
 
+    def _inbox_deferral(self, origin: str) -> Callable[[Any], Awaitable[str]]:
+        """Entrega ao Senhor uma ação de Presença/Nuclear que o job não pôde rodar."""
+
+        async def defer(pending: Any) -> str:
+            message = OutgoingMessage(
+                kind="alert",
+                title=f"Pendência ({pending.band.label}): {pending.tool}",
+                body=f"{pending.summary}\nMotivo: {pending.reason}\nO job seguiu sem este passo.",
+                priority="high",
+                origin="cron",
+                payload={
+                    "pending_action": True,
+                    "action_id": pending.action_id,
+                    "band": pending.band.label,
+                    "source": origin,
+                },
+            )
+            await self.router.send(message)
+            return message.id
+
+        return defer
+
     async def _fire_command(
         self, session: AgentSession, schedule: Schedule, action_cls: Any, denied_cls: Any
     ) -> FireOutcome:
@@ -451,6 +475,9 @@ class OrionDaemon:
         try:
             approved = await session.pep.evaluate(action)
         except denied_cls as exc:
+            pending = getattr(exc, "pending_id", "")
+            if pending:
+                return FireOutcome(status="skipped", detail=f"pendência na Inbox ({pending}): {exc.reason}")
             return FireOutcome(status="denied", detail=str(exc))
         if not approved:
             return FireOutcome(status="denied", detail="o PEP negou o comando")

@@ -218,11 +218,13 @@ async def test_pep_level2_workspace_auto_approved(
 async def test_pep_level3_workspace_auto_still_gated(
     tmp_path: Path, audit: AuditLogger
 ) -> None:
+    """auto (v0.5.3): leitura passa pela faixa Livre; comando desconhecido sem modelo pergunta."""
     workspace = WorkspaceScope(roots=[tmp_path])
     pep = _pep(workspace, audit, mode=AutonomyMode.WORKSPACE_AUTO, confirm=False)
-    action = _action("run_command", {"command": "ls"})
+    assert await pep.evaluate(_action("run_command", {"command": "ls"})) is True
+    action = _action("run_command", {"command": "make deploy"})
     approved = await pep.evaluate(action)
-    assert approved is False  # LEVEL_3 still gated → user said no
+    assert approved is False  # Classificada sem estágio 2 → o Senhor disse não
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -251,7 +253,7 @@ async def test_pep_sudo_raises_action_denied_in_supervised(
 ) -> None:
     pep = _pep(workspace, audit, mode=AutonomyMode.SUPERVISED, confirm=True)
     action = _action("run_command", {"command": "sudo rm -rf /"})
-    with pytest.raises(ActionDenied, match="sudo"):
+    with pytest.raises(ActionDenied, match="blocklist"):
         await pep.evaluate(action)
 
 
@@ -300,15 +302,16 @@ async def test_pep_sudo_without_human_is_denied(
 
 
 @pytest.mark.asyncio
-async def test_pep_path_outside_workspace_asks_even_in_fully_auto(
+async def test_pep_system_path_is_nuclear_even_in_fully_auto(
     tmp_path: Path, audit: AuditLogger
 ) -> None:
-    workspace = WorkspaceScope(roots=[tmp_path])
-    action = _action("write_file", {"path": "/etc/malicious.conf", "content": "x"})
-    declined = _pep(workspace, audit, mode=AutonomyMode.FULLY_AUTO, confirm=False)
-    assert await declined.evaluate(action) is False
-    accepted = _pep(workspace, audit, mode=AutonomyMode.FULLY_AUTO, confirm=True)
-    assert await accepted.evaluate(_action("write_file", {"path": "/etc/x", "content": "x"}))
+    """Escrita em /etc é Nuclear (ADR-046): nem ``full`` dispensa a presença verificada."""
+    workspace = WorkspaceScope(roots=[tmp_path / "ws"])
+    pep = _pep(workspace, audit, mode=AutonomyMode.FULLY_AUTO, confirm=True)
+    with pytest.raises(ActionDenied, match="Nuclear"):
+        await pep.evaluate(_action("write_file", {"path": "/etc/malicious.conf", "content": "x"}))
+    # Fora do escopo mas fora do sistema (ex.: /tmp) é Classificada: ``full`` aprova.
+    assert await pep.evaluate(_action("write_file", {"path": str(tmp_path / "fora.txt"), "content": "x"}))
 
 
 @pytest.mark.asyncio
@@ -319,7 +322,7 @@ async def test_pep_path_outside_workspace_without_human_is_denied(
     pep = _pep(workspace, audit, mode=AutonomyMode.FULLY_AUTO)
     pep.set_interactive(False)
     action = _action("write_file", {"path": "/etc/malicious.conf", "content": "x"})
-    with pytest.raises(ActionDenied, match="workspace"):
+    with pytest.raises(ActionDenied, match="no human"):
         await pep.evaluate(action)
 
 

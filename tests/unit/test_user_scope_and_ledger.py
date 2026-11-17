@@ -129,9 +129,9 @@ class TestLedger:
     async def test_force_push_is_not_covered_by_push(self, tmp_path: Path) -> None:
         asker = Asker(True)
         pep = pep_with_ledger(tmp_path, asker)
-        await run_once(pep, "git push origin main")
-        await run_once(pep, "git push --force origin main")
-        assert asker.asked == ["git push origin main", "git push --force origin main"]
+        await run_once(pep, "git push origin feat")
+        await run_once(pep, "git push --force origin feat")
+        assert asker.asked == ["git push origin feat", "git push --force origin feat"]
         assert [s.canonical_pattern for s in pep.trust_ledger.list_trusted()] == ["git push"]  # type: ignore[union-attr]
 
     async def test_failures_and_mode_approvals_are_not_learned(self, tmp_path: Path) -> None:
@@ -159,10 +159,10 @@ class TestLedger:
 
         pep = pep_with_ledger(tmp_path, Asker(True))
         runtime = LocalRuntimeProvider(pep=pep, scope=WorkspaceScope([tmp_path]))
-        result = await runtime.execute("run_command", {"command": "echo ok"})
+        result = await runtime.execute("run_command", {"command": "make --version"})
         assert result.success
-        assert [s.canonical_pattern for s in pep.trust_ledger.list_trusted()] == ["echo"]  # type: ignore[union-attr]
-        failed = await runtime.execute("run_command", {"command": "ls /nao/existe/mesmo"})
+        assert [s.canonical_pattern for s in pep.trust_ledger.list_trusted()] == ["make --version"]  # type: ignore[union-attr]
+        failed = await runtime.execute("run_command", {"command": "make -C /nao/existe/mesmo"})
         assert not failed.success and len(pep.trust_ledger.list_trusted()) == 1  # type: ignore[union-attr]
 
     async def test_broken_ledger_never_breaks_the_tool(self, tmp_path: Path) -> None:
@@ -251,9 +251,15 @@ class TestUserSpace:
             audit_logger=AuditLogger(tmp_path / "audit.log"),
             action_confirm=asker,
         )
-        action = act("write_file", path=str(tmp_path / ".ssh" / "authorized_keys"), content="k")
-        assert await pep.evaluate(action)
-        assert asker.asked == [str(tmp_path / ".ssh" / "authorized_keys")]
+        # Chaves: Nuclear em qualquer modo (o desafio do SO está bloqueado nos testes).
+        with pytest.raises(ActionDenied, match="Nuclear"):
+            await pep.evaluate(act("write_file", path=str(tmp_path / ".ssh" / "authorized_keys"), content="k"))
+        # rc do shell: Presença; ``full`` a trata como Classificada e aprova.
+        assert await pep.evaluate(act("write_file", path=str(tmp_path / ".bashrc"), content="x"))
+        assert asker.asked == []
+        pep.set_mode(AutonomyMode.WORKSPACE_AUTO)
+        assert await pep.evaluate(act("write_file", path=str(tmp_path / ".bashrc"), content="y"))
+        assert asker.asked == [str(tmp_path / ".bashrc")]
         pep.set_interactive(False)
         with pytest.raises(ActionDenied, match="no human"):
             await pep.evaluate(act("write_file", path=str(tmp_path / ".bashrc"), content="x"))
@@ -273,9 +279,9 @@ class TestUserSpace:
             audit_logger=AuditLogger(tmp_path / "audit.log"),
             action_confirm=asker,
         )
-        await pep.evaluate(act("write_file", path="/opt/fora/a.txt", content="x"))
+        await pep.evaluate(act("write_file", path=str(tmp_path / "fora" / "a.txt"), content="x"))
         await pep.evaluate(act("run_command", command="sudo apt update"))
-        assert kinds == [frozenset({"outside_workspace"}), frozenset({"sudo"})]
+        assert kinds == [frozenset({"outside_workspace", "classifier"}), frozenset({"sudo", "classifier"})]
         assert pep.peek_escalation_kinds("nada") == frozenset()
 
     async def test_agent_cannot_edit_its_blocklist_or_ledger(self, tmp_path: Path) -> None:

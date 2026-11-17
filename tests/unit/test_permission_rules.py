@@ -160,15 +160,15 @@ class TestPepRules:
 
     async def test_allow_dispensa_pergunta_em_level_3(self, tmp_path: Path) -> None:
         asked: list[Action] = []
-        pep = _pep(tmp_path, rules=RuleSet.from_lists(allow=["run_command(git status:*)"]), asked=asked)
-        assert await pep.evaluate(_action("run_command", {"command": "git status -s"})) is True
+        pep = _pep(tmp_path, rules=RuleSet.from_lists(allow=["run_command(make test:*)"]), asked=asked)
+        assert await pep.evaluate(_action("run_command", {"command": "make test -j4"})) is True
         assert asked == []
         assert _audit(tmp_path)[-1]["decision_source"] == "rule"
 
     async def test_sem_regra_ainda_pergunta(self, tmp_path: Path) -> None:
         asked: list[Action] = []
-        pep = _pep(tmp_path, rules=RuleSet.from_lists(allow=["run_command(git status:*)"]), asked=asked)
-        await pep.evaluate(_action("run_command", {"command": "git commit -m x"}))
+        pep = _pep(tmp_path, rules=RuleSet.from_lists(allow=["run_command(make test:*)"]), asked=asked)
+        await pep.evaluate(_action("run_command", {"command": "make deploy"}))
         assert len(asked) == 1
 
     async def test_ask_forca_pergunta_em_fully_auto(self, tmp_path: Path) -> None:
@@ -248,7 +248,7 @@ class TestEscalation:
     async def test_allow_relativo_nao_cobre_fora_do_workspace(self, tmp_path: Path) -> None:
         asked: list[Action] = []
         pep = _pep(tmp_path, rules=RuleSet.from_lists(allow=["write_file(a.txt)"]), asked=asked)
-        action = _action("write_file", {"path": "/etc/a.txt", "content": "x"})
+        action = _action("write_file", {"path": str(tmp_path.parent / "fora" / "a.txt"), "content": "x"})
         await pep.evaluate(action)
         assert len(asked) == 1
 
@@ -289,6 +289,8 @@ class TestEscalation:
     async def test_nuclear_continua_com_desafio_do_so(self, tmp_path: Path) -> None:
         pep = _pep(tmp_path, mode=AutonomyMode.FULLY_AUTO, rules=RuleSet.from_lists(allow=["run_command"]))
         with pytest.raises(ActionDenied, match="Nuclear"):
+            await pep.evaluate(_action("run_command", {"command": "mkfs.ext4 /dev/sdz1"}))
+        with pytest.raises(ActionDenied, match="blocklist"):
             await pep.evaluate(_action("run_command", {"command": "rm -rf /"}))
 
 
@@ -340,17 +342,18 @@ def make_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):  # type: igno
 class TestSession:
     async def test_sempre_permitir_grava_regra_local_0600(self, make_session, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
         marker = tmp_path / "m"
-        provider = ScriptedProvider([call("run_command", command=f"touch {marker}"), "ok"])
+        command = f"install -m 600 /dev/null {marker}"  # Classificada: sem estágio 2, pergunta
+        provider = ScriptedProvider([call("run_command", command=command), "ok"])
         session = make_session(provider, ["a"])
         await session.run_turn("rode")
         data = json.loads(local_settings_path(tmp_path).read_text(encoding="utf-8"))
-        assert data["permissions"]["allow"] == [f"run_command(touch {marker})"]
+        assert data["permissions"]["allow"] == [f"run_command({command})"]
         assert (local_settings_path(tmp_path).stat().st_mode & 0o777) == 0o600
         assert session.settings.effective.permissions.allow
 
     async def test_regra_persistida_vale_na_proxima_sessao(self, make_session, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
         marker = tmp_path / "m"
-        command = f"touch {marker}"
+        command = f"install -m 600 /dev/null {marker}"
         first = make_session(ScriptedProvider([call("run_command", command=command), "ok"]), ["a"])
         await first.run_turn("rode")
         marker.unlink()
@@ -359,7 +362,7 @@ class TestSession:
         assert marker.exists()
 
     async def test_comando_composto_fica_so_na_sessao(self, make_session, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
-        command = f"touch {tmp_path / 'x'} && true"
+        command = f"install -m 600 /dev/null {tmp_path / 'x'} && true"
         provider = ScriptedProvider([call("run_command", command=command), "ok"])
         session = make_session(provider, ["a"])
         await session.run_turn("rode")

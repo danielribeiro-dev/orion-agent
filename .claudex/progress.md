@@ -5,7 +5,7 @@
 - **Repositório:** `orion-agent`
 - **Fase Atual:** Fase 5 (v0.5.0 Claude-Grade Agent) **EM ANDAMENTO** 🟡 (Sprint 0 concluída; v0.4.0 implementada, tags/merge pendentes)
 - **Linhas de Código em `src/`:** ~16.300 linhas de produção
-- **Testes:** 2283 passando, cobertura global 94% (medido em 16/11/2026 após a v0.5.3 Sprint 1) ✅
+- **Testes:** 2438 passando, cobertura global 93% (medido em 16/11/2026 após a v0.5.3 Sprint 2) ✅
 
 ---
 
@@ -256,6 +256,7 @@ Especificação: `docs/planning/versions/v0.5.0/VERSION.md`. Voz e daemon de voz
 
 
 ## v0.5.3 Memória Viva e Núcleo Livre
+- Sprint 2 (16/11/2026): faixas por reversibilidade (`bands.py`) com blocklist rígida, classificador em dois estágios cego às saídas de tool (`classifier.py`, origem `classifier`), motor de reversibilidade com lixo do ORION e `refs/orion/undo` (`reversibility.py`), aprovação do plano com passos de presença (`grants.py`), modos `plan/ask/auto/full`, negações devolvidas ao modelo, pendências na Inbox sem humano, `/undo [list|id]` e `undo_last`. 2438 testes, cobertura 93%, lab 28/28. CA-06 e CA-08 ✅; CA-07 automático ✅ (polkit no GNOME pendente).
 - Emenda da memória (16/11/2026, `79430cf`): evidência ancorada, observações locais, sinais implícitos, pendências proativas, perfil do Senhor, turnos indexados, PT-BR sem modelo, purge, avaliação ao vivo (CA-18 a CA-25).
 - Sprint 1 (16/11/2026): askpass com peer check (sudo-rs validado), chaveiro opt-in (`orion setup sudo`), nuclear por polkit/PAM, escopo do usuário e sensíveis, ledger ligado e endurecido, web aberta com blocklist e `/web`, busca em cadeia, senha mascarada na tela cheia, `/doctor`. 2283 testes, cobertura 94%, lab verde. Pendente: validação manual do Senhor no GNOME.
 - Sprint 0 (16/11/2026): spec, pesquisa (`pesquisa-memoria-e-autonomia.md`, achados M-01..M-12 e G-01..G-10), sprints 0 a 6, ADR-046 a 052 e emendas; `system_patterns.md` §1.2 e §3; ROADMAP. Só documentação.

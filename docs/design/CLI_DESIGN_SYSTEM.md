@@ -99,7 +99,7 @@ A paleta oficial foi calibrada para uso contínuo de **12 horas ou mais**, elimi
 * **Fundo:** Transparente / herda o fundo padrão do terminal (`bg:default`).
 * **Estrutura:**
   ```text
-    accept-edits · claude-3-7-sonnet · 12.4k in / 3.4k out · $0.0882 / R$ 0,507 · thinking: high · PEP: 2 · Ready ●
+    auto · claude-3-7-sonnet · 12.4k in / 3.4k out · $0.0882 / R$ 0,507 · thinking: high · PEP: 2 · Ready ●
   ```
 * **Estado:** `Ready ●` em repouso, `Working ●` durante um turno e `Offline ●` sem gateway de nuvem. Durante o turno, a mesma linha é desenhada pelo `StreamRenderer` abaixo do spinner.
 * **Modo:** o modo operacional (§5.1) abre a linha em `accent_blue`.
@@ -258,16 +258,16 @@ O agente possui 4 modos de operação comutáveis instantaneamente:
 
 | Modo Operacional | Descrição de Comportamento | Nível PEP Associado | Regra de Gate no PEP |
 | :--- | :--- | :--- | :--- |
-| **`plan`** | Modo de planejamento estrito: pesquisa o repositório, lê arquivos, formula artefatos de plano e colhe aprovação. Nenhuma mutação de código ou comando de escrita é executado. | PEP Nível 1 (Read-Only) | `SUPERVISED` com negação automática de todo Nível 2+ |
-| **`accept-edits`** | Modo de codificação assistida: aceita e aplica edições e correções de código no workspace automaticamente. Pede autorização apenas para comandos de shell (`bash`) ou ações externas. | PEP Nível 2 (Mutação de Código) | `WORKSPACE_AUTO`: edições passam, `run_command` pede autorização |
-| **`auto`** | Modo autônomo prolongado (`/goal`): executa tarefas complexas com auto-recuperação (*Self-Healing*), aplicando edições e rodando testes sem interromper o fluxo para cada passo trivial. | PEP Nível 2 Supervisionado | `FULLY_AUTO`: invariantes (sudo, escopo, nuclear) continuam valendo |
-| **`manual`** | Modo estritamente supervisionado: exige autorização do usuário (`[y/n]`) antes de cada edição de arquivo ou execução de comando. | PEP Nível 3 (HITL Rigoroso) | `SUPERVISED`: toda mutação pede autorização |
+| **`plan`** | Modo de planejamento estrito: pesquisa o repositório, lê arquivos e a web, roda comandos de leitura (faixa Livre sem mutação), formula o plano e colhe aprovação. Passos de faixa Presença listados no plano são aprovados junto, por 15 min. | PEP Nível 1 (Read-Only) | `SUPERVISED` + somente leitura: toda mutação é recusada |
+| **`ask`** | Modo estritamente supervisionado: pede autorização (`[y/n]`) antes de cada edição, comando ou leitura de rede. Alias antigo: `manual`. | PEP Nível 3 (HITL Rigoroso) | `SUPERVISED`: tudo acima de LEVEL_1 pergunta |
+| **`auto`** (padrão) | Decide por raio de destruição e reversibilidade (ADR-046): Livre passa; Classificada vai ao classificador (regras, ledger, modelo FAST cego às saídas de tool); Presença pergunta; Nuclear exige presença verificada. Deleções e sobrescritas vão antes para o lixo do ORION (`/undo`). Alias antigo: `accept-edits`. | PEP Nível 2 | `WORKSPACE_AUTO` por faixa |
+| **`full`** | Autonomia total: sem estágio 2 do classificador; Presença vira Classificada. Nuclear e blocklist intactos. | PEP Nível 1 | `FULLY_AUTO`: só Nuclear (senha verificada) e blocklist (nunca) seguram |
 
 ### 5.2 Matriz Completa de Atalhos de Teclado
 
 | Combinação de Teclas | Ação Executada | Referência de Indústria |
 | :--- | :--- | :--- |
-| **`Shift + Tab`** (ou `Shift + Alt`) | Alterna ciclicamente o modo do agente: `plan` $\rightarrow$ `accept-edits` $\rightarrow$ `auto` $\rightarrow$ `manual` | Claude Code & Antigravity |
+| **`Shift + Tab`** (ou `Shift + Alt`) | Alterna ciclicamente o modo do agente: `plan` $\rightarrow$ `ask` $\rightarrow$ `auto` $\rightarrow$ `full` | Claude Code & Antigravity |
 | **`Alt + T`** | Alterna o nível de esforço de raciocínio: `HIGH` $\rightarrow$ `MEDIUM` $\rightarrow$ `LOW` $\rightarrow$ `OFF` | Claude Code (`Opt+T`) |
 | **`Alt + O`** | Ativa / desativa o modo ultra-rápido (*Fast Mode*) | Claude Code (`Opt+O`) |
 | **`Alt + R`** | Expande o último bloco de raciocínio no fluxo | ORION |

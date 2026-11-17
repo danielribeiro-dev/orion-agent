@@ -34,17 +34,37 @@ class DiffCommand(BaseSlashCommand):
 
 class UndoCommand(BaseSlashCommand):
     name = "/undo"
-    description = "Desfaz atomicamente a última mutação de arquivo da sessão"
-    usage = "/undo"
+    description = "Desfaz a última mutação (edição ou lixo do ORION); list mostra os snapshots"
+    usage = "/undo [list | <id>]"
 
     async def execute(self, args: str, context: CommandContext) -> CommandResult:
-        change = context.session.tracker.undo()
-        if change is None:
-            return CommandResult(success=True, output_message="Nada para desfazer.")
-        path = change.path
-        if path.is_relative_to(context.session.workspace):
-            path = path.relative_to(context.session.workspace)
-        return CommandResult(success=True, output_message=f"Desfeito: {path}")
+        session = context.session
+        arg = args.strip()
+        if arg in ("list", "ls", "lista"):
+            return self._list(context)
+        if arg:
+            summary = await session._undo_snapshot(arg)
+            if summary is None:
+                return CommandResult(success=False, output_message=f"Snapshot '{arg}' não encontrado. Veja /undo list.")
+            return CommandResult(success=True, output_message=summary)
+        summary = await session.undo_latest()
+        return CommandResult(success=True, output_message=summary or "Nada para desfazer.")
+
+    @staticmethod
+    def _list(context: CommandContext) -> CommandResult:
+        from datetime import datetime
+
+        snaps = context.session.reversibility.list()
+        if not snaps:
+            return CommandResult(success=True, output_message="O lixo do ORION está vazio.")
+        table = Table(box=None, show_header=True, header_style="text_dim", pad_edge=False)
+        for column in ("id", "quando", "itens", "comando", ""):
+            table.add_column(column, style="text_primary" if column == "id" else "text_dim", overflow="fold")
+        for snap in snaps[:20]:
+            when = datetime.fromtimestamp(snap.created_at).strftime("%d/%m %H:%M")
+            table.add_row(snap.id, when, snap.summary(), snap.command[:60], "✔ restaurado" if snap.restored else "")
+        context.console.print(table)
+        return CommandResult(success=True, data=snaps)
 
 
 class RunCommand(BaseSlashCommand):
@@ -110,6 +130,7 @@ class DoctorCommand(BaseSlashCommand):
             checks.append(("RAM livre", False, "indisponível"))
         checks.append(("Memória (fatos)", session.facts is not None, str(session.home / "facts.db")))
         checks.extend(_freedom_checks(session.home))
+        checks.extend(_governance_checks(session))
         from orion.install import diagnose
 
         checks.extend(diagnose())
@@ -126,6 +147,35 @@ class DoctorCommand(BaseSlashCommand):
             )
         context.console.print(orion_panel(table, brand_title("Diagnóstico do Ambiente")))
         return CommandResult(success=all(ok for _, ok, _ in checks), data=checks)
+
+
+def _governance_checks(session: Any) -> list[tuple[str, bool, str]]:
+    """Modo, classificador e lixo do ORION (v0.5.3 Sprint 2, ADR-046/047)."""
+    from orion.tui.session import MODE_ALIASES
+
+    out: list[tuple[str, bool, str]] = []
+    raw_mode = str(session.settings.effective.mode or "")
+    if raw_mode in MODE_ALIASES:
+        out.append(
+            (
+                "Modo",
+                False,
+                f"settings.json usa '{raw_mode}' (nome antigo); vale como '{MODE_ALIASES[raw_mode].value}'. "
+                "Troque pelo nome novo: plan, ask, auto ou full.",
+            )
+        )
+    else:
+        out.append(("Modo", True, f"{session.mode.value} (faixas: livre, classificada, presença, nuclear)"))
+    stage2 = "modelo FAST (cego a saídas de tool)" if session.online else "sem modelo: dúvidas vão ao Senhor"
+    cap = session.budget.origin_budget_usd.get("classifier")
+    out.append(("Classificador", True, f"regras + ledger + {stage2}" + (f" · teto US$ {cap:.2f}/dia".replace(".", ",") if cap else "")))
+    try:
+        snaps = session.reversibility.list()
+        used = sum(s.bytes for s in snaps) / 1024**3
+        out.append(("Lixo do ORION", True, f"{len(snaps)} snapshot(s) · {used:.2f} GiB de 10 GiB · 7 dias (/undo list)".replace(".", ",", 1)))
+    except OSError as exc:
+        out.append(("Lixo do ORION", False, f"indisponível: {exc}"))
+    return out
 
 
 def _freedom_checks(home: Any) -> list[tuple[str, bool, str]]:

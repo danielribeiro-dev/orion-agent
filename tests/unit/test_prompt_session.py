@@ -108,7 +108,7 @@ class TestBottomToolbarIntegration:
             toolbar = prompt.get_bottom_toolbar()
             plain_text = "".join(part[1] for part in toolbar)
 
-            assert plain_text.startswith("accept-edits · claude-3-7-sonnet")
+            assert plain_text.startswith("auto · claude-3-7-sonnet")
             assert "PEP 2" in plain_text
             assert "US$ 0,013" in plain_text
             assert "Pronto ●" in plain_text

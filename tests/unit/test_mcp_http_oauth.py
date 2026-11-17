@@ -548,7 +548,7 @@ class TestSessionIntegration:
     async def test_tool_mcp_passa_pelo_pep(self, make_session, client: MCPClient, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
         provider = ScriptedProvider([call("mcp__docs__echo", text="x"), "ok"])
         session = make_session(provider, answers=["n"])
-        session.set_mode(AgentMode.MANUAL)  # em accept-edits o LEVEL_2 é auto-aprovado
+        session.set_mode(AgentMode.MANUAL)  # em auto o LEVEL_2 no escopo é auto-aprovado
         session.start_mcp(client)
         session.refresh_mcp()
         await session.run_turn("use a tool")

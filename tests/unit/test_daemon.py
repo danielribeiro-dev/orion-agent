@@ -386,17 +386,44 @@ class TestScheduledFire:
         assert items and items[0].title.endswith(": ok")
         await daemon.close()
 
-    async def test_scheduled_nuclear_without_step_up_is_denied(self, daemon_env: dict[str, Any], tmp_path: Path) -> None:
-        canary = tmp_path / "canary-dir"
-        canary.mkdir()
+    async def test_scheduled_nuclear_becomes_inbox_pending(self, daemon_env: dict[str, Any], tmp_path: Path) -> None:
+        """CA-08 (ADR-046 item 6): sem humano, Nuclear vira pendência na Inbox, nunca execução."""
+        canary = tmp_path / "canary.img"
+        canary.write_bytes(b"x" * 16)
         daemon, _p, _c = make_daemon(daemon_env, mode=AgentMode.AUTO)
         sch = schedule(
-            daemon_env, action="command", command=f"rm -rf {canary}", autonomy=AutonomyMode.FULLY_AUTO
+            daemon_env, action="command", command=f"mkfs.ext4 -F {canary}", autonomy=AutonomyMode.FULLY_AUTO
         )
         outcome = await daemon.fire(sch)
-        assert outcome.status == "denied"
-        assert "nuclear" in outcome.detail
-        assert canary.exists()
+        assert outcome.status == "skipped"
+        assert "Inbox" in outcome.detail
+        assert canary.read_bytes() == b"x" * 16
+        pending = [i for i in daemon.inbox.list() if i.payload.get("pending_action")]
+        assert pending and pending[0].payload["band"] == "nuclear"
+        assert "mkfs.ext4" in pending[0].body
+        await daemon.close()
+
+    async def test_scheduled_presence_becomes_inbox_pending(self, daemon_env: dict[str, Any]) -> None:
+        """CA-08: uma ação de Presença no job vira pendência, não negação seca."""
+        daemon, _p, _c = make_daemon(daemon_env, mode=AgentMode.AUTO)
+        sch = schedule(daemon_env, action="command", command="docker system prune -af", autonomy=AutonomyMode.WORKSPACE_AUTO)
+        outcome = await daemon.fire(sch)
+        assert outcome.status == "skipped"
+        pending = [i for i in daemon.inbox.list() if i.payload.get("pending_action")]
+        assert pending and pending[0].payload["band"] == "presença"
+        assert "Motivo" in pending[0].body
+        await daemon.close()
+
+    async def test_scheduled_reversible_delete_runs_with_snapshot(self, daemon_env: dict[str, Any]) -> None:
+        """rm reversível no espaço do usuário roda sozinho no job e fica no lixo do ORION."""
+        workspace = daemon_env["workspace"]
+        target = workspace / "lixo.txt"
+        target.write_text("guardado")
+        daemon, _p, _c = make_daemon(daemon_env, mode=AgentMode.AUTO)
+        sch = schedule(daemon_env, action="command", command=f"rm {target}", autonomy=AutonomyMode.WORKSPACE_AUTO)
+        outcome = await daemon.fire(sch)
+        assert outcome.status == "ok", outcome.detail
+        assert not target.exists()
         await daemon.close()
 
     async def test_supervised_schedule_cannot_mutate(self, daemon_env: dict[str, Any]) -> None:

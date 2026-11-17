@@ -136,3 +136,5 @@ def tmp_paths(tmp_path: pytest.TempPathFactory) -> PathsConfig:
 def _no_live_recall(monkeypatch: pytest.MonkeyPatch) -> None:
     """Recall por turno baixaria o modelo de embeddings; os testes o ligam explicitamente."""
     monkeypatch.setenv("ORION_RECALL", "0")
+    # Estágio 2 do classificador (ADR-046) desligado: não consome o provider roteirizado.
+    monkeypatch.setenv("ORION_CLASSIFIER_MODEL", "0")

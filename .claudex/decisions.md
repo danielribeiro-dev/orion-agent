@@ -314,6 +314,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   6. O filho nunca altera o estado do circuit breaker do pai.
   7. (Implementação 6A) Sem humano, o desafio nuclear do SO **não abre**: o comando nuclear é negado. `cwd` de `run_command/glob/grep/search_files` é confinado ao escopo do filho.
 * **Consequências:** Spec da Sprint 6 (6A). Auditoria e ledger ganham `agent_id`/`origin`.
+* **Emenda (16/11/2026, ADR-046 [v0.5.3] Sprint 2):** o filho passa a herdar grants válidos do pai e a CONSULTAR o ledger do pai no estágio 1 do classificador (nunca aprende nele nem o recebe como seu). Presença no filho não vira pergunta: volta ao pai com o passo exato.
 
 ### ADR-029: Tasks em Loop de Thread Dedicada, com Portas Executor/TaskStore/Notifier
 * **Status:** Aprovado (08/11/2026)
@@ -444,12 +445,14 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   6. **Sem humano** (daemon, jobs, subagent sem pai interativo): Presença e Nuclear viram pendência na Inbox/notificação, nunca execução e não mais negação seca.
   7. `CommandTrustLedger` instanciado; assinatura por prefixo normalizado.
 * **Consequências:** Muito menos perguntas; a segurança passa a depender de três redes independentes (classificador, reversibilidade do ADR-047 e faixa Nuclear determinística), porque o classificador sozinho erra (~17% de falso negativo em ações exageradas no estudo da Anthropic). `test_security_audit.py` é reescrito para as faixas.
+* **Registro de execução (Sprint 2, 16/11/2026):** (1) leitura que expõe chave ou credencial (`~/.ssh`, `~/.aws/credentials`...) e "leituras" que executam ou escrevem (`git -c`, `rg --pre`, `sed e/w`, `sort -o`, `env` sozinho) são Classificada, não Livre; (2) o modo `ask` continua perguntando comandos de leitura e `web_fetch`; `plan/auto/full` deixam leitura pura passar; (3) a faixa Nuclear decide o desafio do SO (`challenge_async(required=True)`), não mais os padrões antigos do `nuclear.py`; (4) regra `allow` não libera `sudo`; o classificador pode; (5) branch que não resolve conta como protegida; (6) o estágio 2 roda com origem `classifier` e teto padrão de US$ 0,20/dia, desligável por `ORION_CLASSIFIER_MODEL=0` (testes); (7) sem humano, o daemon recebe a pendência como item `alert` da Inbox e o job segue sem o passo (`ActionDeferred`).
 
 ### ADR-047: Motor de reversibilidade e aprovação por intenção [v0.5.3]
 * **Status:** Aprovado (16/11/2026, com o plano da v0.5.3).
 * **Contexto:** Pedir senha para ações desfazíveis é ritual repetitivo que o Senhor rejeitou. A maior parte do medo de `rm` é sobre arquivos não commitados.
 * **Decisão:** (1) Antes de deleções e sobrescritas (`rm`, `mv` sobre existente, `>` sobre existente, `git reset --hard`, `git checkout -- .`, `git clean`), o PEP resolve os alvos e faz snapshot em `~/.orion/trash/<ts>-<id>/` (reflink, hardlink seguro ou cópia) ou `refs/orion/undo/<id>` no git; com snapshot, a ação é reversível e cai para Classificada. (2) Alvo que o parser não resolve sobe uma faixa. (3) Teto de 2 GiB por ação e 10 GiB no total, retenção de 7 dias; acima do teto, a ação sobe para Nuclear. (4) `/undo` e tool `undo_last` restauram. (5) **Aprovação por intenção:** um plano com passos de Presença pode ser aprovado uma vez, com escopo listado e TTL de 15 min; nunca cobre Nuclear nem blocklist.
 * **Consequências:** Uso de disco controlado; limpeza do lixo por evento, nunca por relógio ocioso (ADR-022).
+* **Registro de execução (Sprint 2, 16/11/2026):** (1) hardlink só na deleção e só com `st_nlink == 1` (com outro nome, uma escrita no lugar alteraria o snapshot); reflink por `FICLONE`, senão cópia; (2) sem motor de snapshot, ou com `sudo`, deleção é Nuclear; snapshot que falha nega a ação; (3) pastas regeneráveis (`node_modules`, `.venv`, caches, `build`) não são copiadas; acima do teto sobem para Presença ("recuperável de outra forma"); (4) `git clean` guarda o que `git clean -n` com as mesmas flags listaria; `/undo` de `reset --hard` reaplica o stash e avisa se o HEAD mudou, sem mover o ponteiro sozinho; (5) a restauração preserva a versão atual como `<nome>.orion-undo-<id>`; (6) grants vivem só na memória da sessão, casam comando por tokens iguais (ou prefixo explícito ` *`) e caminho por pasta resolvida.
 
 ### ADR-048: Presença verificada — askpass, chaveiro opt-in e polkit/PAM [v0.5.3]
 * **Status:** Aprovado (16/11/2026, com o plano da v0.5.3). Emenda o ADR-018 [v0.3.0].

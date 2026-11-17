@@ -376,13 +376,14 @@ async def ask_user_choice(
 class PlanApproval:
     """exit_plan_mode: aprovação do plano em uma tecla."""
 
-    def __init__(self, plan: str, mode_label: str) -> None:
+    def __init__(self, plan: str, mode_label: str, steps: list[str] | None = None) -> None:
         self.plan = plan
         self.mode_label = mode_label
+        self.steps = list(steps or [])
         self.approved = False
 
     def render(self) -> RenderableType:
-        return render_plan_approval(self.plan, self.mode_label)
+        return render_plan_approval(self.plan, self.mode_label, self.steps)
 
     def on_key(self, key: str) -> bool:
         lowered = key.lower()
@@ -392,11 +393,14 @@ class PlanApproval:
         return lowered == "n" or key == "escape"
 
 
-async def approve_plan(console: Console, plan: str, mode_label: str) -> bool:
-    """Mostra o plano; sem terminal interativo o plano NÃO é aprovado."""
+async def approve_plan(console: Console, plan: str, mode_label: str, steps: list[str] | None = None) -> bool:
+    """Mostra o plano (e os passos de presença que a aprovação cobre por 15 min).
+
+    Sem terminal interativo o plano NÃO é aprovado.
+    """
     if not is_interactive() and active_host() is None:
         return False
-    modal = PlanApproval(plan, mode_label)
+    modal = PlanApproval(plan, mode_label, steps)
     await run_modal(modal, console, keep_on_screen=True)
     return modal.approved
 

@@ -279,11 +279,16 @@ class NuclearSafetyGate:
         logger.warning("NuclearGate: DESAFIO NUCLEAR disparado para: '%s'", command[:100])
         return self._run_challenge(command, blast)
 
-    async def challenge_async(self, command: str) -> NuclearChallengeResult:
-        """Dispara o desafio se *command* é nuclear; senão passa direto."""
+    async def challenge_async(self, command: str, *, required: bool = False) -> NuclearChallengeResult:
+        """Dispara o desafio se *command* é nuclear; senão passa direto.
+
+        ``required=True`` (faixa Nuclear decidida pelo PEP, ADR-046) desafia sempre, mesmo que os
+        padrões antigos deste módulo não reconheçam o comando.
+        """
         blast = self._classifier.classify(command)
-        if blast != BlastRadius.NUCLEAR_DESTRUCTIVE:
+        if blast != BlastRadius.NUCLEAR_DESTRUCTIVE and not required:
             return self._passthrough(command, blast)
+        blast = BlastRadius.NUCLEAR_DESTRUCTIVE
         logger.warning("NuclearGate: DESAFIO NUCLEAR disparado para: '%s'", command[:100])
         return await self._run_challenge_async(command, blast)
 

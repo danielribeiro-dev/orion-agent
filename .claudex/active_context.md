@@ -1,15 +1,17 @@
 # O.R.I.O.N — Active Context (Memória de Sessão de Desenvolvimento)
 
-> **Data de Atualização:** 16/11/2026 (v0.5.3 Sprint 1 implementada)  
-> **Status Atual:** v0.5.3 "Memória Viva e Núcleo Livre" em execução: Sprint 0 (spec + emenda da memória) e **Sprint 1 (Liberdade básica) implementadas em 16/11/2026**; Sprints 2 a 6 aguardam comando. v0.5.2 e anteriores publicadas (tags até v0.5.2). Cobertura 94%, 2283 testes, lab 25/25.  
-> **Fase Ativa:** v0.5.3 — memória que conhece o Senhor (Sprints 3 a 6) e núcleo livre por reversibilidade (Sprint 2). Spec em `docs/planning/versions/v0.5.3/`.  
+> **Data de Atualização:** 16/11/2026 (v0.5.3 Sprint 2 implementada)  
+> **Status Atual:** v0.5.3 "Memória Viva e Núcleo Livre" em execução: Sprint 0 (spec + emenda da memória), Sprint 1 (Liberdade básica) e **Sprint 2 (Classificador e reversibilidade) implementadas em 16/11/2026**; Sprints 3 a 6 aguardam comando. v0.5.2 e anteriores publicadas (tags até v0.5.2). Cobertura 93%, 2438 testes, lab 28/28.  
+> **Fase Ativa:** v0.5.3 — memória que conhece o Senhor (Sprints 3 a 6); a trilha de governança (Sprints 1 e 2) está implementada. Spec em `docs/planning/versions/v0.5.3/`.  
 > **Branch Ativo:** `feat/v0.5.3-memoria-viva` (de `feat/v0.5.2-bridge`; **enviada ao GitHub** em 16/11/2026, último commit `6d66c65`). Sem tag até a versão fechar.  
 > **Regra Suprema:** Nenhuma linha de código em `src/` é escrita sem o comando explícito de início da Sprint correspondente (Doc-First).
 
 ---
 
-## v0.5.3 Memória Viva e Núcleo Livre (16/11/2026): Sprint 0 + emenda da memória e Sprint 1 concluídas
-**Sprint 1 (Liberdade básica) implementada** em 16/11/2026 (registro em `sprints/sprint-1.md`): askpass com peer check (sudo-rs), `orion setup sudo`, nuclear por polkit/PAM, escopo do usuário, ledger ligado e endurecido, web aberta, busca em cadeia. Pendente do Senhor: `sudo apt update` com senha real, diálogo polkit no GNOME, `orion setup sudo` com o chaveiro real. **Próximo:** Sprint 2 (classificador e reversibilidade) ou Sprint 3 (sessões e daily), com comando do Senhor.
+## v0.5.3 Memória Viva e Núcleo Livre (16/11/2026): Sprints 0, 1 e 2 concluídas
+**Sprint 2 (Classificador e reversibilidade) implementada** em 16/11/2026 (registro em `sprints/sprint-2.md`): `governance/bands.py` (faixas Livre/Classificada/Presença/Nuclear + blocklist, parser de shell conservador), `classifier.py` (regras + ledger + cache; estágio 2 FAST cego às saídas de tool, origem `classifier`, US$ 0,20/dia), `reversibility.py` (`~/.orion/trash`, `refs/orion/undo`, 2/10 GiB, 7 dias), `grants.py` (plano aprovado com passos de presença, 15 min), modos `plan/ask/auto/full` (`accept-edits`/`manual` são aliases), negações devolvidas ao modelo (3 seguidas ou 20 abrem modal), Presença/Nuclear sem humano viram pendência na Inbox, `/undo [list|id]` e `undo_last`. Testes desligam o estágio 2 com `ORION_CLASSIFIER_MODEL=0`. Pendente do Senhor: diálogo polkit no GNOME (CA-07 manual) e uma rodada real do `auto` com modelo (custo do classificador). **Próximo:** Sprint 3 (sessões e daily), com comando do Senhor.
+
+**Sprint 1 (Liberdade básica) implementada** em 16/11/2026 (registro em `sprints/sprint-1.md`): askpass com peer check (sudo-rs), `orion setup sudo`, nuclear por polkit/PAM, escopo do usuário, ledger ligado e endurecido, web aberta, busca em cadeia. Pendente do Senhor: `sudo apt update` com senha real, diálogo polkit no GNOME, `orion setup sudo` com o chaveiro real. 
 
 Commits: `1e69828` (spec), `79430cf` (emenda da memória), `6d66c65` (Sprint 1). Spec em `docs/planning/versions/v0.5.3/` (`VERSION.md`, `pesquisa-memoria-e-autonomia.md`, `sprints/sprint-0..6.md`); ADR-046 a 052 e emendas aos ADR-006, 017, 018 [v0.3.0], 023, 027 e 037.
 **Para retomar a Sprint 2:** ler `sprints/sprint-2.md` e o registro da Sprint 1 (`sprints/sprint-1.md`, seção "Desvios"). Ganchos já prontos: `PolicyEnforcementPoint.peek_escalation_kinds`, `REMEMBERABLE_ESCALATIONS`, `is_sensitive_path`, `CommandCanonicalizer.is_trustable`, `governance/askpass.is_sudo_safe` (a Sprint 2 troca as regras fixas pelo classificador), `NuclearSafetyGate.challenge_async`. O PEP ainda decide por `ActionLevel` e modos antigos (`accept-edits` padrão); faixas, `/undo` e Inbox sem humano são da Sprint 2.

@@ -135,7 +135,7 @@ class TestValidation:
         scope = WorkspaceScope([workspace])
         pep = PolicyEnforcementPoint(scope=scope, mode=AutonomyMode.FULLY_AUTO)
         runtime = LocalRuntimeProvider(pep=pep, scope=scope)
-        outside = tmp_path / "fora.txt"
+        outside = Path("/etc/orion-test-nunca.txt")  # sistema: Nuclear mesmo em ``full``
         llm = ScriptedLLM(use("write_file", {"path": str(outside), "content": "x"}), say("ok"))
         await engine_for(llm, runtime).run("x")
         assert tool_results(llm.requests[1][-1])[0].is_error

@@ -1,6 +1,6 @@
 # Spec — v0.5.3 Memória Viva e Núcleo Livre
 
-> **Status:** 🟡 Sprint 0 (spec + emenda da memória) e Sprint 1 concluídas em 16/11/2026; Sprints 2 a 6 aguardam o comando de início do Senhor  
+> **Status:** 🟡 Sprints 0 (spec + emenda da memória), 1 e 2 concluídas em 16/11/2026; Sprints 3 a 6 aguardam o comando de início do Senhor  
 > **Criada em:** 2026-11-16  
 > **Concluída em:** —  
 > **Autor(es):** Daniel Dev & Claude (Pair Programming)  
@@ -76,7 +76,7 @@ Até a Sprint 1, o `CLAUDE.md` atual continua valendo.
 | :--- | :--- | :--- | :--- | :--- |
 | **Sprint 0** | Spec | Pesquisa, VERSION, sprints, ADR-046 a 052 e emendas | [`sprint-0.md`](sprints/sprint-0.md) | ✅ |
 | **Sprint 1** | Liberdade básica | Senha verificada (askpass, chaveiro, polkit/PAM, overlay), escopo do usuário, ledger ligado, web aberta + `SearchProvider` | [`sprint-1.md`](sprints/sprint-1.md) | ✅ |
-| **Sprint 2** | Classificador e reversibilidade | Faixas, classificador em dois estágios, snapshot/`/undo`, aprovação por intenção, modos, blocklist, Inbox, auditoria | [`sprint-2.md`](sprints/sprint-2.md) | 📋 |
+| **Sprint 2** | Classificador e reversibilidade | Faixas, classificador em dois estágios, snapshot/`/undo`, aprovação por intenção, modos, blocklist, Inbox, auditoria | [`sprint-2.md`](sprints/sprint-2.md) | ✅ |
 | **Sprint 3** | Sessões e daily | `sessions.db`, títulos, daily e virada, threads e `session_branch`, `/resume` por data, migração | [`sprint-3.md`](sprints/sprint-3.md) | 📋 |
 | **Sprint 4** | Escrita e core | Core congelado, detector de saliência, Mordomo com evidência ancorada, observações locais, sinais implícitos, fatos com escopo/proveniência/tempo, diretivas, "aprendi · desfazer" | [`sprint-4.md`](sprints/sprint-4.md) | 📋 |
 | **Sprint 5** | Consolidação e recall | Cartões, rollups, Reflector, pendências proativas, perfil do Senhor, turnos indexados, PT-BR sem modelo, oferta do modelo multilíngue, `sqlite-vec`, `session_search`, `/memory` editar/esquecer/purge | [`sprint-5.md`](sprints/sprint-5.md) | 📋 |
@@ -128,9 +128,9 @@ src/orion/core/identity.py                  [mod]   preâmbulo enxuto + princíp
 | CA-03 | Segredo fora do contexto | A senha não aparece no contexto, na auditoria, nos logs nem no transcript | teste de varredura | ✅ |
 | CA-04 | Outro repositório | "Edite o README de ~/outro-repo" funciona sem pergunta no modo `auto` | `tests/e2e/test_security_audit.py` | ✅ |
 | CA-05 | Web aberta | `web_fetch` abre domínio público fora da antiga lista; IP privado continua negado; busca cai na reserva sem chave | `tests/unit/test_web_*` | ✅ |
-| CA-06 | Reversibilidade | `rm` de 30 arquivos não commitados roda sem pergunta e `/undo` os restaura | `tests/unit/test_reversibility.py` | 📋 |
-| CA-07 | Nuclear | `mkfs`, `dd of=/dev/sdX`, push --force na main pedem senha verificada; senha errada nega; blocklist nunca roda, nem em `full` | `test_security_audit.py` | 📋 |
-| CA-08 | Sem humano | No daemon, uma ação de presença vira pendência na Inbox, não negação | `tests/unit/test_daemon_*` | 📋 |
+| CA-06 | Reversibilidade | `rm` de 30 arquivos não commitados roda sem pergunta e `/undo` os restaura | `tests/unit/test_reversibility.py` | ✅ |
+| CA-07 | Nuclear | `mkfs`, `dd of=/dev/sdX`, push --force na main pedem senha verificada; senha errada nega; blocklist nunca roda, nem em `full` | `test_security_audit.py` | 🟡 automático ✅, polkit no GNOME pendente |
+| CA-08 | Sem humano | No daemon, uma ação de presença vira pendência na Inbox, não negação | `tests/unit/test_daemon_*` | ✅ |
 | CA-09 | Identidade sem tool | Numa sessão nova, sem `memorize` no turno, o ORION trata o Senhor por "Senhor" e sabe o que foi confirmado antes | `tests/memory_eval/` | 📋 |
 | CA-10 | Mordomo | Uma correção ("não, é Postgres 16") vira SUPERSEDE; inferência nasce PROVISÓRIA; CONFIRMADO nunca é sobrescrito por inferência | `tests/memory_eval/` | 📋 |
 | CA-11 | Daily | A virada fecha a daily de ontem com cartão; a nova começa com o resumo curto de ontem | `tests/unit/test_daily.py` | 📋 |

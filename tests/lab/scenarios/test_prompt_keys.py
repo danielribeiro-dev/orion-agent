@@ -15,7 +15,7 @@ def _prompt_block_intact(lab) -> bool:  # type: ignore[no-untyped-def]
         len(block) == 4
         and set(block[0]) == {"─"}
         and set(block[2]) == {"─"}
-        and block[3].startswith("accept-edits")
+        and block[3].startswith("auto ·")
         and not any(rows[i + 3 :])
     )
 
@@ -51,7 +51,7 @@ def test_footer_without_cpr(open_lab) -> None:  # type: ignore[no-untyped-def]
     lab = open_lab(cpr=False)
     lab.pump(1.0)
     screen = lab.screen_text()
-    assert "accept-edits ·" in screen, screen
+    assert "auto ·" in screen, screen
     assert "CPR" not in lab.history_text(), lab.history_text()[-1500:]
 
 
