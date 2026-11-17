@@ -7,6 +7,7 @@ Reference: docs/architecture/GOVERNANCE_PEP.md
 
 from __future__ import annotations
 
+import os
 from enum import IntEnum
 from pathlib import Path
 
@@ -164,6 +165,25 @@ class WorkspaceScope:
     def default(cls) -> WorkspaceScope:
         """Return a scope anchored at the current working directory."""
         return cls([Path.cwd()])
+
+    @classmethod
+    def user_space(cls, workspace: Path | None = None, home: Path | None = None) -> WorkspaceScope:
+        """Espaço do usuário (ADR-046): ``$HOME``, montagens do usuário e o workspace atual.
+
+        O workspace é filtro de relevância, não fronteira; ele só entra como raiz quando está
+        fora do ``$HOME`` (ex.: um clone em ``/tmp``). Caminhos sensíveis continuam escalando no
+        PEP, e ``/etc``, ``/usr`` e ``/var`` ficam fora.
+        """
+        base = (home or Path.home()).expanduser()
+        user = base.name or os.environ.get("USER", "")
+        roots = [base]
+        for mount in (Path("/media") / user, Path("/run/media") / user, Path("/mnt") / user):
+            if user and mount.is_dir():
+                roots.append(mount)
+        scope = cls(roots)
+        if workspace is not None and not scope.is_allowed(workspace):
+            scope.add_root(workspace)
+        return scope
 
     def is_allowed(self, path: Path | str) -> bool:
         """Return True if *path* is inside at least one authorised root."""

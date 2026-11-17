@@ -81,7 +81,10 @@ def test_daily_quota_is_not_retried_and_says_when_it_renews() -> None:
 
 async def test_web_search_reports_antibot_challenge() -> None:
     transport = httpx.MockTransport(lambda r: httpx.Response(202, text="<html>anomaly</html>"))
-    result = await WebSearchTool(transport=transport).run(query="dólar")
+    from orion.runtime.search import build_chain
+
+    tool = WebSearchTool(chain=build_chain(order=("duckduckgo",), transport=transport))
+    result = await tool.run(query="dólar")
     assert not result.success and "anti-bot" in result.error
 
 
@@ -184,7 +187,7 @@ async def test_audit_records_nuclear_stepup(tmp_path: Path) -> None:
         command_pattern="rm -rf /tmp/x",
         blast_radius=BlastRadius.NUCLEAR_DESTRUCTIVE,
     )
-    with patch.object(gate, "challenge", return_value=result):
+    with patch.object(gate, "challenge_async", return_value=result):
         assert await pep.evaluate(action)
     last = [json.loads(line) for line in (tmp_path / "audit.log").read_text().splitlines()][-1]
     assert last["user_authorized"] is True

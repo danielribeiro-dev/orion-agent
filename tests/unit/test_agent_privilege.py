@@ -129,7 +129,7 @@ async def test_child_has_no_trust_ledger_and_never_prompts(tmp_path: Path) -> No
 async def test_nuclear_is_denied_for_child_without_opening_the_os_prompt(tmp_path: Path) -> None:
     parent = _parent(tmp_path, AutonomyMode.FULLY_AUTO)
     child = _child(parent)
-    with patch.object(child._nuclear_gate, "challenge") as challenge, pytest.raises(
+    with patch.object(child._nuclear_gate, "challenge_async") as challenge, pytest.raises(
         ActionDenied, match="nuclear"
     ):
         await child.evaluate(_action("run_command", command="rm -rf /"))

@@ -47,7 +47,7 @@ class TestCatalog:
         assert {c.name for c in OFFICIAL_SLASH_COMMANDS} == set(registry.names)
 
     def test_catalog_size(self, registry: CommandRegistry) -> None:
-        assert len(registry.names) == 31  # v0.5.2: /tui
+        assert len(registry.names) == 32  # v0.5.3: /web
 
     def test_no_emoji_in_catalog(self) -> None:
         for command in OFFICIAL_SLASH_COMMANDS:

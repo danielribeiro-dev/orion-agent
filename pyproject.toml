@@ -36,6 +36,10 @@ dependencies = [
     "mcp>=2.3",
     "httpx2>=2.0",
     "jsonschema>=4.0",
+    # v0.5.3 Sprint 1 (ADR-048/049): chaveiro do SO, PAM do usuário e busca sem chave
+    "secretstorage>=3.3; sys_platform == 'linux'",
+    "python-pam>=2.0; sys_platform == 'linux'",
+    "ddgs>=9.0",
 ]
 
 [project.scripts]

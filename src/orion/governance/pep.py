@@ -64,7 +64,7 @@ from orion.governance.permissions import (
     tool_action_level,
 )
 from orion.governance.rules import RuleMatch, RuleSet
-from orion.governance.trust_ledger import CommandTrustLedger
+from orion.governance.trust_ledger import CommandCanonicalizer, CommandTrustLedger
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ _PROTECTED_NAMES = frozenset(
     {
         "web_allowlist.json", "settings.json", "config.json", "blacklist.json", "users.json",
         "token_budget.json", "anthropic_api_key", "openrouter_api_key", "permissions.json",
-        ".env",
+        ".env", "web_blocklist.json", "command_trust.db",
     }
 )
 # Segredos: o agente também não os LÊ (o conteúdo iria para o provedor). Buscas recursivas a
@@ -179,12 +179,37 @@ def is_protected_state_path(path: str, home: Path | None = None) -> bool:
 
 _SUDO_RE = re.compile(r"(?:^|[\s;&|(`])sudo(?:\s|$)")
 
+#: Caminhos do Senhor que mudam login, chaves ou o que roda sozinho: escrita sempre pergunta,
+#: mesmo dentro do escopo do usuário, e nunca vira "sempre" (ADR-046).
+_SENSITIVE_HOME = (
+    ".ssh", ".gnupg", ".config/systemd", ".config/autostart", ".local/share/keyrings",
+    ".bashrc", ".zshrc", ".profile", ".bash_profile", ".zprofile", ".zshenv", ".bash_login",
+    ".bash_logout", ".xprofile", ".xinitrc", ".pam_environment", ".netrc", ".pgpass",
+    ".config/git/credentials", ".git-credentials", ".docker/config.json", ".kube/config",
+    ".aws/credentials",
+)
+
+
+def is_sensitive_path(path: str, home: Path | None = None) -> bool:
+    """True se escrever em *path* altera login, chaves, credenciais ou autostart do Senhor."""
+    try:
+        target = Path(path).expanduser().resolve()
+        rel = target.relative_to((home or Path.home()).resolve())
+    except (ValueError, OSError):
+        return False
+    text = rel.as_posix()
+    return any(text == entry or text.startswith(entry + "/") for entry in _SENSITIVE_HOME)
+
+
+#: Escaladas que o Senhor pode transformar em "sempre" (regra allow local).
+REMEMBERABLE_ESCALATIONS = frozenset({"outside_workspace"})
+
 
 @dataclass(frozen=True)
 class Escalation:
     """Motivo pelo qual a ação exige confirmação explícita do Senhor."""
 
-    kind: str  # "sudo" | "outside_workspace"
+    kind: str  # "sudo" | "outside_workspace" | "sensitive_path"
     reason: str
 
 
@@ -264,6 +289,8 @@ class PolicyEnforcementPoint:
         self._cwd_confined = False
         self._confine_reads = False
         self._pending_escalations: dict[str, str] = {}
+        self._pending_kinds: dict[str, frozenset[str]] = {}
+        self._approval_sources: dict[str, str] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -353,6 +380,23 @@ class PolicyEnforcementPoint:
     def peek_escalation(self, action_id: str) -> str | None:
         """Reason of the escalation being asked for *action_id* (None if ordinary)."""
         return self._pending_escalations.get(action_id)
+
+    def peek_escalation_kinds(self, action_id: str) -> frozenset[str]:
+        """Kinds of the escalation being asked for *action_id* (empty if ordinary)."""
+        return self._pending_kinds.get(action_id, frozenset())
+
+    @property
+    def nuclear_gate(self) -> NuclearSafetyGate:
+        return self._nuclear_gate
+
+    @property
+    def trust_ledger(self) -> CommandTrustLedger | None:
+        return self._trust_ledger
+
+    def attach_trust_ledger(self, ledger: CommandTrustLedger | None) -> None:
+        """Liga o Command Trust Ledger (ADR-017, ADR-046 item 7). Subagents nunca o recebem."""
+        if self._ceiling is None:
+            self._trust_ledger = ledger
 
     def attach_circuit_breaker(self, circuit_breaker: Any) -> None:
         """Attaches a CircuitBreaker instance to the PEP.
@@ -450,7 +494,11 @@ class PolicyEnforcementPoint:
                 )
             return True
 
-        if escalations:
+        if nuclear is not None and not escalations and not forced_ask:
+            # A presença verificada (polkit/PAM) já é o consentimento do Senhor para este ato:
+            # perguntar "y/n" de novo seria ritual vazio (ADR-048).
+            approved, source = True, "user"
+        elif escalations:
             approved = await self._escalate(action, level, escalations)
             source = "user_escalation"
         elif forced_ask:
@@ -470,6 +518,7 @@ class PolicyEnforcementPoint:
             )
             return False
 
+        self._approval_sources[action.event_id] = source
         if nuclear is not None:
             source = f"nuclear_stepup:{nuclear}+{source}"
         self._audit.log(
@@ -556,27 +605,35 @@ class PolicyEnforcementPoint:
     def record_action_success(self, action: Action, exit_code: int = 0) -> None:
         """Records a successful action in the Trust Ledger (if applicable).
 
-        Should be called after a run_command action completes successfully.
-        Nuclear commands are NEVER recorded in the trust ledger.
+        Called after a run_command completes. Only what the Senhor approved (or a ledger hit
+        refreshing itself) is learned; nuclear, compound and destructive commands never are.
 
         Args:
             action: The Action that was executed successfully.
             exit_code: Exit code of the command (0 = success).
         """
-        if self._trust_ledger is None:
+        source = self._approval_sources.pop(action.event_id, "")
+        if self._trust_ledger is None or action.tool != "run_command" or exit_code != 0:
             return
-        if action.tool != "run_command":
+        if source not in ("user", "ledger"):
             return
 
         cmd = str(action.params.get("command", ""))
-        if not cmd:
+        if not cmd or not CommandCanonicalizer.is_trustable(cmd):
             return
 
         # Never record nuclear commands in the trust ledger
         if self._blast_classifier.is_nuclear(cmd):
             return
 
-        self._trust_ledger.record_success(cmd, exit_code=exit_code)
+        try:
+            self._trust_ledger.record_success(cmd, exit_code=exit_code)
+        except Exception:  # noqa: BLE001 - ledger indisponível nunca derruba a tool
+            logger.warning("PEP: trust ledger indisponível; comando não aprendido.", exc_info=True)
+
+    def forget_approval(self, action_id: str) -> None:
+        """Descarta a origem da aprovação de uma ação que não terminou bem."""
+        self._approval_sources.pop(action_id, None)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -691,11 +748,7 @@ class PolicyEnforcementPoint:
         )
 
         try:
-            result = await asyncio.get_event_loop().run_in_executor(
-                None,
-                self._nuclear_gate.challenge,
-                cmd,
-            )
+            result = await self._nuclear_gate.challenge_async(cmd)
         except Exception as exc:
             logger.exception("PEP: NuclearSafetyGate challenge raised unexpectedly.")
             raise ActionDenied(
@@ -710,7 +763,7 @@ class PolicyEnforcementPoint:
                 tool=action.tool,
                 params=dict(action.params),
                 level=level,
-                reason=f"nuclear_auth_denied:{result.method_used}",
+                reason=f"nuclear_stepup:failed:{result.method_used}",
             )
             raise ActionDenied(
                 action.event_id,
@@ -771,6 +824,10 @@ class PolicyEnforcementPoint:
                     )
         if level >= ActionLevel.LEVEL_2:
             path = str(action.params.get("path", "")) or None
+            if path and action.tool in _WRITE_TOOLS and is_sensitive_path(path):
+                found.append(
+                    Escalation("sensitive_path", f"altera arquivo sensível do Senhor: {path}")
+                )
             if path:
                 try:
                     self._scope.assert_allowed(path)
@@ -804,10 +861,12 @@ class PolicyEnforcementPoint:
                 f"requires the Senhor's confirmation ({reasons}) but no human is available",
             )
         self._pending_escalations[action.event_id] = reasons
+        self._pending_kinds[action.event_id] = frozenset(e.kind for e in escalations)
         try:
             approved = await self._ask_user(action, level)
         finally:
             self._pending_escalations.pop(action.event_id, None)
+            self._pending_kinds.pop(action.event_id, None)
         if not approved and action.event_id not in self._rejection_reasons:
             self._rejection_reasons[action.event_id] = (
                 f"the Senhor declined the escalation ({reasons}). Explain what you needed it "
@@ -829,7 +888,12 @@ class PolicyEnforcementPoint:
 
         # ── Trust Ledger shortcut (WORKSPACE_AUTO / FULLY_AUTO only) ────
         mode = self.mode
-        if self._trust_ledger and cmd and mode != AutonomyMode.SUPERVISED:
+        if (
+            self._trust_ledger
+            and cmd
+            and mode != AutonomyMode.SUPERVISED
+            and CommandCanonicalizer.is_trustable(cmd)
+        ):
             lookup = self._trust_ledger.lookup(cmd)
             if lookup.is_trusted:
                 logger.debug(

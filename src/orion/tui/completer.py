@@ -207,6 +207,12 @@ OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
         category="operation",
     ),
     SlashCommandInfo(
+        "/web",
+        "Web aberta: bloquear, desbloquear e listar domínios",
+        icon="❯",
+        category="operation",
+    ),
+    SlashCommandInfo(
         "/doctor",
         "Diagnóstico de integridade do ambiente e dependências",
         icon="❯",

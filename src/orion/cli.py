@@ -378,6 +378,26 @@ def _orion_home() -> Path:
     return Path.home() / ".orion"
 
 
+setup_app = typer.Typer(help="Ajustes que exigem o Senhor presente.", no_args_is_help=True)
+app.add_typer(setup_app, name="setup")
+
+
+@setup_app.command(name="sudo")
+def cmd_setup_sudo(
+    forget: bool = typer.Option(False, "--forget", help="Apaga a senha do chaveiro."),
+    sudoers: bool = typer.Option(False, "--sudoers", help="Gera o rascunho de /etc/sudoers.d/orion."),
+    apply: bool = typer.Option(False, "--apply", help="Com --sudoers: valida e instala o rascunho."),
+) -> None:
+    """Senha do sudo no chaveiro do SO (opt-in, ADR-048) ou lista NOPASSWD revisada."""
+    from orion.governance import sudo_setup
+
+    outcome = sudo_setup.run(_orion_home(), forget_it=forget, sudoers=sudoers, apply=apply)
+    for line in outcome.lines:
+        style = "status_ok" if line.startswith("✔") else "diff_del" if line.startswith("✖") else "text_dim"
+        console.print(Text(line, style=style))
+    raise typer.Exit(outcome.code)
+
+
 def _daemon_action(action: str, *, boot: bool = False) -> None:
     from orion.daemon.control import DaemonControlError, DaemonController, format_status
 

@@ -14,6 +14,8 @@ class ScreenHost(Protocol):
 
     async def ask_text(self, question: str, default: str = "") -> str: ...
 
+    async def ask_secret(self, title: str, detail: str = "") -> str | None: ...
+
 
 _active: ScreenHost | None = None
 

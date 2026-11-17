@@ -19,10 +19,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import dataclasses
 import logging
 import os
 from typing import Any
 
+from orion.governance.askpass import AskpassBroker, AskpassReport, rewrite_sudo, uses_sudo
 from orion.runtime.provider import RuntimeResult
 from orion.runtime.tools.base import BaseTool
 from orion.runtime.tools.shells import ShellManager
@@ -56,8 +58,13 @@ class RunCommandTool(BaseTool):
         "required": ["command"],
     }
 
-    def __init__(self, shells: ShellManager | None = None) -> None:
+    def __init__(self, shells: ShellManager | None = None, askpass: AskpassBroker | None = None) -> None:
         self._shells = shells
+        self._askpass = askpass
+
+    def set_askpass(self, broker: AskpassBroker | None) -> None:
+        """Liga o askpass do ORION (ADR-048): ``sudo`` vira ``sudo -A`` e pede a senha à sessão."""
+        self._askpass = broker
 
     async def run(
         self,
@@ -90,6 +97,17 @@ class RunCommandTool(BaseTool):
                 background=True,
             )
 
+        if self._askpass is not None and uses_sudo(command):
+            async with self._askpass.session(command) as (askpass_env, report):
+                result = await self._run_foreground(
+                    rewrite_sudo(command), timeout, cwd, {**(env or {}), **askpass_env}
+                )
+            return _with_askpass_report(result, report)
+        return await self._run_foreground(command, timeout, cwd, env)
+
+    async def _run_foreground(
+        self, command: str, timeout: float, cwd: str | None, env: dict[str, str] | None
+    ) -> RuntimeResult:
         merged_env: dict[str, str] | None = None
         if env:
             merged_env = {**os.environ, **env}
@@ -147,6 +165,23 @@ class RunCommandTool(BaseTool):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _with_askpass_report(result: RuntimeResult, report: AskpassReport) -> RuntimeResult:
+    """Anexa o que o askpass fez (sem segredo) e explica falhas típicas ao modelo."""
+    metadata = {**result.metadata, "askpass": report.summary()}
+    notes: list[str] = []
+    if "cancelled" in report.sources:
+        notes.append("o Senhor cancelou o pedido de senha do sudo")
+    if report.keyring_rejected:
+        notes.append(
+            "a senha guardada no chaveiro não confere mais; o Senhor pode atualizá-la com "
+            "`orion setup sudo`"
+        )
+    error = result.error
+    if notes and not result.success:
+        error = f"{error or 'run_command failed.'} ({'; '.join(notes)})"
+    return dataclasses.replace(result, metadata=metadata, error=error)
 
 
 def _kill_process_group(proc: asyncio.subprocess.Process) -> None:

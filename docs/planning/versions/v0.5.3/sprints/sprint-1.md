@@ -1,6 +1,6 @@
 # Sprint — v0.5.3 Sprint 1: Liberdade básica
 
-> **Status:** 📋 Aguardando comando de início · **ADRs:** 046 (parte), 048, 049 · **Achados:** G-01, G-02, G-03, G-05, G-06, G-08, G-09 · **CA:** CA-01 a CA-05
+> **Status:** ✅ Implementada em 16/11/2026 · **ADRs:** 046 (parte), 048, 049 · **Achados:** G-01, G-02, G-03, G-05, G-06, G-08, G-09 · **CA:** CA-01 a CA-05
 
 ## Objetivo
 Consertar o que hoje é defeito, sem ainda trocar o modelo de decisão: senha verificada de verdade, `sudo` que funciona, escopo do usuário, ledger ligado e web aberta.
@@ -42,3 +42,27 @@ Faixas, classificador e reversibilidade (Sprint 2). O modo padrão continua `acc
 
 ## Critérios de saída
 CA-01 a CA-05 verdes; `ruff`, `mypy`, cobertura >= 85%; commit `feat(governance): v0.5.3 Sprint 1 — liberdade básica`.
+
+## Registro de execução (16/11/2026)
+Entregue conforme o escopo, com validação real numa sessão de tela cheia (`tui-mcp`, provider roteirizado, `HOME` isolado, sem display) contra o **sudo-rs 0.2.13** desta máquina (Ubuntu 26.04).
+
+- **Askpass** (`governance/askpass.py`, `orion/askpass.py`): broker por comando com socket 0600 em `$XDG_RUNTIME_DIR/orion` (0700), token de uso único, **SO_PEERCRED**: só responde a um processo do mesmo usuário cujo pai é o `sudo` (comm `sudo`; `/proc/<pid>/exe` do sudo setuid não é legível). Um script dentro do comando que roube o token é recusado. O helper é um script gerado em tempo de execução (`exec <python> -m orion.askpass`), então funciona em venv, `install.sh` e checkout. Até 3 pedidos (sudo-rs chama o askpass 3 vezes); cancelar faz o sudo abortar sem tentar autenticar.
+- **Chaveiro**: `orion setup sudo` só guarda depois de `sudo -k -S -v` aceitar; marca `~/.orion/sudo_keyring` liga o preenchimento (sem marca, nem toca o D-Bus). Preenche só a 1ª tentativa e só o que `is_sudo_safe` aprova (instalar, atualizar, consultar, reiniciar serviços; nunca composto, troca de usuário, shell, leitura de segredo ou Nuclear). Senha antiga no chaveiro cai para a pergunta ao Senhor com aviso. `--sudoers [--apply]` gera e instala lista revisada (recusa `ALL` e shells).
+- **Nuclear**: polkit (`pkexec --disable-internal-agent /bin/true`) com display; sem agente, PAM do usuário (`python-pam`, serviço `orion` se existir, senão `login`) pela senha mascarada da interface. Removidos "qualquer texto vale" e a leitura de `/dev/tty`. Auditoria `nuclear_stepup:failed:<método>`.
+- **Escopo do usuário**: `WorkspaceScope.user_space` (`$HOME`, `/media/$USER`, `/run/media/$USER`, `/mnt/$USER`, e o workspace se estiver fora do HOME). Sensíveis (`~/.ssh`, `~/.gnupg`, rc do shell, autostart/systemd do usuário, credenciais de nuvem/git/docker) escalam sempre e nunca viram "sempre". Fora do escopo, "sempre" grava regra allow para a pasta.
+- **Ledger ligado** na sessão (e no daemon, que usa a mesma `AgentSession`), aprendendo só o que o Senhor aprovou e terminou com exit 0.
+- **Web aberta** (blocklist `~/.orion/web_blocklist.json`, `/web block|unblock|list`, lida a cada uso) e **`SearchProvider`** em cadeia Brave → ddgs → SearXNG → DuckDuckGo HTML, com o provedor informado no resultado. `settings.web.{searxng_url, search_order}`.
+- **Interface**: senha mascarada no input da tela cheia (nunca vai ao histórico nem à transcrição), prompt sem eco no modo clássico, zenity sem terminal. `/doctor` mostra askpass, chaveiro, presença nuclear, web e busca.
+
+### Desvios e decisões tomadas na execução
+1. **Ledger endurecido além da spec** (furos achados ao ligar): comandos compostos (`;`, `&&`, `|`, redirecionamento, `$(...)` mesmo entre aspas) nunca são aprendidos nem consultados, porque herdariam a confiança do primeiro; a assinatura do git inclui todas as flags (`git push` ≠ `git push --force` ≠ `git push +main`); interpretadores (`python`, `bash`, `npx`, `make`...) só casam o literal exato; `rm`, `mv`, `chmod`, `curl`, `sudo`, git destrutivo nunca entram.
+2. **Presença verificada substitui o "y/n"**: com polkit/PAM aceito e sem outra escalada, o PEP não abre o modal de novo (eram duas perguntas para o mesmo ato).
+3. **Ação polkit própria (`org.orion.nuclear`) não instalada**: exigiria root para gravar em `/usr/share/polkit-1/actions`; usa-se a ação padrão do `pkexec` com aviso na TUI mostrando o comando. Fica como melhoria opcional.
+4. **`sudo` em shell de segundo plano** não usa o askpass (o broker vive só durante o comando em primeiro plano).
+5. Dependências novas: `secretstorage`, `python-pam`, `ddgs`.
+
+### Validação
+- Suíte: 2283 testes, cobertura 94%, `ruff` e `mypy` limpos; lab de TUI completo.
+- Novos: `test_askpass.py` (inclui ponta a ponta com `sudo` falso no PATH e checagem real de peer), `test_nuclear_auth.py`, `test_search_provider.py`, `test_user_scope_and_ledger.py`, `test_sprint1_freedom_ui.py`; e2e `test_security_audit.py` com 6 cenários v0.5.3.
+- Rodada real: `sudo -k apt update` → modal → senha mascarada → Esc → "Authentication required but not attempted"; escrita em outro repositório sem pergunta; `rm -rf` → senha mascarada (PAM) → Esc → negado; `/web block`; `/doctor`. A senha digitada não aparece em nenhum arquivo do `~/.orion`.
+- **Pendente do Senhor (CA-01/CA-07 manuais):** `sudo apt update` com a senha verdadeira; diálogo polkit no GNOME (com display); senha errada no polkit; `orion setup sudo` com o chaveiro real.

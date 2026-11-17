@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 import threading
 import time
 import uuid
@@ -74,8 +75,14 @@ from orion.gateway.router import (
     ModelRouter,
     RoutingMode,
 )
+from orion.governance.askpass import SUDO_KEYRING_MARKER, AskpassBroker
 from orion.governance.audit import AuditLogger
-from orion.governance.pep import AutonomyMode, PolicyEnforcementPoint, Rejection
+from orion.governance.pep import (
+    REMEMBERABLE_ESCALATIONS,
+    AutonomyMode,
+    PolicyEnforcementPoint,
+    Rejection,
+)
 from orion.governance.permissions import ActionLevel, WorkspaceScope
 from orion.governance.rules import RuleSet, is_complex_command, rule_text_for
 from orion.hooks import HookRunner
@@ -318,12 +325,13 @@ class AgentSession:
         self.bus.subscribe(ActionEmitted)(self._on_action)
         self.bus.subscribe(Observation)(self._on_observation)
 
-        scope = WorkspaceScope([self.workspace])
+        scope = WorkspaceScope.user_space(self.workspace)
         self.audit = AuditLogger(self.home / "audit.log")
         self.pep = PolicyEnforcementPoint(
             scope=scope,
             action_confirm=self._confirm,
             audit_logger=self.audit,
+            trust_ledger=self._open_trust_ledger(),
         )
         self.hooks = HookRunner(
             lambda: self.settings.effective.hooks,
@@ -346,6 +354,10 @@ class AgentSession:
         self._setup_agents()
         self.runtime = self._build_runtime(scope)
         self.runtime.set_hooks(self.hooks)
+        self.askpass = AskpassBroker(prompter=self._ask_secret, store=self._sudo_store())
+        self.runtime.set_askpass(self.askpass)
+        self.pep.nuclear_gate.set_prompter(self._ask_secret)
+        self.pep.nuclear_gate.set_notifier(self._presence_notice)
         self.runtime.set_ref_resolver(lambda ref: resolve_ref(ref, self.home))
         self._parent_handle.runtime = self.runtime
         self.identity = self._open_identity()
@@ -835,6 +847,19 @@ class AgentSession:
         """Entrega ao PEP as regras de permissão dos settings efetivos."""
         perms = self.settings.effective.permissions
         self.pep.set_rules(RuleSet.from_lists(allow=perms.allow, deny=perms.deny, ask=perms.ask))
+        self._apply_web_settings()
+
+    def _apply_web_settings(self) -> None:
+        """``settings.web`` (ADR-049) chega à tool de busca; a blocklist mora em ``~/.orion``."""
+        runtime = getattr(self, "runtime", None)
+        tool = runtime.get_tool("web_search") if runtime is not None else None
+        fetch = runtime.get_tool("web_fetch") if runtime is not None else None
+        if fetch is not None and hasattr(fetch, "set_home"):
+            fetch.set_home(self.home)
+        configure = getattr(tool, "configure", None)
+        if callable(configure):
+            web = self.settings.effective.web
+            configure(searxng_url=web.searxng_url, order=web.search_order, home=self.home)
 
     def reload_settings(self) -> LoadedSettings:
         """Relê as camadas (após confiar no projeto ou editar arquivos)."""
@@ -1268,13 +1293,38 @@ class AgentSession:
 
     # ── Governança ──────────────────────────────────────────────────
 
+    def _sudo_store(self) -> Any:
+        """Chaveiro do SO só quando o Senhor optou (``orion setup sudo``, ADR-048)."""
+        from orion.governance.askpass import KeyringSudoStore
+
+        return KeyringSudoStore() if (self.home / SUDO_KEYRING_MARKER).exists() else None
+
+    def _presence_notice(self, text: str) -> None:
+        with contextlib.suppress(Exception):
+            self.renderer.warn(text)
+
+    async def _ask_secret(self, request: Any) -> str | None:
+        """Senha do sudo ou presença nuclear: mascarada, fora do contexto, do log e da auditoria."""
+        from orion.tui.modal import ask_secret
+
+        await self.fire_hook("Notification", {"message": str(request.title), "kind": "secret"})
+        self.renderer.pause()
+        self.status_bar.awaiting = True
+        try:
+            return await ask_secret(self.console, request)
+        finally:
+            self.status_bar.awaiting = False
+            self.renderer.resume()
+
     async def _confirm(self, action: Action, level: ActionLevel) -> Any:
         if self.mode == AgentMode.PLAN:
             return Rejection(
                 "plan mode is read-only; this is not a user rejection. "
                 "Call exit_plan_mode with a plan to get approval before mutating."
             )
-        reason = self.pep.peek_escalation(action.event_id)  # sudo / fora do workspace
+        reason = self.pep.peek_escalation(action.event_id)  # sudo / fora do escopo / sensível
+        kinds = self.pep.peek_escalation_kinds(action.event_id)
+        rememberable = not reason or kinds <= REMEMBERABLE_ESCALATIONS
         key = (action.tool, str(action.params.get("command", action.params.get("path", ""))))
         if not reason and key in self.always_allowed:
             return True
@@ -1302,12 +1352,39 @@ class AgentSession:
             self.status_bar.awaiting = False
             self.renderer.resume()
         if decision == "a":
-            if not reason:  # escalada vale uma vez: "a" equivale a "y"
+            if not reason:
                 self._remember_allow(action, key)
-            return True
+            elif rememberable:  # fora do escopo e não sensível: "sempre" vale para a pasta
+                self._remember_outside(action)
+            return True  # sudo e sensível valem uma vez: "a" equivale a "y"
         if isinstance(decision, dict):
             return decision
         return decision == "y"
+
+    def _open_trust_ledger(self) -> Any:
+        """Command Trust Ledger da sessão (ADR-017 ligado pela v0.5.3); None se indisponível."""
+        from orion.governance.trust_ledger import CommandTrustLedger
+
+        try:
+            return CommandTrustLedger(self.home / "command_trust.db")
+        except (OSError, sqlite3.Error) as exc:
+            logger.warning("AgentSession: trust ledger indisponível: %s", exc)
+            return None
+
+    def _remember_outside(self, action: Action) -> None:
+        """"Sempre" numa escrita fora do escopo: regra allow para a pasta do arquivo."""
+        raw = str(action.params.get("path", "") or "")
+        if not raw or action.tool not in _PERSISTABLE_TOOLS:
+            return
+        folder = Path(raw).expanduser().resolve().parent
+        if any(ch in str(folder) for ch in "*?[()"):
+            return
+        try:
+            append_local_rule(self.workspace, "allow", f"{action.tool}({folder}/*)")
+        except OSError as exc:
+            logger.warning("AgentSession: regra local não gravada: %s", exc)
+            return
+        self.reload_settings()
 
     def _remember_allow(self, action: Action, key: tuple[str, str]) -> None:
         """"Sempre permitir": grava regra allow exata na camada local, se expressável."""

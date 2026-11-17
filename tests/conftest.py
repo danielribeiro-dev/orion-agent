@@ -27,21 +27,42 @@ from orion.config import (
 def _never_open_real_os_auth(
     monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 ) -> None:
-    """Nenhum teste pode abrir o desafio nuclear real (zenity/kdialog/tty).
+    """Nenhum teste pode abrir a autenticação real do SO (polkit, PAM, popup de senha).
 
     Testes que exercitam o gate fazem ``patch.object`` na instância, que tem
     precedência sobre este patch de classe.
     """
-    if request.module.__name__.endswith("test_nuclear"):
-        return  # exercita as primitivas com subprocess/tty simulados
+    from orion.tui import modal
+
+    async def _no_popup(title: str, detail: str) -> None:
+        return None
+
+    monkeypatch.setattr(modal, "_graphical_secret", _no_popup)
+    if request.module.__name__.endswith(("test_nuclear", "test_nuclear_auth")):
+        return  # exercita as primitivas com subprocess/PAM simulados
     from orion.governance.nuclear import NuclearSafetyGate
 
-    monkeypatch.setattr(
-        NuclearSafetyGate, "_try_graphical_auth", lambda self, prompt: ("blocked_in_tests", False)
-    )
-    monkeypatch.setattr(
-        NuclearSafetyGate, "_try_tty_auth", lambda self, prompt: ("blocked_in_tests", False)
-    )
+    async def _blocked(self: object, _arg: str) -> tuple[str, bool]:
+        return ("blocked_in_tests", False)
+
+    monkeypatch.setattr(NuclearSafetyGate, "_try_polkit", _blocked)
+    monkeypatch.setattr(NuclearSafetyGate, "_try_pam", _blocked)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_web_search(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A biblioteca ddgs faria rede de verdade: em teste, só com ``factory`` injetada."""
+    from orion.runtime.search import SearchUnavailable
+    from orion.runtime.search.providers import DdgsSearch
+
+    original = DdgsSearch._make
+
+    def guarded(self: DdgsSearch) -> object:
+        if self._factory is None:
+            raise SearchUnavailable("ddgs desligado nos testes")
+        return original(self)
+
+    monkeypatch.setattr(DdgsSearch, "_make", guarded)
 
 
 @pytest.fixture()

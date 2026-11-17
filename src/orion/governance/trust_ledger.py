@@ -96,6 +96,49 @@ class TrustLookupResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+#: Interpretadores executam código arbitrário: nunca generalizam por prefixo (só o literal exato).
+_INTERPRETERS = frozenset(
+    {
+        "python", "python3", "node", "bash", "sh", "zsh", "fish", "perl", "ruby", "php", "deno",
+        "bun", "npx", "uvx", "pipx", "eval", "exec", "xargs", "env", "nohup", "timeout", "nice",
+        "watch", "ssh", "docker", "podman", "kubectl", "make", "just", "source", ".",
+    }
+)
+#: Programas que apagam, movem ou alteram permissões: nunca entram no ledger (ADR-046 decide).
+_NEVER_TRUST = frozenset(
+    {
+        "rm", "rmdir", "mv", "dd", "truncate", "shred", "wipe", "chmod", "chown", "chgrp", "kill",
+        "pkill", "killall", "mkfs", "fdisk", "parted", "sudo", "su", "doas", "pkexec", "crontab",
+        "systemctl", "curl", "wget", "scp", "rsync", "tee", "ln", "find",
+    }
+)
+#: Subcomandos do git que perdem trabalho ou reescrevem o remoto.
+_GIT_DESTRUCTIVE = frozenset({"reset", "clean", "rebase", "filter-branch", "filter-repo", "gc", "prune", "reflog"})
+_GIT_DESTRUCTIVE_FLAGS = frozenset(
+    {"--force", "-f", "--force-with-lease", "--delete", "-d", "-D", "--hard", "--mirror", "--prune", "--all"}
+)
+#: Operadores do shell que encadeiam, redirecionam ou substituem comandos.
+_SHELL_META = re.compile(r"[;&|<>\n]")
+#: Substituição de comando roda até dentro de aspas duplas: vale no texto bruto.
+_SUBSTITUTION = re.compile(r"`|\$\(")
+
+
+def _outside_quotes(command: str) -> str:
+    """Remove o conteúdo entre aspas (literais não executam operadores do shell)."""
+    out: list[str] = []
+    quote = ""
+    for ch in command:
+        if quote:
+            if ch == quote:
+                quote = ""
+            continue
+        if ch in "'\"":
+            quote = ch
+            continue
+        out.append(ch)
+    return "".join(out)
+
+
 class CommandCanonicalizer:
     """Converte comandos literais em padrões canônicos para lookup no ledger.
 
@@ -172,14 +215,30 @@ class CommandCanonicalizer:
                 canonical_tokens.append(tokens[i].lower())
             return " ".join(canonical_tokens).lower()
 
-        # Git: subcomandos e flag -m
+        # Interpretadores: o literal inteiro é a assinatura (``python a.py`` ≠ ``python b.py``).
+        if base_cmd in _INTERPRETERS:
+            return " ".join([*canonical_tokens, *tokens[i:]]).strip()
+
+        # Git: subcomando e TODAS as flags (``git push`` ≠ ``git push --force``); -m sem o valor.
         if base_cmd == "git":
             if i < n:
                 sub = tokens[i].lower()
                 canonical_tokens.append(sub)
                 i += 1
-                if i < n and tokens[i] in {"-m", "--message"}:
-                    canonical_tokens.append("-m")
+                flags: set[str] = set()
+                skip = False
+                for token in tokens[i:]:
+                    if skip:
+                        skip = False
+                        continue
+                    if token in {"-m", "--message"}:
+                        flags.add("-m")
+                        skip = True
+                    elif token.startswith("-"):
+                        flags.add(token.split("=", 1)[0].lower())
+                    elif token.startswith("+"):
+                        flags.add("+refspec")  # push +main força como --force
+                canonical_tokens.extend(sorted(flags))
             return " ".join(canonical_tokens).lower()
 
         # Gerenciadores de pacote JS (npm, yarn, pnpm)
@@ -210,6 +269,37 @@ class CommandCanonicalizer:
                 break
 
         return " ".join(canonical_tokens).lower().strip()
+
+    @classmethod
+    def is_trustable(cls, command: str) -> bool:
+        """True se *command* pode ser aprendido/consultado no ledger (PEP, ADR-017/046).
+
+        Nunca: comandos compostos (``;``, ``&&``, ``|``, redirecionamento, ``$(...)``), que
+        herdariam a confiança do primeiro; programas que apagam/movem/elevam; git que perde
+        trabalho ou força o remoto.
+        """
+        cmd = command.strip()
+        if not cmd or _SUBSTITUTION.search(cmd) or _SHELL_META.search(_outside_quotes(cmd)):
+            return False
+        try:
+            tokens = shlex.split(cmd)
+        except ValueError:
+            return False
+        if not tokens:
+            return False
+        base = Path(tokens[0]).name.lower()
+        if base in _NEVER_TRUST or "=" in tokens[0]:
+            return False
+        if base == "git":
+            rest = [t.lower() for t in tokens[1:]]
+            sub = next((t for t in rest if not t.startswith("-")), "")
+            if sub in _GIT_DESTRUCTIVE:
+                return False
+            if any(t.split("=", 1)[0] in _GIT_DESTRUCTIVE_FLAGS or t.startswith("+") for t in rest):
+                return False
+            if sub == "checkout" and "--" in rest:
+                return False
+        return True
 
     @classmethod
     def compute_hash(cls, canonical: str) -> str:

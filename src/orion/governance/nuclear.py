@@ -18,40 +18,29 @@ INVARIANTES INVIOLÁVEIS:
   3. Se a autenticação falhar ou for cancelada, a ação é NEGADA.
   4. O Trust Ledger NUNCA registra comandos NUCLEAR_DESTRUCTIVE.
 
-ESTRATÉGIA DE AUTENTICAÇÃO (por ambiente):
-──────────────────────────────────────────
-  Com display gráfico (DISPLAY ou WAYLAND_DISPLAY):
-    1. zenity --password (GTK, funciona em GNOME/XFCE)
-    2. kdialog --password (KDE)
-    3. Fallback para TTY se nenhum gráfico disponível
+ESTRATÉGIA DE AUTENTICAÇÃO (v0.5.3, ADR-048):
+──────────────────────────────────────────────
+  1. polkit (``pkexec``) com display e agente gráfico: o próprio SO verifica.
+  2. PAM do usuário com a senha pedida pela interface do ORION (overlay mascarado).
+  3. Sem nenhum dos dois: NEGADO. Nunca "qualquer texto vale", nunca /dev/tty cru.
 
-  Headless / SSH (sem display gráfico):
-    1. getpass seguro via /dev/tty (leitura direta, sem eco)
-
-  O ORION nunca usa stdin padrão para autenticação nuclear — apenas
-  /dev/tty para evitar injeção de automação.
-
-Referências: ADR-018 (Nuclear Threshold & Popup Obrigatório do SO).
+Referências: ADR-018 (Nuclear Threshold), ADR-048 (presença verificada).
 """
 
 from __future__ import annotations
 
-import getpass
 import logging
 import os
 import re
 import shutil
-import subprocess
 import time
+from collections.abc import Callable
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
-
-# Alias para abertura de /dev/tty (facilita testes sem patch global de builtins.open)
-_open_tty = open
-
 
 # ---------------------------------------------------------------------------
 # Enumeração de Blast Radius
@@ -221,101 +210,85 @@ class BlastRadiusClassifier:
 
 
 class NuclearSafetyGate:
-    """Trava de segurança nuclear com autenticação obrigatória do SO.
+    """Trava de segurança nuclear com presença VERIFICADA do Senhor (ADR-018, emenda ADR-048).
 
-    Intercepta comandos classificados como NUCLEAR_DESTRUCTIVE e exige
-    autenticação nativa do sistema operacional antes de permitir execução.
+    Ordem: polkit (``pkexec``, diálogo nativo; a senha nunca passa pelo ORION) quando há display e
+    agente polkit; senão PAM do próprio usuário (``python-pam`` → ``unix_chkpwd``) com a senha
+    pedida pelo *prompter* da interface (overlay mascarado na tela cheia). Leitor de digital
+    entra pelo próprio PAM quando ``pam_fprintd`` está no serviço. Senha errada nega.
 
-    INVARIANTE: Não há nenhuma configuração, modo ou flag que permita
-    bypassar esta classe para comandos nucleares. A autenticação é sempre
-    exigida.
-
-    Exemplo de uso:
-        >>> gate = NuclearSafetyGate()
-        >>> result = gate.challenge("rm -rf /home/user/project")
-        >>> result.authorized
-        False  # se o usuário cancelou
-        >>> gate.assert_authorized("rm -rf /tmp")  # lança se não autorizado
+    INVARIANTE: não há configuração, modo ou flag que permita bypassar esta classe para comandos
+    nucleares. "Qualquer texto vale" e a leitura crua de ``/dev/tty`` foram removidos (G-01, G-03).
     """
 
     def __init__(
         self,
         classifier: BlastRadiusClassifier | None = None,
         prompt_prefix: str = "[PEP] O.R.I.O.N Nuclear Safety Gate",
+        *,
+        prompter: Any = None,
+        authenticator: Callable[[str, str], bool] | None = None,
+        pam_service: str | None = None,
+        notifier: Callable[[str], None] | None = None,
     ) -> None:
         """Inicializa o Nuclear Safety Gate.
 
         Args:
             classifier: Classificador de Blast Radius. Usa padrão se None.
-            prompt_prefix: Prefixo do prompt de autenticação.
+            prompt_prefix: Prefixo das mensagens ao Senhor.
+            prompter: ``SecretPrompter`` (async) da interface; sem ele não há caminho PAM.
+            authenticator: ``(usuário, senha) -> bool``; padrão: PAM do sistema.
+            pam_service: serviço PAM (padrão: ``orion`` se existir, senão ``login``).
+            notifier: mostra ao Senhor que um diálogo do sistema foi aberto.
         """
         self._classifier = classifier or BlastRadiusClassifier()
         self._prompt_prefix = prompt_prefix
+        self._prompter = prompter
+        self._authenticator = authenticator
+        self._pam_service = pam_service
+        self._notifier = notifier
+
+    def set_prompter(self, prompter: Any) -> None:
+        self._prompter = prompter
+
+    def set_notifier(self, notifier: Callable[[str], None] | None) -> None:
+        self._notifier = notifier
 
     def classify(self, command: str) -> BlastRadius:
-        """Classifica o Blast Radius de um comando.
-
-        Args:
-            command: Comando a classificar.
-
-        Returns:
-            ``BlastRadius`` do comando.
-        """
+        """Classifica o Blast Radius de um comando."""
         return self._classifier.classify(command)
 
     def requires_nuclear_auth(self, command: str) -> bool:
-        """Verifica se um comando requer autenticação nuclear do SO.
-
-        Args:
-            command: Comando a verificar.
-
-        Returns:
-            True se o comando é NUCLEAR_DESTRUCTIVE.
-        """
+        """True se o comando é NUCLEAR_DESTRUCTIVE."""
         return self._classifier.is_nuclear(command)
 
-    def challenge(self, command: str) -> NuclearChallengeResult:
-        """Dispara o desafio de autenticação nuclear se necessário.
-
-        Se o comando NÃO é nuclear, retorna imediatamente com authorized=True.
-        Se o comando É nuclear, exige autenticação do SO.
-
-        Args:
-            command: Comando a verificar e potencialmente desafiar.
-
-        Returns:
-            ``NuclearChallengeResult`` com resultado da autenticação.
-        """
-        blast = self._classifier.classify(command)
-
-        if blast != BlastRadius.NUCLEAR_DESTRUCTIVE:
-            return NuclearChallengeResult(
-                authorized=True,
-                method_used="no_auth_required",
-                duration_seconds=0.0,
-                command_pattern=command[:80],
-                blast_radius=blast,
-            )
-
-        # Comando nuclear: autenticação obrigatória
-        logger.warning(
-            "NuclearGate: DESAFIO NUCLEAR disparado para: '%s'",
-            command[:100],
+    def _passthrough(self, command: str, blast: BlastRadius) -> NuclearChallengeResult:
+        return NuclearChallengeResult(
+            authorized=True,
+            method_used="no_auth_required",
+            duration_seconds=0.0,
+            command_pattern=command[:80],
+            blast_radius=blast,
         )
+
+    def challenge(self, command: str) -> NuclearChallengeResult:
+        """Versão síncrona (fora de um loop asyncio). O PEP usa :meth:`challenge_async`."""
+        blast = self._classifier.classify(command)
+        if blast != BlastRadius.NUCLEAR_DESTRUCTIVE:
+            return self._passthrough(command, blast)
+        logger.warning("NuclearGate: DESAFIO NUCLEAR disparado para: '%s'", command[:100])
         return self._run_challenge(command, blast)
 
+    async def challenge_async(self, command: str) -> NuclearChallengeResult:
+        """Dispara o desafio se *command* é nuclear; senão passa direto."""
+        blast = self._classifier.classify(command)
+        if blast != BlastRadius.NUCLEAR_DESTRUCTIVE:
+            return self._passthrough(command, blast)
+        logger.warning("NuclearGate: DESAFIO NUCLEAR disparado para: '%s'", command[:100])
+        return await self._run_challenge_async(command, blast)
+
     def assert_authorized(self, command: str) -> NuclearChallengeResult:
-        """Verifica autorização e lança exceção se negada.
-
-        Args:
-            command: Comando a verificar.
-
-        Returns:
-            ``NuclearChallengeResult`` se autorizado.
-
-        Raises:
-            NuclearAuthDenied: Se a autenticação foi negada ou cancelada.
-        """
+        """Verifica autorização e lança :class:`NuclearAuthDenied` se negada."""
         result = self.challenge(command)
         if not result.authorized:
             raise NuclearAuthDenied(
@@ -328,51 +301,21 @@ class NuclearSafetyGate:
     # ── Autenticação interna ──────────────────────────────────────────────────
 
     def _run_challenge(self, command: str, blast: BlastRadius) -> NuclearChallengeResult:
-        """Executa o desafio de autenticação nuclear.
+        """Desafio síncrono: só para chamadores fora de um loop (scripts, testes)."""
+        import asyncio
 
-        Tenta os métodos na seguinte ordem:
-        1. zenity (GTK, GNOME/XFCE)
-        2. kdialog (KDE)
-        3. getpass via /dev/tty (headless/SSH)
+        return asyncio.run(self._run_challenge_async(command, blast))
 
-        Args:
-            command: Comando que disparou o desafio.
-            blast: Classificação de blast radius.
-
-        Returns:
-            ``NuclearChallengeResult`` com resultado.
-        """
+    async def _run_challenge_async(self, command: str, blast: BlastRadius) -> NuclearChallengeResult:
         t0 = time.monotonic()
         short_cmd = command[:80] + ("..." if len(command) > 80 else "")
-
-        prompt_msg = (
-            f"{self._prompt_prefix}\n\n"
-            f"!  OPERAÇÃO DESTRUTIVA DETECTADA\n"
-            f"Comando: {short_cmd}\n"
-            f"Risco: {blast.value.upper()}\n\n"
-            f"Esta ação é IRREVERSÍVEL. Digite sua senha para confirmar:"
-        )
-
-        # Tentar autenticação gráfica se display disponível
-        if self._has_display():
-            method, success = self._try_graphical_auth(prompt_msg)
-            if method != "skipped":
-                duration = time.monotonic() - t0
-                return NuclearChallengeResult(
-                    authorized=success,
-                    method_used=method,
-                    duration_seconds=duration,
-                    command_pattern=short_cmd,
-                    blast_radius=blast,
-                )
-
-        # Fallback: getpass via /dev/tty
-        method, success = self._try_tty_auth(prompt_msg)
-        duration = time.monotonic() - t0
+        method, success = await self._try_polkit(short_cmd)
+        if method == "skipped":
+            method, success = await self._try_pam(command)
         return NuclearChallengeResult(
             authorized=success,
             method_used=method,
-            duration_seconds=duration,
+            duration_seconds=time.monotonic() - t0,
             command_pattern=short_cmd,
             blast_radius=blast,
         )
@@ -381,117 +324,83 @@ class NuclearSafetyGate:
         """Verifica se há um display gráfico disponível."""
         return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
 
-    def _try_graphical_auth(self, prompt: str) -> tuple[str, bool]:
-        """Tenta autenticação gráfica via zenity ou kdialog.
+    async def _try_polkit(self, short_cmd: str) -> tuple[str, bool]:
+        """``pkexec --disable-internal-agent /bin/true``: o diálogo do GNOME verifica a senha.
 
-        Args:
-            prompt: Mensagem do prompt.
-
-        Returns:
-            Tupla (método_usado, sucesso).
+        Sem display, sem ``pkexec`` ou sem agente polkit: ``("skipped", False)`` e o PAM assume.
+        Nunca usa o agente de texto do pkexec (disputaria o terminal com a tela cheia).
         """
-        # Tentar zenity (GTK)
-        if shutil.which("zenity"):
-            try:
-                result = subprocess.run(
-                    ["zenity", "--password", "--title", "ORION Nuclear Safety Gate"],
-                    capture_output=True,
-                    timeout=60,
-                    text=True,
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    logger.info("NuclearGate: autenticado via zenity.")
-                    return ("zenity", True)
-                logger.warning("NuclearGate: zenity cancelado ou senha vazia.")
-                return ("zenity", False)
-            except (subprocess.TimeoutExpired, OSError) as exc:
-                logger.warning("NuclearGate: zenity falhou — %s", exc)
+        import asyncio
 
-        # Tentar kdialog (KDE)
-        if shutil.which("kdialog"):
-            try:
-                result = subprocess.run(
-                    ["kdialog", "--password", "ORION Nuclear Safety Gate — Confirme sua identidade:"],
-                    capture_output=True,
-                    timeout=60,
-                    text=True,
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    logger.info("NuclearGate: autenticado via kdialog.")
-                    return ("kdialog", True)
-                logger.warning("NuclearGate: kdialog cancelado ou senha vazia.")
-                return ("kdialog", False)
-            except (subprocess.TimeoutExpired, OSError) as exc:
-                logger.warning("NuclearGate: kdialog falhou — %s", exc)
-
-        return ("skipped", False)
-
-    def _try_tty_auth(self, prompt: str) -> tuple[str, bool]:
-        """Autenticação segura via /dev/tty (headless/SSH).
-
-        Lê senha diretamente do terminal sem eco, evitando injeção
-        via stdin automatizado.
-
-        Args:
-            prompt: Mensagem do prompt.
-
-        Returns:
-            Tupla (método_usado, sucesso).
-        """
-        print(
-            "\n" + "━" * 60,
-            "\n[PEP] ORION NUCLEAR SAFETY GATE — AUTENTICAÇÃO REQUERIDA",
-            "\n" + "━" * 60,
-            "\n!  Esta operação é IRREVERSÍVEL e requer sua presença física.",
-            f"\n{prompt}",
-            "\n" + "━" * 60,
-        )
-
+        pkexec = shutil.which("pkexec")
+        if not self._has_display() or not pkexec:
+            return ("skipped", False)
+        if self._notifier is not None:
+            self._notifier(f"{self._prompt_prefix}: confirme no diálogo do sistema para executar: {short_cmd}")
         try:
-            # Usar /dev/tty diretamente para evitar que stdin seja
-            # redirecionado por automação
-            if os.path.exists("/dev/tty"):
-                with _open_tty("/dev/tty") as tty:
-                    import termios
-                    import tty as tty_module
-                    old_settings = termios.tcgetattr(tty.fileno())
-                    try:
-                        tty_module.setraw(tty.fileno())
-                        print("\nSenha (oculta): ", end="", flush=True)
-                        password = []
-                        while True:
-                            char = tty.read(1)
-                            if char in ("\n", "\r"):
-                                break
-                            if char == "\x03":  # Ctrl+C
-                                raise KeyboardInterrupt
-                            password.append(char)
-                        print()  # nova linha
-                    finally:
-                        termios.tcsetattr(tty.fileno(), termios.TCSADRAIN, old_settings)
+            proc = await asyncio.create_subprocess_exec(
+                pkexec, "--disable-internal-agent", "/bin/true",
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
+                start_new_session=True,
+            )
+            _out, err = await asyncio.wait_for(proc.communicate(), timeout=120)
+        except (TimeoutError, OSError) as exc:
+            logger.warning("NuclearGate: polkit indisponível — %s", exc)
+            return ("skipped", False)
+        if proc.returncode == 0:
+            logger.info("NuclearGate: presença verificada via polkit.")
+            return ("polkit", True)
+        text = (err or b"").decode("utf-8", errors="replace").lower()
+        if proc.returncode == 127 and ("agent" in text or "agente" in text):
+            return ("skipped", False)  # sem agente gráfico: cai para o PAM
+        logger.warning("NuclearGate: polkit negou ou foi cancelado (rc=%s).", proc.returncode)
+        return ("polkit", False)
 
-                    entered = "".join(password)
-            else:
-                # Fallback final: getpass padrão
-                entered = getpass.getpass("\nSenha (oculta): ")
+    def _service(self) -> str:
+        if self._pam_service:
+            return self._pam_service
+        return "orion" if os.path.exists("/etc/pam.d/orion") else "login"
 
-            if entered.strip():
-                # Não validamos a senha aqui — apenas que o usuário digitou algo.
-                # A validação real seria via PAM/polkit, mas essa integração
-                # requer chamadas nativas do SO (escopo futuro).
-                # Por ora: presença + senha não-vazia = autorização.
-                logger.info("NuclearGate: autenticado via tty_fallback.")
-                return ("tty_fallback", True)
-            else:
-                logger.warning("NuclearGate: senha vazia no tty — negado.")
-                return ("tty_fallback", False)
+    def _pam_authenticate(self, user: str, secret: str) -> bool:
+        if self._authenticator is not None:
+            return bool(self._authenticator(user, secret))
+        try:
+            import pam
+        except ImportError:
+            logger.error("NuclearGate: python-pam ausente; presença não pode ser verificada.")
+            return False
+        return bool(pam.pam().authenticate(user, secret, service=self._service(), resetcreds=False))
 
-        except KeyboardInterrupt:
-            print("\n[ORION] Operação nuclear cancelada pelo usuário.")
-            return ("tty_fallback", False)
-        except Exception as exc:
-            logger.error("NuclearGate: falha no desafio TTY — %s", exc)
-            return ("tty_fallback_error", False)
+    async def _try_pam(self, command: str) -> tuple[str, bool]:
+        """Senha do Senhor pelo prompter da interface, verificada pelo PAM (sem root)."""
+        import asyncio
+        import getpass
+
+        from orion.governance.askpass import SecretRequest
+
+        if self._prompter is None:
+            logger.warning("NuclearGate: sem polkit e sem interface para pedir a senha — negado.")
+            return ("unavailable", False)
+        request = SecretRequest(
+            "nuclear",
+            command,
+            f"{self._prompt_prefix}: ação IRREVERSÍVEL. Senha do Senhor para executar",
+        )
+        secret = await self._prompter(request)
+        if not secret:
+            logger.warning("NuclearGate: desafio cancelado pelo Senhor.")
+            return ("pam", False)
+        try:
+            ok = await asyncio.to_thread(self._pam_authenticate, getpass.getuser(), secret)
+        finally:
+            secret = None
+        if ok:
+            logger.info("NuclearGate: presença verificada via PAM.")
+        else:
+            logger.warning("NuclearGate: senha recusada pelo PAM.")
+        return ("pam", ok)
 
 
 # ---------------------------------------------------------------------------

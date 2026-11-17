@@ -7,6 +7,7 @@ Design System. Sem TTY, o modal apenas imprime o estado atual.
 
 from __future__ import annotations
 
+import asyncio
 import io
 import shutil
 import sys
@@ -398,3 +399,52 @@ async def approve_plan(console: Console, plan: str, mode_label: str) -> bool:
     modal = PlanApproval(plan, mode_label)
     await run_modal(modal, console, keep_on_screen=True)
     return modal.approved
+
+
+async def ask_secret(console: Console, request: Any) -> str | None:
+    """Pede uma senha ao Senhor sem eco (ADR-048). None = cancelado ou ninguém para responder.
+
+    Tela cheia: input mascarado do host (nunca vai para o histórico). Modo clássico: prompt sem
+    eco do prompt_toolkit. Sem terminal, mas com display: diálogo de senha do SO (zenity). A
+    verificação é sempre do sudo ou do PAM, nunca deste diálogo.
+    """
+    title = str(getattr(request, "title", "Senha"))
+    command = str(getattr(request, "command", ""))
+    detail = command if len(command) <= 100 else command[:97] + "..."
+    host = active_host()
+    if host is not None:
+        return await host.ask_secret(title, detail)
+    if is_interactive():
+        console.print(Text.assemble(("[PEP] ", "pep_warn"), (title, "text_primary"), (f"  ·  {detail}", "text_dim")))
+        session: PromptSession[str] = PromptSession()
+        silence_cpr_warning(session.app)
+        try:
+            answer = await session.prompt_async("senha › ", is_password=True)
+        except (EOFError, KeyboardInterrupt):
+            return None
+        return answer or None
+    return await _graphical_secret(title, detail)
+
+
+async def _graphical_secret(title: str, detail: str) -> str | None:
+    import os
+    import shutil
+
+    zenity = shutil.which("zenity")
+    if not zenity or not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+        return None
+    proc = await asyncio.create_subprocess_exec(
+        zenity, "--password", "--title", f"O.R.I.O.N · {title}",
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    try:
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=120)
+    except TimeoutError:
+        proc.kill()
+        return None
+    if proc.returncode != 0:
+        return None
+    secret = out.decode("utf-8", errors="replace").rstrip("\n")
+    return secret or None

@@ -6,13 +6,13 @@ Covers:
   - NuclearSafetyGate.challenge(): non-nuclear commands pass through
   - NuclearSafetyGate.challenge(): nuclear commands trigger auth challenge
   - NuclearSafetyGate.assert_authorized(): raises NuclearAuthDenied on failure
-  - Authentication method selection (display vs. headless)
+  - Authentication methods: see test_nuclear_auth.py (polkit/PAM, v0.5.3)
   - NuclearAuthDenied exception attributes
 """
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -224,132 +224,6 @@ class TestNuclearGateNuclear:
 
     def test_requires_nuclear_auth_false_for_benign(self):
         assert self.gate.requires_nuclear_auth("git status") is False
-
-
-# ---------------------------------------------------------------------------
-# Authentication Method Selection
-# ---------------------------------------------------------------------------
-
-
-class TestAuthMethodSelection:
-    """Tests for method selection logic (zenity, kdialog, tty_fallback)."""
-
-    def setup_method(self):
-        self.gate = NuclearSafetyGate()
-
-    def test_graphical_auth_tried_when_display_available(self):
-        with patch.object(self.gate, "_has_display", return_value=True), \
-             patch.object(self.gate, "_try_graphical_auth", return_value=("zenity", True)) as mock_gui:
-            result = self.gate._run_challenge("rm -rf /tmp", BlastRadius.NUCLEAR_DESTRUCTIVE)
-            mock_gui.assert_called_once()
-            assert result.authorized is True
-            assert result.method_used == "zenity"
-
-    def test_tty_auth_used_when_no_display(self):
-        with patch.object(self.gate, "_has_display", return_value=False), \
-             patch.object(self.gate, "_try_tty_auth", return_value=("tty_fallback", True)) as mock_tty:
-            result = self.gate._run_challenge("rm -rf /tmp", BlastRadius.NUCLEAR_DESTRUCTIVE)
-            mock_tty.assert_called_once()
-            assert result.method_used == "tty_fallback"
-
-    def test_tty_auth_used_when_graphical_skipped(self):
-        with patch.object(self.gate, "_has_display", return_value=True), \
-             patch.object(self.gate, "_try_graphical_auth", return_value=("skipped", False)), \
-             patch.object(self.gate, "_try_tty_auth", return_value=("tty_fallback", True)) as mock_tty:
-            self.gate._run_challenge("rm -rf /tmp", BlastRadius.NUCLEAR_DESTRUCTIVE)
-            mock_tty.assert_called_once()
-
-    def test_has_display_true_with_display_env(self):
-        with patch.dict("os.environ", {"DISPLAY": ":0"}):
-            assert self.gate._has_display() is True
-
-    def test_has_display_true_with_wayland_env(self):
-        with patch.dict("os.environ", {"WAYLAND_DISPLAY": "wayland-0"}):
-            assert self.gate._has_display() is True
-
-    def test_has_display_false_without_env(self):
-        with patch.dict("os.environ", {}, clear=True):
-            # Remove DISPLAY and WAYLAND_DISPLAY
-            import os
-            old_display = os.environ.pop("DISPLAY", None)
-            old_wayland = os.environ.pop("WAYLAND_DISPLAY", None)
-            try:
-                assert self.gate._has_display() is False
-            finally:
-                if old_display:
-                    os.environ["DISPLAY"] = old_display
-                if old_wayland:
-                    os.environ["WAYLAND_DISPLAY"] = old_wayland
-
-    def test_zenity_used_when_available(self):
-        with patch("orion.governance.nuclear.shutil.which", return_value="/usr/bin/zenity"), \
-             patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stdout="password\n", stderr="")
-            method, success = self.gate._try_graphical_auth("test prompt")
-            assert method == "zenity"
-            assert success is True
-
-    def test_zenity_denied_on_cancel(self):
-        with patch("orion.governance.nuclear.shutil.which", return_value="/usr/bin/zenity"), \
-             patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
-            method, success = self.gate._try_graphical_auth("test prompt")
-            assert method == "zenity"
-            assert success is False
-
-    def test_kdialog_tried_if_no_zenity(self):
-        with patch(
-            "orion.governance.nuclear.shutil.which",
-            side_effect=lambda x: "/usr/bin/kdialog" if x == "kdialog" else None,
-        ), \
-             patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stdout="password\n", stderr="")
-            method, success = self.gate._try_graphical_auth("test prompt")
-            assert method == "kdialog"
-            assert success is True
-
-    def test_graphical_skipped_if_no_gui_tools(self):
-        with patch("orion.governance.nuclear.shutil.which", return_value=None):
-            method, success = self.gate._try_graphical_auth("test prompt")
-            assert method == "skipped"
-            assert success is False
-
-    def test_try_tty_auth_with_dev_tty(self):
-        mock_file = MagicMock()
-        mock_file.fileno.return_value = 1
-        mock_file.read.side_effect = ["a", "b", "c", "\n"]
-        mock_file.__enter__.return_value = mock_file
-        mock_file.__exit__.return_value = False
-
-        with patch("os.path.exists", return_value=True), \
-             patch("orion.governance.nuclear._open_tty", return_value=mock_file), \
-             patch("termios.tcgetattr", return_value=[]), \
-             patch("termios.tcsetattr", return_value=None), \
-             patch("tty.setraw", return_value=None):
-            method, success = self.gate._try_tty_auth("test prompt")
-            assert method == "tty_fallback"
-            assert success is True
-
-    def test_try_tty_auth_empty_password_denies(self):
-        with patch("os.path.exists", return_value=False), \
-             patch("getpass.getpass", return_value=""):
-            method, success = self.gate._try_tty_auth("test prompt")
-            assert method == "tty_fallback"
-            assert success is False
-
-    def test_try_tty_auth_keyboard_interrupt_denies(self):
-        with patch("os.path.exists", return_value=False), \
-             patch("getpass.getpass", side_effect=KeyboardInterrupt):
-            method, success = self.gate._try_tty_auth("test prompt")
-            assert method == "tty_fallback"
-            assert success is False
-
-    def test_try_tty_auth_generic_exception(self):
-        with patch("os.path.exists", return_value=False), \
-             patch("getpass.getpass", side_effect=RuntimeError("tty error")):
-            method, success = self.gate._try_tty_auth("test prompt")
-            assert method == "tty_fallback_error"
-            assert success is False
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # O.R.I.O.N — Active Context (Memória de Sessão de Desenvolvimento)
 
-> **Data de Atualização:** 16/11/2026 (spec da v0.5.3)  
+> **Data de Atualização:** 16/11/2026 (v0.5.3 Sprint 1 implementada)  
 > **Status Atual:** v0.4.0 implementada. v0.5.0 em execução: Sprints 0–5 concluídas; **Sprint 6 (Subagents & Tasks) implementada (6A + 6B)**; **Sprint 7 (Daemon, Jobs & Schedules) implementada (7A + 7B + 7C) em 09/11/2026**, validação manual no GNOME pendente. Visão ADR-027 (memória viva, protocolos = skills dinâmicas) documentada em `docs/planning/vision/`. Portão de dogfooding pendente; cobertura 94%.  
 > **Fase Ativa:** v0.5.0 "Claude-Grade Agent" — meta: programar com Claude rodando pelo ORION (`ANTHROPIC_API_KEY`), com tools, memória, MCPs, decisões, loops, schedules, subagents e jobs em segundo plano.  
 > **Branch Ativo:** `feat/v0.5.0-sprint-7` (criada de `feat/v0.5.0-sprint-6`; commits locais, **sem push**)  
@@ -8,11 +8,13 @@
 
 ---
 
-## v0.5.3 Memória Viva e Núcleo Livre (16/11/2026): Sprint 0 (spec) concluída
+## v0.5.3 Memória Viva e Núcleo Livre (16/11/2026): Sprint 0 + emenda da memória e Sprint 1 concluídas
+**Sprint 1 (Liberdade básica) implementada** em 16/11/2026 (registro em `sprints/sprint-1.md`): askpass com peer check (sudo-rs), `orion setup sudo`, nuclear por polkit/PAM, escopo do usuário, ledger ligado e endurecido, web aberta, busca em cadeia. Pendente do Senhor: `sudo apt update` com senha real, diálogo polkit no GNOME, `orion setup sudo` com o chaveiro real. **Próximo:** Sprint 2 (classificador e reversibilidade) ou Sprint 3 (sessões e daily), com comando do Senhor.
+
 Branch `feat/v0.5.3-memoria-viva` (de `feat/v0.5.2-bridge`, sem push). Spec em `docs/planning/versions/v0.5.3/` (`VERSION.md`, `pesquisa-memoria-e-autonomia.md`, `sprints/sprint-0..6.md`); ADR-046 a 052 e emendas aos ADR-006, 017, 018 [v0.3.0], 023, 027 e 037. **Nada em `src/` foi alterado.**
 Diagnóstico: a senha do SO nunca era verificada (popup aceita qualquer texto) e o `sudo` não tinha por onde pedir senha (sem TTY nem askpass); ledger do ADR-017 nunca instanciado; `web_fetch` com 11 domínios; memória só escrita via `memorize` (R-06) e fatos confirmados fora do prompt (R-07).
 Decisões do Senhor: modo `auto` com classificador de risco; nuclear só para o irreversível não desfazível (snapshot/`/undo` tira o resto do caminho); senha do sudo lembrada no chaveiro do SO (opt-in, nunca no contexto); busca Brave → ddgs → SearXNG; TUI num repo = thread filha da daily; Mordomo da Memória em segundo plano disparado por saliência.
-**Próximo:** comando do Senhor para a Sprint 1 (Liberdade básica) em sessão própria; a Sprint 3 (Sessões e daily) pode começar depois da 1. Mudança na linha "Segurança" do `CLAUDE.md` proposta em `VERSION.md` §2.4, aplicada na Sprint 1.
+Linha "Segurança" do `CLAUDE.md` aplicada na Sprint 1. Emenda da memória (CA-18 a CA-25) em `sprint-4/5/6.md` e ADR-050.
 
 ## v0.5.2 Bridge (15–16/11/2026): Sprints 0 a 4 implementadas
 Branch `feat/v0.5.2-bridge` (de `feat/v0.5.1-sprint-1`; commits `f03b033` a `4695518`; **sincronizada com o GitHub em 16/11/2026**), executadas na mesma sessão por ordem do Senhor. Entregue: tela cheia como padrão (ADR-043; `ORION_TUI=classic`, `/tui`), input sempre vivo com fila, transcrição em células com reflow e blocos que abrem no lugar, Ctrl+O com busca, linguagem de movimento (ADR-045), memória legível, correções da auditoria A-01 a A-07, `scripts/install.sh` + `orion update/--rollback` (ADR-044). Testes: suíte verde, cobertura 93,6%, lab completo verde (25 cenários).

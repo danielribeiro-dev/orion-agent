@@ -125,6 +125,12 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
             for tool_inst in extra_tools:
                 self.register_tool(tool_inst)
 
+    def set_askpass(self, broker: Any) -> None:
+        """Askpass do ORION para o ``sudo`` do ``run_command`` (ADR-048)."""
+        tool = self._tools.get("run_command")
+        if tool is not None and hasattr(tool, "set_askpass"):
+            tool.set_askpass(broker)
+
     def set_hooks(self, hooks: HookRunner | None) -> None:
         """Attach the PreToolUse/PostToolUse hook runner (hooks never approve, only block)."""
         self._hooks = hooks
@@ -251,10 +257,16 @@ class LocalRuntimeProvider(BaseRuntimeProvider):
         except Exception as exc:
             logger.exception("LocalRuntimeProvider: unhandled error in tool '%s'", tool)
             self._pep.record_result(action.event_id, tool, False, str(exc))
+            self._pep.forget_approval(action.event_id)
             return RuntimeResult.fail(f"'{tool}' raised an unexpected error: {exc}")
         self._pep.record_result(
             action.event_id, tool, result.success, "" if result.success else (result.error or "")
         )
+        if result.success:
+            ran = action.model_copy(update={"params": params})
+            self._pep.record_action_success(ran, int(result.metadata.get("exit_code", 0) or 0))
+        else:
+            self._pep.forget_approval(action.event_id)
         if self._hooks is not None:
             await self._hooks.run(
                 "PostToolUse",

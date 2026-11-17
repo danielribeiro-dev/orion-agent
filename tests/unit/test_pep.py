@@ -596,7 +596,7 @@ async def test_pep_nuclear_gate_blocks_destructive_in_fully_auto(
 
     action = _action("run_command", {"command": "rm -rf /tmp/important_data"})
 
-    with patch.object(nuclear_gate, "challenge") as mock_challenge:
+    with patch.object(nuclear_gate, "challenge_async") as mock_challenge:
         mock_challenge.return_value = NuclearChallengeResult(
             authorized=False,
             method_used="zenity",
@@ -629,7 +629,7 @@ async def test_pep_nuclear_gate_allows_destructive_when_authenticated(
 
     action = _action("run_command", {"command": "rm -rf /tmp/clean_cache"})
 
-    with patch.object(nuclear_gate, "challenge") as mock_challenge:
+    with patch.object(nuclear_gate, "challenge_async") as mock_challenge:
         mock_challenge.return_value = NuclearChallengeResult(
             authorized=True,
             method_used="zenity",

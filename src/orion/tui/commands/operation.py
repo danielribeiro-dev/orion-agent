@@ -109,6 +109,7 @@ class DoctorCommand(BaseSlashCommand):
         except Exception:
             checks.append(("RAM livre", False, "indisponível"))
         checks.append(("Memória (fatos)", session.facts is not None, str(session.home / "facts.db")))
+        checks.extend(_freedom_checks(session.home))
         from orion.install import diagnose
 
         checks.extend(diagnose())
@@ -125,6 +126,108 @@ class DoctorCommand(BaseSlashCommand):
             )
         context.console.print(orion_panel(table, brand_title("Diagnóstico do Ambiente")))
         return CommandResult(success=all(ok for _, ok, _ in checks), data=checks)
+
+
+def _freedom_checks(home: Any) -> list[tuple[str, bool, str]]:
+    """sudo, presença, web e busca (v0.5.3 Sprint 1, ADR-048/049). Nada aqui lê segredos."""
+    import os
+
+    from orion.gateway.credentials import read_env_file
+    from orion.governance.askpass import SUDO_KEYRING_MARKER
+    from orion.runtime.tools.web_policy import legacy_allowlist_notice, load_blocklist
+
+    out: list[tuple[str, bool, str]] = []
+    sudo = shutil.which("sudo")
+    out.append(
+        (
+            "sudo (askpass)",
+            sudo is not None,
+            "sudo -A pela sessão; o sudo guarda a autorização por terminal (timestamp_type), "
+            "então sem chaveiro cada comando pede a senha" if sudo else "sudo não encontrado",
+        )
+    )
+    keyring = (home / SUDO_KEYRING_MARKER).exists()
+    out.append(
+        (
+            "Senha do sudo lembrada",
+            True,
+            "no chaveiro do sistema (orion setup sudo --forget desfaz)"
+            if keyring
+            else "não (opcional: orion setup sudo)",
+        )
+    )
+    display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+    polkit = shutil.which("pkexec") is not None and display
+    try:
+        import pam  # noqa: F401
+
+        pam_ok = True
+    except ImportError:
+        pam_ok = False
+    out.append(
+        (
+            "Presença nuclear",
+            polkit or pam_ok,
+            "polkit (diálogo do sistema)" if polkit else "PAM com senha mascarada" if pam_ok else "indisponível: nuclear será negado",
+        )
+    )
+    blocked = load_blocklist(home)
+    out.append(("Web", True, f"aberta · {len(blocked)} domínio(s) bloqueado(s) (/web list)"))
+    notice = legacy_allowlist_notice(home)
+    if notice:
+        out.append(("Allowlist antiga", False, notice))
+    providers = []
+    if os.environ.get("BRAVE_API_KEY") or read_env_file(home).get("BRAVE_API_KEY"):
+        providers.append("brave")
+    try:
+        import ddgs  # noqa: F401
+
+        providers.append("ddgs")
+    except ImportError:
+        pass
+    providers.append("duckduckgo")
+    out.append(("Busca web", True, " › ".join(providers) + " (BRAVE_API_KEY no ~/.orion/.env melhora)"))
+    return out
+
+
+class WebCommand(BaseSlashCommand):
+    name = "/web"
+    description = "Web aberta: bloquear, desbloquear e listar domínios"
+    usage = "/web list · /web block <domínio> · /web unblock <domínio>"
+
+    async def execute(self, args: str, context: CommandContext) -> CommandResult:
+        from orion.runtime.tools.web_policy import load_blocklist, normalize_domain, save_blocklist
+
+        home = context.session.home
+        verb, _, rest = args.strip().partition(" ")
+        verb = verb.lower() or "list"
+        blocked = list(load_blocklist(home))
+        if verb in ("block", "bloquear", "unblock", "desbloquear"):
+            domain = normalize_domain(rest)
+            if domain is None:
+                context.console.print(Text(f"✖ domínio inválido: {rest.strip() or '(vazio)'}", style="diff_del"))
+                return CommandResult(success=False, output_message="domínio inválido")
+            if verb in ("block", "bloquear"):
+                blocked = sorted({*blocked, domain})
+                message = f"✔ {domain} bloqueado (vale na hora, inclusive subdomínios)"
+            else:
+                if domain not in blocked:
+                    context.console.print(Text(f"● {domain} não estava bloqueado", style="text_dim"))
+                    return CommandResult(success=True, output_message="sem mudança")
+                blocked = [d for d in blocked if d != domain]
+                message = f"✔ {domain} desbloqueado"
+            save_blocklist(blocked, home)
+            context.console.print(Text(message, style="status_ok"))
+            return CommandResult(success=True, data=blocked)
+        if verb not in ("list", "listar"):
+            context.console.print(Text(f"uso: {self.usage}", style="text_dim"))
+            return CommandResult(success=False, output_message="uso inválido")
+        if not blocked:
+            context.console.print(Text("● web aberta, nenhum domínio bloqueado · /web block <domínio>", style="text_dim"))
+        else:
+            for domain in blocked:
+                context.console.print(Text(f"✖ {domain}", style="text_primary"))
+        return CommandResult(success=True, data=blocked)
 
 
 class CostCommand(BaseSlashCommand):

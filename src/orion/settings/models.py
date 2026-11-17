@@ -169,6 +169,18 @@ class UiSettings(BaseModel):
     panel: bool = False
 
 
+class WebSettings(BaseModel):
+    """Web aberta (ADR-049): ordem da cadeia de busca e instância SearXNG opcional."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    searxng_url: str | None = None
+    search_order: list[str] = Field(default_factory=lambda: ["brave", "ddgs", "searxng", "duckduckgo"])
+
+    def is_set(self) -> bool:
+        return bool(self.model_fields_set)
+
+
 class Settings(BaseModel):
     """Settings efetivos ou de uma única camada. Chaves desconhecidas são ignoradas."""
 
@@ -186,6 +198,7 @@ class Settings(BaseModel):
     models: ModelsSettings = Field(default_factory=ModelsSettings)
     daemon: DaemonSettings = Field(default_factory=DaemonSettings)
     ui: UiSettings = Field(default_factory=UiSettings)
+    web: WebSettings = Field(default_factory=WebSettings)
 
     def has_risky_content(self) -> bool:
         """Verdadeiro se a camada traz algo que executa código ou afrouxa o PEP."""
@@ -198,6 +211,7 @@ class Settings(BaseModel):
             or self.daily_budget_usd is not None
             or self.agents.is_set()
             or self.models.is_set()
+            or self.web.is_set()
         )
 
     def restricted(self) -> Settings:
