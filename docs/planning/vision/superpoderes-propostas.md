@@ -13,6 +13,21 @@
 5. Custo: nenhum teste automático chama provedor pago (`ORION_LIVE=1` e `BudgetGuard`).
 6. Idle continua em zero token (ADR-022).
 
+## Relação com `docs/specs/superpowers/` (specs 01 a 06, já existentes)
+
+Este documento complementa essas specs, não as substitui. A primeira redação partiu do ROADMAP sem tê-las lido; antes de congelar escopo de qualquer item abaixo, reconciliar com a spec correspondente.
+
+| Spec existente | Itens deste documento que se sobrepõem |
+| :--- | :--- |
+| 01 Interação espacial e visão (AT-SPI2, VLM sob demanda, gestos) | 7 |
+| 02 Ghost Input e CDP (Context Typer, autoclicker cognitivo) | 7 |
+| 03 Web autônoma e Secure Vault (keyring, passphrase de voz) | 7 e, em parte, 16 (do segundo documento) |
+| 04 Cérebro de código, autocura e sandbox Bubblewrap | 3 (autocura), 13 e 19 (do segundo documento) |
+| 05 ORION Imortal e event sourcing | 6 |
+| 06 Proatividade de workflow (DBus, Git Guard, modo foco, Protocolo Babá, Morning Summary) | 3 e, em parte, 12 (do segundo documento) |
+
+Sem spec própria hoje: itens 1 (só `AMBIENT_VOICE.md`), 2, 4, 5, 8, 9 e 10.
+
 ## Visão geral
 
 | # | Superpoder | Versão sugerida | Já existe | Esforço | Apelo à comunidade |
