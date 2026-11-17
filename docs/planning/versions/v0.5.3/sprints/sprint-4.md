@@ -1,11 +1,19 @@
 # Sprint — v0.5.3 Sprint 4: Escrita e core
 
-> **Status:** 📋 Aguardando comando de início · **ADR:** 050 · **Achados:** M-01, M-02, M-04, M-07, M-11 · **CA:** CA-09, CA-10, CA-18, CA-19, CA-20 · **Emenda:** 16/11/2026 (evidência ancorada, observações locais, sinais implícitos)
+> **Status:** 📋 Aguardando comando de início · **ADR:** 050 · **Achados:** M-01, M-02, M-04, M-07, M-11 · **CA:** CA-09, CA-10, CA-18, CA-19, CA-20, CA-26 · **Emenda:** 16/11/2026 (evidência ancorada, observações locais, sinais implícitos; histórico visível ao entrar numa sessão, pedido do Senhor após a Sprint 3)
 
 ## Objetivo
 Fazer a memória ser escrita sem depender do modelo principal e garantir que o essencial esteja sempre presente.
 
 ## Escopo
+0. **Histórico visível ao entrar numa sessão** (pedido do Senhor em 16/11/2026; independente do resto, implementar primeiro):
+   - Problema: ao entrar numa sessão (daily em `~`, `--resume`, `--continue`, `/resume`, `session_branch`/`session_switch`, `/merge`, virada do dia) a conversa é carregada no contexto do modelo, mas a tela mostra só uma linha de aviso. Já existia desde o `--resume` da v0.5.0; a Sprint 3 o tornou constante, porque toda TUI aberta em `~` entra na daily.
+   - Alvo: recarregar **tudo**, como Claude Code e Antigravity fazem. A transcrição mostra a sessão inteira desde o primeiro pedido: pedidos do Senhor, respostas, cartões de tool (recolhidos, com a saída do `tool_result` ao abrir), diffs de arquivos, linhas do PEP e avisos. O visual é o mesmo de um turno ao vivo.
+   - **Exibição não é contexto:** a tela é montada a partir das entradas cruas do JSONL (`message`, `file_change`, eventos `meta`), não do `replay`. Depois de uma compactação, o que o modelo vê é o resumo, mas na tela os turnos antigos continuam visíveis, com uma linha `· contexto compactado aqui (o modelo vê o resumo)` no ponto do corte. A semente de thread ou daily aparece como bloco recolhido (`› contexto herdado de ...`). O link `thread_opened` na daily aparece como linha `› thread aberta: <título>`.
+   - Tela cheia: as células da transcrição são criadas sob demanda (virtualização: só se rasteriza o que entra na janela e o reflow é preguiçoso), para que uma daily com centenas de turnos abra em menos de 300 ms. O Ctrl+O e a busca alcançam todo o histórico.
+   - Modo clássico: o histórico é impresso no scrollback antes do prompt, com os mesmos cartões.
+   - Custo zero: leitura local do JSONL, nenhuma chamada ao modelo.
+   - Arquivos: `sessions/transcript.py` (função de exibição sobre as entradas cruas), `tui/screen/transcript.py` e `app.py` (carga do histórico e virtualização), `tui/sink.py`/`RichSink` (modo clássico) e `AgentSession._apply_switch`/`resume` (um único ponto que redesenha).
 1. **Fatos v2** (`memory/facts_store.py`, migração):
    - Colunas novas: `scope global|org|project|device`, `scope_ref`, `status CONFIRMED|PROVISIONAL|DEPRECATED` (INFERRED vira PROVISIONAL), `confidence`, `evidence_count`, `source user|steward|tool|import`, `session_id`, `valid_from`, `valid_to`, `supersedes`, `superseded_by`; horas sempre com fuso (M-11).
    - Categorias abertas (texto livre com sugestões), FTS5 sobre `key + value`.
@@ -40,9 +48,10 @@ Fazer a memória ser escrita sem depender do modelo principal e garantir que o e
 8. **Auto-recall**: fatos por FTS5 no lugar da substring; exclui o que já está no core.
 
 ## Testes
+- `tests/unit/test_session_history_view.py`: exibição montada das entradas cruas (compactação não esconde turnos antigos e marca o corte; semente e link aparecem; tool recolhida com saída); `/resume`, troca por `session_switch` e virada redesenham. Lab: `test_resume.py` estendido (depois de retomar, o primeiro pedido da sessão aparece ao rolar para cima e no Ctrl+O; daily com 300 turnos sintéticos abre em menos de 300 ms).
 - `tests/unit/test_facts_v2.py` (migração, linhagem, tempo), `test_core_block.py` (teto, ordem, congelamento), `test_salience.py`, `test_steward.py` (provider roteirizado: correção vira SUPERSEDE; inferência PROVISIONAL; CONFIRMED protegido; web nunca vira fato do Senhor).
 - `tests/unit/test_fact_evidence.py` (op sem ref descartada; ref inventada descartada; reafirmação sem prova nova não promove; promoção só com 3 sessões distintas de `user_msg`), `test_observations.py` (seleção determinística de linhas; web/MCP excluídos), `test_signals.py` (PEP, `/undo`, edição do Senhor detectada por hash).
 - `tests/memory_eval/` começa aqui: identidade sem tool (CA-09), correção (CA-10), autoconfirmação bloqueada (CA-18), fato de projeto por leitura local (CA-19), preferência por sinal implícito + fala (CA-20).
 
 ## Critérios de saída
-CA-09, CA-10, CA-18, CA-19 e CA-20 verdes; commit `feat(memory): v0.5.3 Sprint 4 — escrita e core`.
+CA-26, CA-09, CA-10, CA-18, CA-19 e CA-20 verdes; commit `feat(memory): v0.5.3 Sprint 4 — escrita e core`.

@@ -78,7 +78,7 @@ Até a Sprint 1, o `CLAUDE.md` atual continua valendo.
 | **Sprint 1** | Liberdade básica | Senha verificada (askpass, chaveiro, polkit/PAM, overlay), escopo do usuário, ledger ligado, web aberta + `SearchProvider` | [`sprint-1.md`](sprints/sprint-1.md) | ✅ |
 | **Sprint 2** | Classificador e reversibilidade | Faixas, classificador em dois estágios, snapshot/`/undo`, aprovação por intenção, modos, blocklist, Inbox, auditoria | [`sprint-2.md`](sprints/sprint-2.md) | ✅ |
 | **Sprint 3** | Sessões e daily | `sessions.db`, títulos, daily e virada, threads e `session_branch`, `/resume` por data, migração | [`sprint-3.md`](sprints/sprint-3.md) | ✅ |
-| **Sprint 4** | Escrita e core | Core congelado, detector de saliência, Mordomo com evidência ancorada, observações locais, sinais implícitos, fatos com escopo/proveniência/tempo, diretivas, "aprendi · desfazer" | [`sprint-4.md`](sprints/sprint-4.md) | 📋 |
+| **Sprint 4** | Escrita e core | Histórico visível ao entrar numa sessão, core congelado, detector de saliência, Mordomo com evidência ancorada, observações locais, sinais implícitos, fatos com escopo/proveniência/tempo, diretivas, "aprendi · desfazer" | [`sprint-4.md`](sprints/sprint-4.md) | 📋 |
 | **Sprint 5** | Consolidação e recall | Cartões, rollups, Reflector, pendências proativas, perfil do Senhor, turnos indexados, PT-BR sem modelo, oferta do modelo multilíngue, `sqlite-vec`, `session_search`, `/memory` editar/esquecer/purge | [`sprint-5.md`](sprints/sprint-5.md) | 📋 |
 | **Sprint 6** | Núcleo enxuto e prova | Tools adiadas, cache, R-17, suíte `tests/memory_eval/`, avaliação ao vivo da extração, rodada real | [`sprint-6.md`](sprints/sprint-6.md) | 📋 |
 
@@ -147,6 +147,7 @@ src/orion/core/identity.py                  [mod]   preâmbulo enxuto + princíp
 | CA-23 | Detalhe achado | Um detalhe dito numa sessão e ausente do cartão é achado por `session_search` (turnos indexados) | `tests/memory_eval/` | 📋 |
 | CA-24 | Purge | `/memory purge` apaga fato, evidências, vetores, FTS e menções no perfil; auditoria sem conteúdo | `tests/unit/test_memory_purge.py` | 📋 |
 | CA-25 | Extração ao vivo | 30 diálogos PT-BR: precisão >= 0,90, recall >= 0,80, CONFIRMED indevido = 0, fato de web = 0, custo <= US$ 0,50 | `ORION_LIVE=1 pytest -m live tests/memory_eval/live` | 📋 |
+| CA-26 | Histórico ao entrar | Ao entrar numa sessão (daily, `/resume`, troca de thread, virada), a tela recarrega a conversa inteira desde o primeiro pedido, inclusive o que foi compactado, sem chamada ao modelo; daily com 300 turnos abre em menos de 300 ms | `tests/unit/test_session_history_view.py` + lab | 📋 |
 | CA-17 | Rodada real | Sessão real de 1 dia útil com memória, sudo e web | manual, `ORION_LIVE=1`, teto no `BudgetGuard` | 📋 |
 
 ---
