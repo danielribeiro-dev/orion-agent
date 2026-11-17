@@ -217,6 +217,10 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
 
 ---
 
+### ADR-017 [v0.3.0] — Emenda de execução (v0.5.3 Sprint 1, 16/11/2026)
+* Ledger ligado na sessão e no daemon (`~/.orion/command_trust.db`, protegido do agente). Aprende só o que o Senhor aprovou e terminou com exit 0; subagents nunca o recebem.
+* Endurecido: comandos compostos (`;`, `&&`, `|`, redirecionamento, `$(...)` e crase até entre aspas) nunca são aprendidos nem consultados; a assinatura do git inclui todas as flags (`git push` ≠ `git push --force` ≠ `git push +main`); interpretadores (`python`, `bash`, `npx`, `make`, `docker`...) só casam o literal exato; `rm`, `mv`, `chmod`, `curl`, `sudo`, `systemctl` e git destrutivo nunca entram. Implementado em `CommandCanonicalizer.is_trustable`.
+
 ### ADR-017 [v0.4.0]: Desacoplamento do Cockpit Imersivo eDEX para a v0.7.0
 * **Status:** Aprovado (26/10/2026) — registrado retroativamente em 06/11/2026.
 * **Decisão:** O CLI `orion-agent` permanece 100% terminal; o cockpit sci-fi (Tauri v2 + WebGL, tokens do Figma) vira app standalone na v0.7.0. Ver `docs/design/TUI_DESIGN_SYSTEM.md`.
@@ -457,6 +461,7 @@ Este arquivo registra todas as decisões estruturais tomadas no projeto, seu con
   4. A senha nunca passa pelo contexto do modelo, transcript, auditoria ou logs (estende o ADR-042).
   5. Presença por voz (v0.6.0) vale para a faixa Presença; Nuclear exige o dispositivo (mantém o espírito do ADR-018: fala de fundo não autoriza o irreversível).
 * **Consequências:** Com o chaveiro ativo, a força da senha para `sudo` comum passa a ser a do classificador; por isso o preenchimento automático nunca cobre Nuclear e o Senhor pode preferir a lista do sudoers.
+* **Registro de execução (Sprint 1, 16/11/2026):** (1) o broker do askpass só responde a quem o kernel mostra (SO_PEERCRED) ser filho do `sudo` do mesmo usuário, então o token sozinho não basta; (2) o preenchimento pelo chaveiro só vale na 1ª tentativa e só para `is_sudo_safe` (regras fixas até o classificador da Sprint 2); (3) a ação polkit própria `org.orion.nuclear` não foi instalada (exige root): usa-se `pkexec /bin/true` com aviso do comando na TUI; (4) presença verificada aceita dispensa o modal "y/n" do mesmo ato, salvo outra escalada (sudo, sensível) ou regra `ask`; (5) sudo em shell de segundo plano não tem askpass.
 
 ### ADR-049: Web aberta com blocklist e sessão contaminada [v0.5.3]
 * **Status:** Aprovado (16/11/2026, com o plano da v0.5.3). Emenda o ADR-037 (item 3, quanto à allowlist).
