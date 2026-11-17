@@ -47,7 +47,7 @@ class TestCatalog:
         assert {c.name for c in OFFICIAL_SLASH_COMMANDS} == set(registry.names)
 
     def test_catalog_size(self, registry: CommandRegistry) -> None:
-        assert len(registry.names) == 32  # v0.5.3: /web
+        assert len(registry.names) == 33  # v0.5.3: /web, /rename
 
     def test_no_emoji_in_catalog(self) -> None:
         for command in OFFICIAL_SLASH_COMMANDS:
@@ -311,12 +311,12 @@ class TestDataCommands:
         result = await registry.dispatch("/compact testes", context)
         assert result.success
 
-    async def test_reopening_branch_keeps_original_base(self, registry, context) -> None:  # type: ignore[no-untyped-def]
+    async def test_reopening_branch_stays_in_the_thread(self, registry, context) -> None:  # type: ignore[no-untyped-def]
         await registry.dispatch("/branch x", context)
-        base = context.session._branch_snapshots["x"]
-        context.session.history = ["ruido"]
-        await registry.dispatch("/branch x", context)
-        assert context.session._branch_snapshots["x"] is base
+        thread = context.session.session_id
+        again = await registry.dispatch("/branch x", context)
+        assert again.success and "Já está" in again.output_message
+        assert context.session.session_id == thread
 
     async def test_review_runs_on_real_diff(self, registry, context) -> None:  # type: ignore[no-untyped-def]
         import subprocess

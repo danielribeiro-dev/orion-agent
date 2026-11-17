@@ -159,13 +159,13 @@ OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
     ),
     SlashCommandInfo(
         "/branch",
-        "Criar novo workspace isolado em branch",
+        "Abrir thread filha desta conversa",
         icon="›",
         category="context",
     ),
     SlashCommandInfo(
         "/merge",
-        "Integrar alterações do branch ativo à Main Timeline",
+        "Fechar a thread filha com checkpoint e voltar à origem",
         icon="›",
         category="context",
     ),
@@ -184,7 +184,13 @@ OFFICIAL_SLASH_COMMANDS: list[SlashCommandInfo] = [
     ),
     SlashCommandInfo(
         "/resume",
-        "Listar ou retomar sessões anteriores deste workspace",
+        "Buscar e retomar sessões por nome ou data (hoje, ontem, nov)",
+        icon="❯",
+        category="operation",
+    ),
+    SlashCommandInfo(
+        "/rename",
+        "Dar título à sessão atual",
         icon="❯",
         category="operation",
     ),

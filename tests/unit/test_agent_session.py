@@ -302,13 +302,17 @@ class TestContext:
     async def test_branch_merge_keeps_only_checkpoint(self, make_session) -> None:  # type: ignore[no-untyped-def]
         session = make_session(ScriptedProvider(["base", "experimento"]))
         await session.run_turn("principal")
+        origin = session.session_id
         session.create_branch("teste")
+        thread = session.session_id
+        assert thread != origin
         await session.run_turn("ruido-da-branch")
         await session.merge_branch("deu certo")
-        contents = " ".join(m.text for m in session.history)
-        assert "ruido-da-branch" not in contents
-        assert "Checkpoint" in contents
-        assert session.branches.active_branch == "main"
+        # A thread não volta crua: só o checkpoint (que cita o pedido feito nela).
+        assert [m.text for m in session.history if m.text == "ruido-da-branch"] == []
+        assert "Checkpoint" in session.history[-2].text
+        assert session.session_id == origin
+        assert session.session_index.get(thread).closed_at is not None
 
 
 class TestStructuredLoop:

@@ -5,6 +5,11 @@ Layout (somente em ``~/.orion/``, permissões 0700/0600):
 
     sessions/<workspace-slug>/<session_id>.jsonl      log append-only
     sessions/<workspace-slug>/<session_id>.blobs/<sha256>   conteúdo dos arquivos (rewind)
+    sessions/daily/daily-YYYY-MM-DD.jsonl              dailies (v0.5.3, ADR-051)
+    sessions/archive/branch-<nome>.jsonl               branches arquivadas migradas
+
+O índice ``sessions.db`` (``sessions/index.py``) responde ``list``; sem ele, a listagem varre
+os arquivos como na v0.5.0.
 
 Escrita imediata por mensagem (um crash perde no máximo a linha em curso); a leitura
 ignora uma última linha truncada. ``rewind`` trunca o log de forma atômica.
@@ -19,7 +24,7 @@ import logging
 import os
 import threading
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import ValidationError
 
@@ -30,7 +35,12 @@ from orion.sessions.transcript import (
     workspace_slug,
 )
 
+if TYPE_CHECKING:
+    from orion.sessions.index import SessionIndex
+
 logger = logging.getLogger(__name__)
+
+DAILY_DIR = "daily"
 
 _List = builtins.list  # ``list`` é sombreado pelo método ``SessionStore.list``
 
@@ -51,9 +61,10 @@ class SessionNotFoundError(LookupError):
 class JsonlSessionStore:
     """Implementação em arquivos JSONL por workspace."""
 
-    def __init__(self, root: Path, workspace: Path) -> None:
+    def __init__(self, root: Path, workspace: Path, index: SessionIndex | None = None) -> None:
         self._root = root
         self._workspace = workspace.resolve()
+        self.index = index
         self._counts: dict[str, int] = {}
         self._paths: dict[str, Path] = {}
         self._lock = threading.RLock()  # subagents em background gravam de outra thread
@@ -68,7 +79,12 @@ class JsonlSessionStore:
         if cached is not None:
             return cached
         existing = self._find(session_id)
-        path = existing if existing is not None else self._dir() / f"{session_id}.jsonl"
+        if existing is not None:
+            path = existing
+        elif session_id.startswith("daily-"):
+            path = self._root / DAILY_DIR / f"{session_id}.jsonl"
+        else:
+            path = self._dir() / f"{session_id}.jsonl"
         self._paths[session_id] = path
         return path
 
@@ -81,7 +97,10 @@ class JsonlSessionStore:
 
     def resolve_id(self, prefix: str) -> str:
         """Id completo a partir de um prefixo único (``/resume ab12``)."""
-        matches = sorted({p.stem for p in self._root.glob("*/*.jsonl") if p.stem.startswith(prefix)})
+        found = {p.stem for p in self._root.glob("*/*.jsonl") if p.stem.startswith(prefix)}
+        if self.index is not None:
+            found.update(i for i in self.index.resolve(prefix) if self._find(i) is not None)
+        matches = sorted(found)
         if not matches:
             raise SessionNotFoundError(f"Nenhuma sessão começa com '{prefix}'.")
         if len(matches) > 1:
@@ -113,9 +132,24 @@ class JsonlSessionStore:
         self._counts[session_id] = index + 1
 
     def _meta_entry(self, session_id: str, index: int) -> TranscriptEntry:
-        return TranscriptEntry.of_meta(
-            session_id=session_id, workspace=str(self._workspace)
-        ).model_copy(update={"index": index})
+        meta = {"session_id": session_id}
+        if not session_id.startswith("daily-"):  # a daily não pertence a um workspace
+            meta["workspace"] = str(self._workspace)
+        return TranscriptEntry.of_meta(**meta).model_copy(update={"index": index})
+
+    def append_event(self, session_id: str, entry: TranscriptEntry) -> None:
+        """Evento sem número (``index=-1``) no transcript de OUTRA sessão (ex.: link na daily).
+
+        Não usa o contador desta instância: outro processo pode estar escrevendo nela. ``replay``
+        ignora eventos ``meta`` e o ``rewind`` sempre os preserva.
+        """
+        with self._lock:
+            path = self._path(session_id)
+            if not path.exists():
+                path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+                self._write(path, self._meta_entry(session_id, -1))
+            self._write(path, entry.model_copy(update={"index": -1}))
+            self._counts.pop(session_id, None)
 
     @staticmethod
     def _write(path: Path, entry: TranscriptEntry) -> None:
@@ -141,6 +175,24 @@ class JsonlSessionStore:
 
     def list(self, workspace: Path) -> _List[SessionMeta]:
         """Sessões do workspace, da mais recente para a mais antiga."""
+        if self.index is not None:
+            from orion.sessions.query import SessionQuery
+
+            records = self.index.search(SessionQuery(workspace=str(workspace.resolve())))
+            return [
+                SessionMeta(
+                    session_id=r.id,
+                    workspace=r.workspace or "",
+                    created_at=r.created_at,
+                    updated_at=r.updated_at,
+                    turns=r.turn_count,
+                    preview=r.display_title,
+                    title=r.display_title,
+                    kind=r.kind,
+                )
+                for r in records
+                if self._find(r.id) is not None
+            ]
         directory = self._dir(workspace)
         if not directory.is_dir():
             return []

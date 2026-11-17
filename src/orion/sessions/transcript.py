@@ -71,6 +71,8 @@ class SessionMeta(BaseModel):
     updated_at: str
     turns: int
     preview: str = ""
+    title: str = ""
+    kind: str = "thread"
 
 
 class TurnRef(BaseModel):

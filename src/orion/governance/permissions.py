@@ -83,6 +83,9 @@ TOOL_LEVELS: dict[str, ActionLevel] = {
     "presence_rule_list": ActionLevel.LEVEL_0,
     # Reversibilidade (v0.5.3 Sprint 2): restaura snapshot do lixo do ORION (faixa Livre).
     "undo_last": ActionLevel.LEVEL_2,
+    # Sessões e daily (v0.5.3 Sprint 3, ADR-051): só organizam o transcript do ORION.
+    "session_branch": ActionLevel.LEVEL_0,
+    "session_switch": ActionLevel.LEVEL_0,
 }
 
 #: Tools que abrem modal no terminal: nunca rodam em paralelo com outras.

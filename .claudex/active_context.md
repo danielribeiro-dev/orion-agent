@@ -1,14 +1,16 @@
 # O.R.I.O.N — Active Context (Memória de Sessão de Desenvolvimento)
 
-> **Data de Atualização:** 16/11/2026 (v0.5.3 Sprint 2 implementada)  
-> **Status Atual:** v0.5.3 "Memória Viva e Núcleo Livre" em execução: Sprint 0 (spec + emenda da memória), Sprint 1 (Liberdade básica) e **Sprint 2 (Classificador e reversibilidade) implementadas em 16/11/2026**; Sprints 3 a 6 aguardam comando. v0.5.2 e anteriores publicadas (tags até v0.5.2). Cobertura 93%, 2438 testes, lab 28/28.  
-> **Fase Ativa:** v0.5.3 — memória que conhece o Senhor (Sprints 3 a 6); a trilha de governança (Sprints 1 e 2) está implementada. Spec em `docs/planning/versions/v0.5.3/`.  
-> **Branch Ativo:** `feat/v0.5.3-memoria-viva` (de `feat/v0.5.2-bridge`; **enviada ao GitHub** em 16/11/2026, último commit `6d66c65`). Sem tag até a versão fechar.  
+> **Data de Atualização:** 16/11/2026 (v0.5.3 Sprint 3 implementada)  
+> **Status Atual:** v0.5.3 "Memória Viva e Núcleo Livre" em execução: Sprints 0, 1, 2 e **3 (Sessões e daily) implementadas em 16/11/2026**; Sprints 4 a 6 aguardam comando. v0.5.2 e anteriores publicadas (tags até v0.5.2). Cobertura 93%, 2482 testes, lab 29/29.  
+> **Fase Ativa:** v0.5.3 — memória que conhece o Senhor (Sprints 4 a 6); governança (Sprints 1 e 2) e sessões (Sprint 3) implementadas. Spec em `docs/planning/versions/v0.5.3/`.  
+> **Branch Ativo:** `feat/v0.5.3-memoria-viva` (de `feat/v0.5.2-bridge`; enviada ao GitHub até `4781e34`; os commits das Sprints 2 e 3 estão só locais). Sem tag até a versão fechar.  
 > **Regra Suprema:** Nenhuma linha de código em `src/` é escrita sem o comando explícito de início da Sprint correspondente (Doc-First).
 
 ---
 
-## v0.5.3 Memória Viva e Núcleo Livre (16/11/2026): Sprints 0, 1 e 2 concluídas
+## v0.5.3 Memória Viva e Núcleo Livre (16/11/2026): Sprints 0 a 3 concluídas
+**Sprint 3 (Sessões e daily) implementada** em 16/11/2026 (registro em `sprints/sprint-3.md`): `sessions/index.py` (`~/.orion/sessions.db`, FTS5 sem acento, migração idempotente com backup em `~/.orion/backup/v0.5.2/`, branches arquivadas viram threads fechadas), `sessions/daily.py` + `clock.py` (`daily-YYYY-MM-DD`, virada em `memory.day_starts_at` na primeira atividade, cartão determinístico, resumo de abertura <= 300 tokens), `sessions/navigator.py` (thread no primeiro pedido com link na daily, `session_branch`/`session_switch` trocam ao fim do turno, `/branch`/`/merge` persistidos; `BranchManager` removido), `/resume` com seletor em árvore e filtros por data e `/rename`, `orion --daily`. TUI em `~`, daemon e voz usam a daily (M-09); `cron` nunca. Correção achada no lab: modais da tela cheia engoliam `n`, `N`, `/`, `?`. **Próximo:** Sprint 4 (escrita e core: core congelado, saliência, Mordomo), com comando do Senhor. Ganchos prontos para ela: `SessionIndex.set_auto_title` (título do Mordomo, nunca vence `/rename`), `set_card`, `DailyBook.card`/`opening_for` (a Sprint 5 troca pelo cartão por modelo), `AgentSession._index_turn` (ponto do pedido do Senhor).
+
 **Sprint 2 (Classificador e reversibilidade) implementada** em 16/11/2026 (registro em `sprints/sprint-2.md`): `governance/bands.py` (faixas Livre/Classificada/Presença/Nuclear + blocklist, parser de shell conservador), `classifier.py` (regras + ledger + cache; estágio 2 FAST cego às saídas de tool, origem `classifier`, US$ 0,20/dia), `reversibility.py` (`~/.orion/trash`, `refs/orion/undo`, 2/10 GiB, 7 dias), `grants.py` (plano aprovado com passos de presença, 15 min), modos `plan/ask/auto/full` (`accept-edits`/`manual` são aliases), negações devolvidas ao modelo (3 seguidas ou 20 abrem modal), Presença/Nuclear sem humano viram pendência na Inbox, `/undo [list|id]` e `undo_last`. Testes desligam o estágio 2 com `ORION_CLASSIFIER_MODEL=0`. Pendente do Senhor: diálogo polkit no GNOME (CA-07 manual) e uma rodada real do `auto` com modelo (custo do classificador). **Próximo:** Sprint 3 (sessões e daily), com comando do Senhor.
 
 **Sprint 1 (Liberdade básica) implementada** em 16/11/2026 (registro em `sprints/sprint-1.md`): askpass com peer check (sudo-rs), `orion setup sudo`, nuclear por polkit/PAM, escopo do usuário, ledger ligado e endurecido, web aberta, busca em cadeia. Pendente do Senhor: `sudo apt update` com senha real, diálogo polkit no GNOME, `orion setup sudo` com o chaveiro real. 

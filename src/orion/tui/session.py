@@ -99,6 +99,7 @@ from orion.runtime.local_provider import LocalRuntimeProvider
 from orion.runtime.tools.ask_user import AskUserTool
 from orion.runtime.tools.plan_mode import EnterPlanModeTool, ExitPlanModeTool, PresenceSteps
 from orion.runtime.tools.read_file import IMAGE_TYPES, MAX_IMAGE_BYTES, encode_image
+from orion.runtime.tools.sessions import SessionBranchTool, SessionSwitchTool
 from orion.runtime.tools.shells import ShellManager
 from orion.runtime.tools.task import TaskTool
 from orion.runtime.tools.tasks import (
@@ -122,6 +123,9 @@ from orion.sessions import (
     restore_files,
     user_turns,
 )
+from orion.sessions.index import SessionIndex, SessionKind
+from orion.sessions.navigator import SessionNavigator, SessionSwitch
+from orion.sessions.query import SessionQuery
 from orion.settings import (
     LoadedSettings,
     ProjectTrust,
@@ -136,7 +140,6 @@ from orion.timeline.autocompact import (
     CompactionOutcome,
     compact_messages,
 )
-from orion.timeline.branch_manager import BranchManager
 from orion.timeline.compactor import ContextCompactor, estimate_tokens
 from orion.tui.commands.base import BaseSlashCommand
 from orion.tui.commands.custom import CustomCommand, CustomCommandSpec, load_custom_commands
@@ -279,6 +282,7 @@ class AgentSession:
         recall: AutoRecall | None = None,
         sink: SessionSink | None = None,
         origin: Origin = "user",
+        daily: bool | None = None,
     ) -> None:
         # Sem console a sessão é headless (daemon): nada de modal no terminal (ADR-032).
         self.headless = console is None
@@ -290,6 +294,12 @@ class AgentSession:
         self.workspace = (workspace or Path.cwd()).resolve()
         self.home = home or Path.home() / ".orion"
         self.session_id = str(uuid.uuid4())
+        # Daily e threads (ADR-051): tipo, daily de origem e pai da sessão ativa.
+        self.session_kind: SessionKind = "thread"
+        self.daily_id: str | None = None
+        self.parent_session_id: str | None = None
+        self._follow_today = False
+        self._pending_switch: Callable[[], SessionSwitch] | None = None
         self.config_path = user_settings_path(self.home)
         self.project_trust = ProjectTrust(self.home)
         self.plugins = discover_plugins(self.home)
@@ -325,7 +335,6 @@ class AgentSession:
         # Teto próprio do classificador (ADR-046) mesmo quando o Senhor sobrescreve o dicionário.
         self.budget.origin_budget_usd.setdefault(CLASSIFIER_ORIGIN, DEFAULT_CLASSIFIER_BUDGET_USD)
         self.compactor = ContextCompactor()
-        self.branches = BranchManager()
         self.tracker = ChangeTracker()
         self.renderer: SessionSink = sink or RichSink(
             console,
@@ -340,7 +349,6 @@ class AgentSession:
         self.mode = AgentMode.AUTO
         self._user_inputs: list[str] = []
         self.always_allowed: set[tuple[str, str]] = set()
-        self._branch_snapshots: dict[str, list[LLMMessage]] = {}
         self._active_user_text = ""
         self._running: dict[str, str] = {}
 
@@ -394,7 +402,17 @@ class AgentSession:
         self._parent_handle.runtime = self.runtime
         self.identity = self._open_identity()
         self.manifest = self._build_manifest()
-        self.sessions = JsonlSessionStore(self.home / "sessions", self.workspace)
+        self.session_index = self._open_session_index()
+        self.sessions = JsonlSessionStore(self.home / "sessions", self.workspace, index=self.session_index)
+        self.nav = (
+            SessionNavigator(self.session_index, self.sessions, self.workspace, Path.home())
+            if self.session_index is not None
+            else None
+        )
+        self.session_notice = ""
+        wants_daily = daily if daily is not None else (origin in ("user", "daemon") and self.workspace == Path.home().resolve())
+        if wants_daily and self.nav is not None:
+            self._attach_daily()
         self.last_recall_tokens = 0
         self._project_cache: tuple[tuple[float, ...], str] = ((), "")
         self.autocompact = AutoCompactor(
@@ -717,6 +735,8 @@ class AgentSession:
             EnterPlanModeTool(self._enter_plan_mode),
             ExitPlanModeTool(self._approve_plan, lambda: self.mode == AgentMode.PLAN),
             UndoLastTool(self._undo_snapshot),
+            SessionBranchTool(self._tool_branch),
+            SessionSwitchTool(self._tool_switch),
             TaskTool(self._spawner),
             TaskCreateTool(self.tasks, self._parent_handle),
             TaskListTool(self.tasks),
@@ -1238,7 +1258,6 @@ class AgentSession:
         if event.tool in _MUTATING_TOOLS:
             self.tracker.begin(event.action_id, self._target_path(event.params))
         self.renderer.tool_started(event.tool, event.params, key=event.action_id)
-        self.branches.record_event(f"{event.tool}: {event.params}"[:200])
 
     async def _on_observation(self, event: Observation) -> None:
         tool = self._running.pop(event.action_id, "")
@@ -1296,6 +1315,9 @@ class AgentSession:
         if self.mcp is not None:
             with contextlib.suppress(Exception):
                 asyncio.run(asyncio.wait_for(self.mcp.close(), timeout=8.0))
+        if self.session_index is not None:
+            with contextlib.suppress(Exception):
+                self.session_index.close()
 
     # ── Interação do agente com o Senhor (ask_user / plan mode) ─────
 
@@ -1584,6 +1606,8 @@ class AgentSession:
         """Executa um turno completo; erros operacionais viram mensagem, nunca traceback."""
         self._active_user_text = text
         self._user_inputs.append(text)  # única fala que o classificador de risco enxerga
+        self._pending_switch = None
+        self._index_turn(text)
         submit = await self.fire_hook("UserPromptSubmit", {"prompt": text})
         if submit is not None and submit.blocked:
             self.renderer.warn(f"Hook UserPromptSubmit bloqueou o pedido: {submit.message}")
@@ -1627,6 +1651,7 @@ class AgentSession:
         except asyncio.CancelledError:
             # A conversa permanece válida (tool_use pendentes foram fechados): preserva o contexto.
             self.history = engine.messages
+            self._pending_switch = None
             raise
         except PromptInjectionSuspected:
             self.renderer.error("Entrada bloqueada: padrão de injeção de prompt detectado.")
@@ -1658,10 +1683,10 @@ class AgentSession:
                 self.tokens_in + self.tokens_out - tokens_before,
                 self.cost_total - cost_before,
             )
-        self.branches.record_event(answer[:200], event_type="observation")
         await self._log_timeline("assistant", "agent", answer)
         await self.recall.remember(f"Pedido: {text}\nResposta: {answer[:800]}", self.session_id)
         self._show_recall_notice()
+        self._apply_pending_switch()
         return answer
 
     def _show_recall_notice(self) -> None:
@@ -1682,6 +1707,7 @@ class AgentSession:
 
     def note_exchange(self, user_text: str, assistant_text: str) -> None:
         """Registra na conversa um pedido resolvido fora do engine (ex.: ``/review``)."""
+        self._index_turn(user_text)
         for role, text in ((MessageRole.USER, user_text), (MessageRole.ASSISTANT, assistant_text)):
             message = LLMMessage(role=role, content=text)
             self.history.append(message)
@@ -1698,6 +1724,7 @@ class AgentSession:
 
     def _discard_turn(self) -> None:
         """Turno abortado: a conversa volta ao estado anterior e o transcript acompanha."""
+        self._pending_switch = None
         self._persist(TranscriptEntry.of_compact(self.history))
 
     def _record_file_change(self, change: FileChange) -> None:
@@ -1719,7 +1746,22 @@ class AgentSession:
             logger.exception("AgentSession: falha ao sincronizar MEMORY.md")
 
     def list_sessions(self) -> list[SessionMeta]:
-        """Sessões gravadas para este workspace, da mais recente à mais antiga."""
+        """Sessões gravadas para este workspace (em ``~``, as dailies), da mais recente à mais antiga."""
+        if self.nav is not None and self.nav.in_home:
+            return [
+                SessionMeta(
+                    session_id=r.id,
+                    workspace="",
+                    created_at=r.created_at,
+                    updated_at=r.updated_at,
+                    turns=r.turn_count,
+                    preview=r.display_title,
+                    title=r.display_title,
+                    kind=r.kind,
+                )
+                for r in self.nav.index.search(SessionQuery(kind="daily"))
+                if r.id != self.session_id
+            ]
         return self.sessions.list(self.workspace)
 
     def resume(self, ref: str | None = None) -> str:
@@ -1732,11 +1774,188 @@ class AgentSession:
                 raise SessionNotFoundError("Nenhuma sessão anterior neste workspace.")
             session_id = sessions[0].session_id
         entries = self.sessions.load(session_id)
-        self.session_id = session_id
-        self.pep.session_id = session_id
+        record = self.session_index.get(session_id) if self.session_index is not None else None
+        self._set_active(
+            session_id,
+            kind=record.kind if record else "thread",
+            daily_id=record.daily_id if record else None,
+            parent_id=record.parent_id if record else None,
+            follow_today=bool(self.nav and record and record.id == self.nav.dailies.today_id()),
+        )
         self.history = replay(entries)
         self.tracker.changes.clear()
-        return f"Sessão {session_id[:8]} retomada: {len(user_turns(entries))} pedido(s), {len(self.history)} mensagem(ns)."
+        title = f"'{record.display_title}'" if record else session_id[:8]
+        return f"Sessão {title} ({session_id[:8]}) retomada: {len(user_turns(entries))} pedido(s), {len(self.history)} mensagem(ns)."
+
+    # ── Daily e threads (ADR-051) ───────────────────────────────────
+
+    def _open_session_index(self) -> SessionIndex | None:
+        """``sessions.db`` com a migração da v0.5.2 na primeira abertura; falha cai no modo antigo."""
+        try:
+            index = SessionIndex(
+                self.home / "sessions.db", day_starts_at=self.settings.effective.memory.day_starts_at
+            )
+            if index.meta("migrated_v0.5.2") is None:
+                report = index.migrate(self.home)
+                logger.info("AgentSession: índice de sessões criado (%s).", report.summary())
+            return index
+        except Exception:
+            logger.exception("AgentSession: índice de sessões indisponível")
+            return None
+
+    def _set_active(
+        self,
+        session_id: str,
+        *,
+        kind: SessionKind,
+        daily_id: str | None,
+        parent_id: str | None,
+        follow_today: bool = False,
+    ) -> None:
+        self.session_id = session_id
+        self.pep.session_id = session_id
+        self.session_kind = kind
+        self.daily_id = daily_id
+        self.parent_session_id = parent_id
+        self._follow_today = follow_today
+
+    def _apply_switch(self, switch: SessionSwitch) -> str:
+        """Passa a conversa para outra sessão; grava a semente e as mensagens acrescentadas."""
+        self._set_active(
+            switch.session_id,
+            kind=switch.kind,
+            daily_id=switch.daily_id,
+            parent_id=switch.parent_id,
+            follow_today=switch.follow_today,
+        )
+        self.history = list(switch.history)
+        self.tracker.changes.clear()
+        if switch.seed is not None:
+            self._persist(TranscriptEntry.of_compact(switch.seed))
+        for message in switch.append:
+            self._persist(TranscriptEntry.of_message(message))
+        self.session_notice = switch.notice
+        return switch.notice
+
+    def _attach_daily(self) -> str:
+        """TUI em ``~``, ``--daily``, daemon e voz: a conversa é a daily do dia."""
+        assert self.nav is not None
+        return self._apply_switch(self.nav.daily_switch())
+
+    @property
+    def session_title(self) -> str:
+        record = self.session_index.get(self.session_id) if self.session_index is not None else None
+        return record.display_title if record else ""
+
+    def _index_turn(self, text: str) -> None:
+        """Um pedido: virada do dia, registro da thread (com link na daily) e título provisório."""
+        if self.nav is None:
+            return
+        try:
+            state = self.nav.dailies.ensure()
+            if self.session_kind == "daily" and self._follow_today and state.today.id != self.session_id:
+                self.renderer.warn(f"Virada do dia: {self._attach_daily()}")
+            self.nav.ensure_registered(
+                self.session_id,
+                kind=self.session_kind,
+                daily_id=self.daily_id or state.today.id,
+                parent_id=self.parent_session_id,
+                first_text=text,
+            )
+            self.daily_id = self.daily_id or state.today.id
+            self.nav.index.record_turn(self.session_id, text)
+        except Exception:
+            logger.exception("AgentSession: falha ao indexar o turno")
+
+    def rename_session(self, title: str) -> str:
+        """``/rename``: título do Senhor (nunca sobrescrito pelo automático)."""
+        if self.nav is None:
+            raise ValueError("Índice de sessões indisponível.")
+        if self.nav.index.get(self.session_id) is None:
+            self.nav.ensure_registered(
+                self.session_id,
+                kind=self.session_kind,
+                daily_id=self.daily_id or self.nav.dailies.today_id(),
+                parent_id=self.parent_session_id,
+                first_text="",
+            )
+        if not self.nav.index.rename(self.session_id, title):
+            raise ValueError("Título vazio.")
+        return f"Sessão renomeada: {' '.join(title.split())}"
+
+    def branch_session(self, title: str, reason: str = "") -> str:
+        """Abre agora uma thread filha (``/branch``): últimos 2 turnos + resumo."""
+        if self.nav is None:
+            raise ValueError("Índice de sessões indisponível.")
+        current = self.nav.index.get(self.session_id)
+        if current is not None and current.display_title == title.strip() and current.parent_id:
+            return f"Já está na thread '{current.display_title}'."
+        self.nav.ensure_registered(
+            self.session_id,
+            kind=self.session_kind,
+            daily_id=self.daily_id or self.nav.dailies.today_id(),
+            parent_id=self.parent_session_id,
+            first_text=title,
+        )
+        return self._apply_switch(
+            self.nav.branch(title, reason, origin_id=self.session_id, history=self.history)
+        )
+
+    def switch_session(self, query: str) -> str:
+        """Volta para uma sessão pelo nome, id ou data (fora de um turno)."""
+        if self.nav is None:
+            raise ValueError("Índice de sessões indisponível.")
+        switch, _others = self.nav.find(query, current=self.session_id)
+        return self._apply_switch(switch)
+
+    async def _tool_branch(self, title: str, reason: str) -> str:
+        """``session_branch``: a troca acontece ao fim do turno (o turno atual fica inteiro na origem)."""
+        if self.nav is None:
+            raise ValueError("session index unavailable")
+        if self._pending_switch is not None:
+            raise ValueError("a session change is already scheduled for the end of this turn")
+        nav = self.nav
+
+        def make() -> SessionSwitch:
+            nav.ensure_registered(
+                self.session_id,
+                kind=self.session_kind,
+                daily_id=self.daily_id or nav.dailies.today_id(),
+                parent_id=self.parent_session_id,
+                first_text=title,
+            )
+            return nav.branch(title, reason, origin_id=self.session_id, history=self.history)
+
+        self._pending_switch = make
+        return (
+            f"Thread '{title}' will open when this turn ends, with the last 2 turns and a short "
+            "summary; finish your answer normally."
+        )
+
+    async def _tool_switch(self, query: str) -> str:
+        """``session_switch``: acha agora, troca ao fim do turno."""
+        if self.nav is None:
+            raise ValueError("session index unavailable")
+        if self._pending_switch is not None:
+            raise ValueError("a session change is already scheduled for the end of this turn")
+        switch, others = self.nav.find(query, current=self.session_id)
+        self._pending_switch = lambda: switch
+        target = self.nav.index.get(switch.session_id)
+        name = target.display_title if target else switch.session_id[:8]
+        text = f"Switching to '{name}' ({switch.session_id[:8]}, {target.local_date if target else ''}) when this turn ends."
+        if others:
+            text += " Other matches: " + "; ".join(f"'{o.display_title}' ({o.id[:8]}, {o.local_date})" for o in others)
+        return text
+
+    def _apply_pending_switch(self) -> None:
+        pending, self._pending_switch = self._pending_switch, None
+        if pending is None:
+            return
+        try:
+            self.renderer.warn(self._apply_switch(pending()))
+        except Exception:
+            logger.exception("AgentSession: troca de sessão falhou")
+            self.renderer.error("Não foi possível trocar de sessão; a conversa continua na atual.")
 
     def rewind_targets(self) -> list[Any]:
         """Pedidos do usuário da sessão atual (pontos de retorno do ``/rewind``)."""
@@ -1876,22 +2095,16 @@ class AgentSession:
         )
         return text
 
-    def create_branch(self, name: str) -> None:
-        """Abre uma ramificação de contexto isolada."""
-        self.branches.create_branch(name)
-        self._branch_snapshots.setdefault(name, list(self.history))
+    def create_branch(self, name: str) -> str:
+        """``/branch``: thread filha persistida (substitui a branch em RAM, ADR-051)."""
+        return self.branch_session(name, "aberta pelo Senhor com /branch")
 
     async def merge_branch(self, outcome: str) -> str:
-        """Sintetiza a branch ativa e volta à conversa principal só com o checkpoint."""
-        name = self.branches.active_branch
-        checkpoint = await self.branches.merge_branch(outcome=outcome)
-        base = self._branch_snapshots.pop(name, self.history)
-        self.history = [
-            *base,
-            LLMMessage(role=MessageRole.USER, content=f"Checkpoint da branch {name}:\n{checkpoint}"),
-            LLMMessage(role=MessageRole.ASSISTANT, content="Entendido."),
-        ]
-        self._persist(TranscriptEntry.of_compact(self.history))
+        """``/merge``: fecha a thread filha com checkpoint e volta ao pai só com ele."""
+        if self.nav is None:
+            raise ValueError("Índice de sessões indisponível.")
+        checkpoint, switch = self.nav.merge(self.session_id, outcome)
+        self._apply_switch(switch)
         await self._log_timeline("checkpoint", "system", checkpoint)
         return checkpoint
 

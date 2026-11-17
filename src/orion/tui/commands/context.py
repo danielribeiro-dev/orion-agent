@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from orion.timeline.branch_manager import BranchError
 from orion.tui.commands.base import BaseSlashCommand, CommandContext, CommandResult
 from orion.tui.panels import render_context
 
@@ -38,26 +37,25 @@ class ContextCommand(BaseSlashCommand):
 
 class BranchCommand(BaseSlashCommand):
     name = "/branch"
-    description = "Abre uma ramificação de contexto isolada"
-    usage = "/branch <nome>"
+    description = "Abre uma thread filha desta conversa (persistida, ADR-051)"
+    usage = "/branch <título>"
     requires_args = True
 
     async def execute(self, args: str, context: CommandContext) -> CommandResult:
         try:
-            context.session.create_branch(args)
-        except BranchError as exc:
+            return CommandResult(success=True, output_message=context.session.create_branch(args))
+        except ValueError as exc:
             return CommandResult(success=False, output_message=str(exc))
-        return CommandResult(success=True, output_message=f"Branch de contexto ativa: {args}")
 
 
 class MergeCommand(BaseSlashCommand):
     name = "/merge"
-    description = "Sintetiza a branch ativa em checkpoint na Main Timeline"
+    description = "Fecha a thread filha com checkpoint e volta à conversa de origem"
     usage = "/merge [resultado]"
 
     async def execute(self, args: str, context: CommandContext) -> CommandResult:
         try:
             checkpoint = await context.session.merge_branch(args or "Merged successfully")
-        except BranchError as exc:
+        except ValueError as exc:
             return CommandResult(success=False, output_message=str(exc))
         return CommandResult(success=True, output_message=checkpoint)

@@ -132,6 +132,7 @@ def merge(layers: list[Settings]) -> Settings:
             daemon=layer.daemon if "daemon" in layer.model_fields_set else result.daemon,
             ui=_merge_model(result.ui, layer.ui),
             web=_merge_model(result.web, layer.web),
+            memory=_merge_model(result.memory, layer.memory),
         )
     return result
 

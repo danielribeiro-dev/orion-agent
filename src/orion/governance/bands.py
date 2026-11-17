@@ -151,6 +151,9 @@ TOOL_BANDS: dict[str, Band] = {
     "schedule_list": Band.LIVRE,
     "presence_rule_list": Band.LIVRE,
     "undo_last": Band.LIVRE,
+    # Sessões (ADR-051): abrir/trocar thread só mexe no transcript do ORION.
+    "session_branch": Band.LIVRE,
+    "session_switch": Band.LIVRE,
     # Memória do ORION: nasce PROVISÓRIA e nada é apagado (superado aponta o sucessor).
     "memorize": Band.LIVRE,
     "deprecate_fact": Band.LIVRE,
@@ -178,7 +181,7 @@ _READ_ONLY_TOOLS = frozenset(
         "read_file", "search_files", "glob", "grep", "bash_output", "inspect_environment",
         "recall", "use_skill", "web_fetch", "web_search", "task_list", "task_get",
         "schedule_list", "presence_rule_list", "todo_write", "ask_user", "enter_plan_mode",
-        "exit_plan_mode", "task", "task_create", "send_message",
+        "exit_plan_mode", "task", "task_create", "send_message", "session_branch", "session_switch",
     }
 )
 WRITE_TOOLS = frozenset({"write_file", "edit_file", "notebook_edit"})

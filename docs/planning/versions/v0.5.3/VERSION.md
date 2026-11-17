@@ -1,6 +1,6 @@
 # Spec — v0.5.3 Memória Viva e Núcleo Livre
 
-> **Status:** 🟡 Sprints 0 (spec + emenda da memória), 1 e 2 concluídas em 16/11/2026; Sprints 3 a 6 aguardam o comando de início do Senhor  
+> **Status:** 🟡 Sprints 0 (spec + emenda da memória), 1, 2 e 3 concluídas em 16/11/2026; Sprints 4 a 6 aguardam o comando de início do Senhor  
 > **Criada em:** 2026-11-16  
 > **Concluída em:** —  
 > **Autor(es):** Daniel Dev & Claude (Pair Programming)  
@@ -77,7 +77,7 @@ Até a Sprint 1, o `CLAUDE.md` atual continua valendo.
 | **Sprint 0** | Spec | Pesquisa, VERSION, sprints, ADR-046 a 052 e emendas | [`sprint-0.md`](sprints/sprint-0.md) | ✅ |
 | **Sprint 1** | Liberdade básica | Senha verificada (askpass, chaveiro, polkit/PAM, overlay), escopo do usuário, ledger ligado, web aberta + `SearchProvider` | [`sprint-1.md`](sprints/sprint-1.md) | ✅ |
 | **Sprint 2** | Classificador e reversibilidade | Faixas, classificador em dois estágios, snapshot/`/undo`, aprovação por intenção, modos, blocklist, Inbox, auditoria | [`sprint-2.md`](sprints/sprint-2.md) | ✅ |
-| **Sprint 3** | Sessões e daily | `sessions.db`, títulos, daily e virada, threads e `session_branch`, `/resume` por data, migração | [`sprint-3.md`](sprints/sprint-3.md) | 📋 |
+| **Sprint 3** | Sessões e daily | `sessions.db`, títulos, daily e virada, threads e `session_branch`, `/resume` por data, migração | [`sprint-3.md`](sprints/sprint-3.md) | ✅ |
 | **Sprint 4** | Escrita e core | Core congelado, detector de saliência, Mordomo com evidência ancorada, observações locais, sinais implícitos, fatos com escopo/proveniência/tempo, diretivas, "aprendi · desfazer" | [`sprint-4.md`](sprints/sprint-4.md) | 📋 |
 | **Sprint 5** | Consolidação e recall | Cartões, rollups, Reflector, pendências proativas, perfil do Senhor, turnos indexados, PT-BR sem modelo, oferta do modelo multilíngue, `sqlite-vec`, `session_search`, `/memory` editar/esquecer/purge | [`sprint-5.md`](sprints/sprint-5.md) | 📋 |
 | **Sprint 6** | Núcleo enxuto e prova | Tools adiadas, cache, R-17, suíte `tests/memory_eval/`, avaliação ao vivo da extração, rodada real | [`sprint-6.md`](sprints/sprint-6.md) | 📋 |
@@ -133,9 +133,9 @@ src/orion/core/identity.py                  [mod]   preâmbulo enxuto + princíp
 | CA-08 | Sem humano | No daemon, uma ação de presença vira pendência na Inbox, não negação | `tests/unit/test_daemon_*` | ✅ |
 | CA-09 | Identidade sem tool | Numa sessão nova, sem `memorize` no turno, o ORION trata o Senhor por "Senhor" e sabe o que foi confirmado antes | `tests/memory_eval/` | 📋 |
 | CA-10 | Mordomo | Uma correção ("não, é Postgres 16") vira SUPERSEDE; inferência nasce PROVISÓRIA; CONFIRMADO nunca é sobrescrito por inferência | `tests/memory_eval/` | 📋 |
-| CA-11 | Daily | A virada fecha a daily de ontem com cartão; a nova começa com o resumo curto de ontem | `tests/unit/test_daily.py` | 📋 |
-| CA-12 | Threads | Na daily, um tópico sustentado abre uma sessão; "volte para a sessão X" retoma | `tests/memory_eval/` | 📋 |
-| CA-13 | `/resume` por data | `ontem`, `semana`, `nov`, `2026` e nome filtram; árvore ano › mês › dia | lab | 📋 |
+| CA-11 | Daily | A virada fecha a daily de ontem com cartão; a nova começa com o resumo curto de ontem | `tests/unit/test_daily.py` | ✅ |
+| CA-12 | Threads | Na daily, um tópico sustentado abre uma sessão; "volte para a sessão X" retoma | `tests/memory_eval/` | 🟡 roteirizado ✅ (`test_session_branch.py`), modelo real na Sprint 6 |
+| CA-13 | `/resume` por data | `ontem`, `semana`, `nov`, `2026` e nome filtram; árvore ano › mês › dia | lab | ✅ |
 | CA-14 | Pergunta temporal | "O que fizemos semana passada?" responde a partir dos rollups | `tests/memory_eval/` | 📋 |
 | CA-15 | Núcleo enxuto | Primeiro turno < 6k tokens de prompt | `tests/unit/test_prompt_budget.py` | 📋 |
 | CA-16 | Sem regressão | Suíte padrão e lab passam | `pytest tests/` + `pytest -m lab` | 📋 |

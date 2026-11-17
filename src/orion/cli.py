@@ -114,11 +114,11 @@ def _ask_project_trust(session: AgentSession) -> None:
         session.trust_project()
 
 
-def create_session(status_bar: SessionStatusBar) -> AgentSession:
+def create_session(status_bar: SessionStatusBar, daily: bool = False) -> AgentSession:
     """Constrói a sessão do agente; importado aqui para manter o boot do CLI leve."""
     from orion.tui.session import AgentSession
 
-    session = AgentSession(status_bar=status_bar, console=console)
+    session = AgentSession(status_bar=status_bar, console=console, daily=True if daily else None)
     _ask_project_trust(session)
     if os.environ.get("ORION_MCP", "1") != "0":
         session.start_mcp()
@@ -128,7 +128,7 @@ def create_session(status_bar: SessionStatusBar) -> AgentSession:
 def _resume_session(session: AgentSession, continue_session: bool, ref: str) -> str:
     """Aplica ``--continue``/``--resume``; devolve a mensagem a exibir (vazia se nenhuma flag)."""
     if not (continue_session or ref):
-        return ""
+        return session.session_notice  # TUI em ``~`` ou ``--daily``: a daily do dia
     from orion.sessions import SessionNotFoundError
 
     try:
@@ -233,6 +233,9 @@ def cli_root(
     resume: str = typer.Option(
         "", "--resume", "-r", help="Retoma uma sessão pelo id (ou prefixo)."
     ),
+    daily: bool = typer.Option(
+        False, "--daily", help="Anexa à daily do dia mesmo dentro de um repositório."
+    ),
 ) -> None:
     """O.R.I.O.N — Operational Reasoning & Intelligence Orchestration Network.
 
@@ -249,9 +252,9 @@ def cli_root(
         from orion.tui.screen.mode import choose
 
         if choose(_orion_home()).mode == "fullscreen":
-            run_fullscreen(status_bar, continue_session, resume)
+            run_fullscreen(status_bar, continue_session, resume, daily=daily)
             return
-        session = create_session(status_bar)
+        session = create_session(status_bar, daily=daily)
         resume_message = _resume_session(session, continue_session, resume)
         if console.is_terminal:
             console.clear()
@@ -259,14 +262,16 @@ def cli_root(
         if resume_message:
             console.print(Text(resume_message, style="text_dim"))
         prompt = create_prompt(status_bar, session)
-        session.fire_hook_sync("SessionStart", {"source": "resume" if resume_message else "startup"})
+        session.fire_hook_sync("SessionStart", {"source": "resume" if continue_session or resume else "startup"})
         try:
             run_interactive_repl(prompt, session)
         finally:
             session.shutdown()
 
 
-def run_fullscreen(status_bar: SessionStatusBar, continue_session: bool = False, ref: str = "") -> None:
+def run_fullscreen(
+    status_bar: SessionStatusBar, continue_session: bool = False, ref: str = "", *, daily: bool = False
+) -> None:
     """Abre o ORION em tela cheia (ADR-043); ao sair deixa o resumo no scrollback normal."""
     import sys
 
@@ -275,13 +280,15 @@ def run_fullscreen(status_bar: SessionStatusBar, continue_session: bool = False,
     from orion.tui.session import AgentSession
 
     parts = build_parts(status_bar)
-    session = AgentSession(status_bar=status_bar, console=parts.console, sink=parts.renderer)
+    session = AgentSession(
+        status_bar=status_bar, console=parts.console, sink=parts.renderer, daily=True if daily else None
+    )
     _ask_project_trust(session)
     if os.environ.get("ORION_MCP", "1") != "0":
         session.start_mcp()
     notice = _resume_session(session, continue_session, ref)
     screen = ScreenApp(session, parts, status_bar, home=session.home, notice=notice)
-    session.fire_hook_sync("SessionStart", {"source": "resume" if notice else "startup"})
+    session.fire_hook_sync("SessionStart", {"source": "resume" if continue_session or ref else "startup"})
     mark_starting(session.home)
     try:
         screen.run()

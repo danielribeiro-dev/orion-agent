@@ -181,6 +181,14 @@ class WebSettings(BaseModel):
         return bool(self.model_fields_set)
 
 
+class MemorySettings(BaseModel):
+    """Memória e sessões (ADR-051): hora local em que a daily vira."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    day_starts_at: str = Field(default="04:00", pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+
+
 class Settings(BaseModel):
     """Settings efetivos ou de uma única camada. Chaves desconhecidas são ignoradas."""
 
@@ -199,6 +207,7 @@ class Settings(BaseModel):
     daemon: DaemonSettings = Field(default_factory=DaemonSettings)
     ui: UiSettings = Field(default_factory=UiSettings)
     web: WebSettings = Field(default_factory=WebSettings)
+    memory: MemorySettings = Field(default_factory=MemorySettings)
 
     def has_risky_content(self) -> bool:
         """Verdadeiro se a camada traz algo que executa código ou afrouxa o PEP."""

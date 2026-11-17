@@ -59,6 +59,8 @@ FORBIDDEN_FOR_CHILD: frozenset[str] = frozenset(
         "memorize",
         "deprecate_fact",
         "todo_write",
+        "session_branch",
+        "session_switch",
     }
 )
 

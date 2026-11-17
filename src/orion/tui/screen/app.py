@@ -439,6 +439,10 @@ class ScreenApp:
             modal.add(key)(lambda event, name=name: dispatch(name))
         modal.add("escape", eager=True)(lambda event: dispatch("escape"))
         modal.add(Keys.Any)(lambda event: dispatch(event.data))
+        # Com o modal aberto o input fica somente leitura, e isso liga os atalhos "estilo less"
+        # do prompt_toolkit (n, N, / e ?), que venceriam o Keys.Any: o modal os declara exatos.
+        for letter in ("n", "N", "/", "?"):
+            modal.add(letter)(lambda event, letter=letter: dispatch(letter))
         browsing = Condition(lambda: self.full_view and not self.searching)
         return merge_key_bindings(
             [
